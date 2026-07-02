@@ -375,8 +375,9 @@
         isExporting = false;
         hideCancel();
         progFill.style.width = "100%";
-        progTxt.textContent = "Done \u2014 " + m.data.textNodes + " texts, " + m.data.variables + " vars, " + m.data.styles + " styles, " + m.data.components + " comps";
-        log("Complete: " + m.data.textNodes + " texts, " + m.data.variables + " vars, " + m.data.styles + " styles, " + m.data.components + " comps on " + m.data.totalNodes + " nodes", "ok");
+        var scopeInfo = m.data.scope ? " (\u2192 " + m.data.scope + ")" : "";
+        progTxt.textContent = "Done \u2014 " + m.data.textNodes + " texts, " + m.data.variables + " vars, " + m.data.styles + " styles, " + m.data.components + " comps" + scopeInfo;
+        log("Complete: " + m.data.textNodes + " texts, " + m.data.variables + " vars, " + m.data.styles + " styles, " + m.data.components + " comps on " + m.data.totalNodes + " nodes" + scopeInfo, "ok");
         status("Done");
         setTimeout(function () { progEl.classList.remove("show"); progFill.style.width = "0%"; }, 3000);
         break;
