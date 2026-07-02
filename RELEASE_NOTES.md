@@ -1,38 +1,53 @@
 ## Install Guide
 
-### Option 1: Install from the release .zip (recommended)
-1. Download the **Source code (zip)** from this release.
-2. Unzip it somewhere on your machine.
-3. In Figma Desktop, go to **Plugins → Development → Import plugin from manifest**.
-4. Select the `manifest.json` file from the unzipped folder.
-5. Done — open any Figma file and run "Extract All".
+### Option 1: Download from release (recommended)
+1. Download **Source code (zip)** from this release.
+2. Unzip somewhere on your machine.
+3. In Figma Desktop: **Plugins → Development → Import plugin from manifest** → select `manifest.json`.
+4. Done — open any Figma file and run "Extract All".
 
-### Option 2: Install from source
+### Option 2: Build from source
 ```
 git clone https://github.com/Lukas-Bohez/figma-extract-all.git
 cd figma-extract-all
-npm install
-npm run build
+npm install && npm run build
 ```
-Then import `manifest.json` in Figma via **Plugins → Development → Import plugin from manifest**.
+Then import `manifest.json` in Figma.
 
 ---
 
-## What's New in v1.1.0
+## v2.0.0 — Major Quality Overhaul
 
-### 🎬 After Effects / Lottie Export
-- **Export Lottie JSON Bundle** — Select nodes in Figma and export them as a single Lottie-compatible JSON with embedded SVGs, positions, and dimensions.
-- **Lottie Import Validator** — Drag any Lottie JSON file into the plugin to validate its structure.
+### ✨ Rich Data (what was missing before)
 
-### 📊 Full Extract Progress
-- Full Extract now shows step-by-step progress (text → variables → styles → components → pages).
+| Before (v1.x) | Now (v2.0) |
+|---|---|
+| Raw RGBA floats (0.545...) | **Hex colors** (#008B9E) + CSS rgba() |
+| Mode IDs ("19:0") | **Named modes** ("Light", "Dark") |
+| Relative x/y only | **Absolute page position** + parent frame name |
+| No parent info | **Full parent path** ("Page > Frame > Group") |
+| Empty components.json | Actual component data with dimensions |
+| Garbled TXT (emoji) | **Clean safe text** with [icon] placeholders |
+| No SVGs in full extract | **ALL SVGs embedded** in JSON + separate files |
+| No hierarchy | **Full node tree** in hierarchy array |
+| Confusing progress | **8-step progress** with clear labels |
 
-### 🎨 Improved UI
-- Light/dark theme toggle (persisted across sessions).
-- Glassmorphism card design, live selection state bar.
+### 🎯 Full Extract now includes:
+- **textNodes** — hex colors, parentPath, parentFrame, absoluteX/Y, font details
+- **svgs** — every exportable node as embedded SVG with metadata
+- **variables** — named modes (Light/Dark/etc.) with hex + CSS values
+- **styles** — rich typography data (fontSize, fontFamily, lineHeight)
+- **components** — dimensions and child counts
+- **pages** — topLevelFrames with width/height/childCount
+- **hierarchy** — complete nested tree of every node on the page
+- **meta** — plugin version, extraction timestamp, scope
 
-### 🔧 Technical
-- Real-time selectionchange and currentpagechange listeners.
-- Auto-reset isExporting lock for single-shot operations.
+### 📊 Clear Progress
+- 8-step progress bar with descriptive labels during Full Extract
+- Instant visual feedback: "Text extracted (523 nodes)", "Exporting SVGs (145/287)"
 
-**Full docs:** https://github.com/Lukas-Bohez/figma-extract-all#readme
+### 📝 Safe Text Dump
+- Clean plaintext with metadata headers (font, color hex, position)
+- Emoji and special characters safely replaced
+
+**One click, everything you need.™**

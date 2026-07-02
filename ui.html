@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Extract All – Figma to Anything</title>
+<title>Extract All  EFigma to Anything</title>
 <style>
   :root {
     --bg: #f6f3ee;
@@ -487,14 +487,14 @@
     </div>
   </section>
 
-  <!-- ═══════════════ LOTTIE / AFTER EFFECTS ═══════════════ -->
+  <!-- ══════════════╁ELOTTIE / AFTER EFFECTS ══════════════╁E-->
   <section class="card">
     <div class="card-title">
       <h2>After Effects / Lottie Export</h2>
       <span class="pill">Motion-ready</span>
     </div>
     <p class="section-subtitle">
-      Export selected nodes as a Lottie-compatible JSON bundle. Each node becomes an SVG layer with position & size metadata — ready for After Effects or Lottie animation tools.
+      Export selected nodes as a Lottie-compatible JSON bundle. Each node becomes an SVG layer with position & size metadata  Eready for After Effects or Lottie animation tools.
     </p>
     <div class="grid one">
       <button class="primary" onclick="exportLottie()" id="btnLottie">
@@ -687,11 +687,11 @@ window.addEventListener("message", (event) => {
     case "full-extract":
       isExporting = false;
       progressFill.style.width = "100%";
-      progressText.textContent = "Complete — " + msg.data.textNodes + " texts, " + msg.data.svgs + " SVGs, " + msg.data.variables + " variables, " + msg.data.styles + " styles";
+      progressText.textContent = "Complete  E" + msg.data.textNodes + " texts, " + msg.data.svgs + " SVGs, " + msg.data.variables + " variables, " + msg.data.styles + " styles";
       log("Full extract complete!", "success");
       log(msg.data.textNodes + " text nodes, " + msg.data.svgs + " SVGs, " + msg.data.variables + " variables, " + msg.data.styles + " styles, " + msg.data.components + " components", "info");
       log("Total nodes on page: " + msg.data.totalNodes, "info");
-      setStatus("Done — " + msg.data.svgs + " SVGs exported");
+      setStatus("Done  E" + msg.data.svgs + " SVGs exported");
       setTimeout(function() {
         progressContainer.classList.remove("show");
         progressFill.style.width = "0%";
@@ -731,7 +731,7 @@ window.addEventListener("message", (event) => {
     case "export-complete":
       isExporting = false;
       progressFill.style.width = "100%";
-      progressText.textContent = "Complete — " + exportCount + " files exported";
+      progressText.textContent = "Complete  E" + exportCount + " files exported";
       log("Batch export complete: " + exportCount + " file(s)", "success");
       setStatus("Done");
       setTimeout(() => {
@@ -746,7 +746,7 @@ window.addEventListener("message", (event) => {
         const pct = Math.round((p.step / p.totalSteps) * 100);
         progressFill.style.width = pct + "%";
         progressContainer.classList.add("show");
-        progressText.textContent = p.label + " — " + p.detail;
+        progressText.textContent = p.label + "  E" + p.detail;
         log("[" + p.step + "/" + p.totalSteps + "] " + p.label + ": " + p.detail, "info");
         setStatus(p.label);
       }
@@ -759,13 +759,13 @@ window.addEventListener("message", (event) => {
       summaryEl.style.display = "block";
       if (summary.valid) {
         summaryEl.style.color = "var(--success)";
-        summaryEl.innerHTML = "✅ Valid Lottie: <strong>" + summary.fileName + "</strong><br>" +
+        summaryEl.innerHTML = "✁EValid Lottie: <strong>" + summary.fileName + "</strong><br>" +
           "Top-level keys: " + (summary.topLevelKeys.length > 0 ? summary.topLevelKeys.join(", ") : "(none)") + "<br>" +
           "Layers: " + summary.layerCount + "<br>" +
           summary.warning;
       } else {
         summaryEl.style.color = "var(--danger)";
-        summaryEl.innerHTML = "❌ Invalid: <strong>" + summary.fileName + "</strong><br>" + summary.warning;
+        summaryEl.innerHTML = "❁EInvalid: <strong>" + summary.fileName + "</strong><br>" + summary.warning;
       }
       setStatus("Import validated");
       break;
