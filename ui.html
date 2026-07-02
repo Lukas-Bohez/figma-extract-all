@@ -685,9 +685,17 @@ window.addEventListener("message", (event) => {
       break;
 
     case "full-extract":
-      log("Full extract complete: " + msg.data.fileName, "success");
-      log("Pages: " + msg.data.totalPages + ", text nodes: " + msg.data.textNodes.length + ", variables: " + msg.data.variables.length + ", styles: " + msg.data.styles.length, "info");
-      setStatus("Full extract complete");
+      isExporting = false;
+      progressFill.style.width = "100%";
+      progressText.textContent = "Complete — " + msg.data.textNodes + " texts, " + msg.data.svgs + " SVGs, " + msg.data.variables + " variables, " + msg.data.styles + " styles";
+      log("Full extract complete!", "success");
+      log(msg.data.textNodes + " text nodes, " + msg.data.svgs + " SVGs, " + msg.data.variables + " variables, " + msg.data.styles + " styles, " + msg.data.components + " components", "info");
+      log("Total nodes on page: " + msg.data.totalNodes, "info");
+      setStatus("Done — " + msg.data.svgs + " SVGs exported");
+      setTimeout(function() {
+        progressContainer.classList.remove("show");
+        progressFill.style.width = "0%";
+      }, 3000);
       break;
 
     case "download-file":
@@ -735,7 +743,11 @@ window.addEventListener("message", (event) => {
     case "full-extract-progress":
       if (msg.progress) {
         const p = msg.progress;
-        log("[" + p.current + "/" + p.total + "] " + p.label, "info");
+        const pct = Math.round((p.step / p.totalSteps) * 100);
+        progressFill.style.width = pct + "%";
+        progressContainer.classList.add("show");
+        progressText.textContent = p.label + " — " + p.detail;
+        log("[" + p.step + "/" + p.totalSteps + "] " + p.label + ": " + p.detail, "info");
         setStatus(p.label);
       }
       break;
