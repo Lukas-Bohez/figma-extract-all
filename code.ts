@@ -93,6 +93,37 @@ interface FullExtract {
   };
 }
 
+interface FullExtractProgress {
+  current: number;
+  total: number;
+  label: string;
+}
+
+interface LottieExportItem {
+  id: string;
+  name: string;
+  type: string;
+  pageName: string;
+  width: number;
+  height: number;
+  svg: string;
+}
+
+interface LottieExportBundle {
+  fileName: string;
+  exportDate: string;
+  source: string;
+  items: LottieExportItem[];
+}
+
+interface LottieImportSummary {
+  fileName: string;
+  valid: boolean;
+  topLevelKeys: string[];
+  layerCount: number;
+  warning: string;
+}
+
 interface ExportRequest {
   type: "export-nodes";
   nodeIds: string[];
@@ -187,6 +218,14 @@ function objectFromEntries<K extends string, V>(entries: [K, V][]): Record<K, V>
 
 function isExportable(node: SceneNode): boolean {
   return node.visible !== false && EXPORTABLE_TYPES.indexOf(node.type) >= 0;
+}
+
+function postSelectionState() {
+  figma.ui.postMessage({
+    type: "selection-state",
+    count: figma.currentPage.selection.length,
+    pageName: figma.currentPage.name,
+  });
 }
 
 // ── Text Extraction ────────────────────────────
@@ -342,16 +381,40 @@ function extractPages(): ExtractedPage[] {
 
 // ── Full JSON Dump ─────────────────────────────
 
-async function buildFullExtract(currentPage: PageNode): Promise<FullExtract> {
+async function buildFullExtract(
+  currentPage: PageNode,
+  onProgress?: (progress: FullExtractProgress) => void
+): Promise<FullExtract> {
+  const totalSteps = 6;
+  const reportProgress = (current: number, label: string) => {
+    if (onProgress) {
+      onProgress({ current, total: totalSteps, label });
+    }
+  };
+
+  reportProgress(0, "Starting full extract");
+
   const allTextNodes = flattenNodeTree(currentPage, (n) => n.type === "TEXT").map((n) =>
     extractTextData(n as TextNode)
   );
 
+  reportProgress(1, "Extracted text nodes");
+
   const variables = await extractAllVariables();
+  reportProgress(2, "Extracted variables");
+
   const styles = await extractAllStyles();
+  reportProgress(3, "Extracted styles");
+
   const components = extractAllComponents(currentPage);
+  reportProgress(4, "Extracted components");
+
   const pages = extractPages();
+  reportProgress(5, "Extracted page data");
+
   const nodeCounts = countNodeTypes(currentPage);
+
+  reportProgress(6, "Full extract complete");
 
   return {
     fileName: figma.root.name || "Untitled",
@@ -364,6 +427,65 @@ async function buildFullExtract(currentPage: PageNode): Promise<FullExtract> {
     components,
     nodeCounts,
   };
+}
+
+async function buildLottieExportBundle(nodeIds: string[]): Promise<LottieExportBundle> {
+  const items: LottieExportItem[] = [];
+
+  for (const id of nodeIds) {
+    const node = await figma.getNodeByIdAsync(id);
+    if (!node || node.type === "PAGE" || node.type === "DOCUMENT") {
+      continue;
+    }
+
+    try {
+      const svgString = await (node as SceneNode).exportAsync({
+        format: "SVG_STRING",
+      } as ExportSettingsSVGString);
+
+      items.push({
+        id: node.id,
+        name: sanitizeName(node.name),
+        type: node.type,
+        pageName: getPageName(node),
+        width: (node as SceneNode).width,
+        height: (node as SceneNode).height,
+        svg: svgString,
+      });
+    } catch (err) {
+      console.error(`Failed to build Lottie export for ${node.name}:`, err);
+    }
+  }
+
+  return {
+    fileName: `${sanitizeName(figma.root.name)}_lottie.json`,
+    exportDate: new Date().toISOString(),
+    source: figma.root.name || "Untitled",
+    items,
+  };
+}
+
+function summarizeLottieImport(fileName: string, content: string): LottieImportSummary {
+  try {
+    const parsed = JSON.parse(content);
+    const topLevelKeys = parsed && typeof parsed === "object" ? Object.keys(parsed) : [];
+    const layers = Array.isArray(parsed?.layers) ? parsed.layers.length : 0;
+    return {
+      fileName,
+      valid: true,
+      topLevelKeys,
+      layerCount: layers,
+      warning: layers === 0 ? "No top-level layers array was found." : "Imported successfully.",
+    };
+  } catch (err) {
+    return {
+      fileName,
+      valid: false,
+      topLevelKeys: [],
+      layerCount: 0,
+      warning: "The file could not be parsed as JSON.",
+    };
+  }
 }
 
 // ── Export Nodes ───────────────────────────────
@@ -445,15 +567,21 @@ async function exportNodeAsSVGString(nodeId: string): Promise<{ id: string; name
 
 figma.showUI(__html__, {
   width: 480,
-  height: 700,
+  height: 640,
   title: "Extract All – Figma to Anything",
 });
+
+figma.on("selectionchange", postSelectionState);
+figma.on("currentpagechange", postSelectionState);
+postSelectionState();
 
 figma.ui.onmessage = async (msg: any) => {
   // ── Get Full JSON Extract ──
   if (msg.type === "get-full-extract") {
     const currentPage = figma.currentPage;
-    const data = await buildFullExtract(currentPage);
+    const data = await buildFullExtract(currentPage, (progress) => {
+      figma.ui.postMessage({ type: "full-extract-progress", progress });
+    });
     figma.ui.postMessage({ type: "full-extract", data });
 
     const jsonStr = JSON.stringify(data, null, 2);
@@ -463,6 +591,29 @@ figma.ui.onmessage = async (msg: any) => {
       content: jsonStr,
       mimeType: "application/json",
     });
+  }
+
+  // ── Export Lottie JSON Bundle ──
+  if (msg.type === "export-lottie-json") {
+    const selection = figma.currentPage.selection;
+    if (selection.length === 0) {
+      figma.ui.postMessage({ type: "error", message: "No nodes selected." });
+      return;
+    }
+
+    const bundle = await buildLottieExportBundle(selection.map((n: SceneNode) => n.id));
+    figma.ui.postMessage({
+      type: "download-file",
+      fileName: bundle.fileName,
+      content: JSON.stringify(bundle, null, 2),
+      mimeType: "application/json",
+    });
+  }
+
+  // ── Import Lottie JSON ──
+  if (msg.type === "import-lottie-json") {
+    const summary = summarizeLottieImport(msg.fileName || "lottie.json", String(msg.content || ""));
+    figma.ui.postMessage({ type: "lottie-import-summary", summary });
   }
 
   // ── Get Text Only ──
@@ -572,18 +723,6 @@ figma.ui.onmessage = async (msg: any) => {
         });
       }
     }
-  }
-
-  // ── Get Node Tree ──
-  if (msg.type === "get-node-tree") {
-    const nodes = flattenNodeTree(figma.currentPage).map((n: SceneNode) => ({
-      id: n.id,
-      name: n.name,
-      type: n.type,
-      visible: n.visible,
-      pageName: getPageName(n),
-    }));
-    figma.ui.postMessage({ type: "node-tree", nodes });
   }
 
   // ── Batch Export on Current Page ──

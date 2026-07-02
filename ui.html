@@ -6,417 +6,556 @@
 <title>Extract All – Figma to Anything</title>
 <style>
   :root {
-    --bg: #1e1e1e;
-    --bg2: #2d2d2d;
-    --bg3: #3c3c3c;
-    --fg: #e0e0e0;
-    --fg2: #b0b0b0;
-    --accent: #18a0fb;
-    --accent2: #0d8ae0;
-    --green: #4caf50;
-    --orange: #ff9800;
-    --red: #f44336;
-    --purple: #9c27b0;
-    --border: #404040;
-    --radius: 6px;
-    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --bg: #f6f3ee;
+    --bg-elevated: rgba(255, 255, 255, 0.82);
+    --bg-strong: #ffffff;
+    --text: #1f2328;
+    --muted: #5f6570;
+    --border: rgba(31, 35, 40, 0.12);
+    --shadow: 0 18px 40px rgba(31, 35, 40, 0.12);
+    --accent: #1463ff;
+    --accent-strong: #0f4fd1;
+    --success: #1f8f4b;
+    --warning: #b4690e;
+    --danger: #c2262d;
+    --radius-xl: 22px;
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 10px;
+    --font: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html[data-theme="dark"] {
+    --bg: #111317;
+    --bg-elevated: rgba(22, 25, 31, 0.84);
+    --bg-strong: #161921;
+    --text: #eef1f6;
+    --muted: #a5adba;
+    --border: rgba(255, 255, 255, 0.1);
+    --shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+    --accent: #69a0ff;
+    --accent-strong: #8ab4ff;
+    --success: #5cc17a;
+    --warning: #f0b35e;
+    --danger: #ff6b72;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+  }
 
   body {
     font-family: var(--font);
-    background: var(--bg);
-    color: var(--fg);
-    font-size: 12px;
-    line-height: 1.4;
-    overflow-y: auto;
-    padding: 12px;
+    color: var(--text);
+    background:
+      radial-gradient(circle at top left, rgba(20, 99, 255, 0.16), transparent 34%),
+      radial-gradient(circle at top right, rgba(31, 143, 75, 0.12), transparent 28%),
+      linear-gradient(180deg, var(--bg), var(--bg));
+    padding: 16px;
     user-select: none;
-    -webkit-user-select: none;
+    overflow-y: auto;
   }
 
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg2); }
-  ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
-
-  .header {
-    text-align: center;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  .header h1 {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--accent);
-    margin-bottom: 2px;
-  }
-  .header .subtitle {
-    font-size: 10px;
-    color: var(--fg2);
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 70%);
+    opacity: 0.15;
   }
 
-  .section {
-    background: var(--bg2);
-    border-radius: var(--radius);
-    padding: 12px;
-    margin-bottom: 10px;
-    border: 1px solid var(--border);
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
   }
-  .section-title {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--fg2);
-    margin-bottom: 10px;
+
+  .hero {
     display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .section-title .icon { font-size: 14px; }
-
-  /* Buttons */
-  button {
-    font-family: var(--font);
-    font-size: 11px;
-    font-weight: 500;
-    padding: 6px 12px;
-    border-radius: var(--radius);
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 18px 18px 16px;
     border: 1px solid var(--border);
-    background: var(--bg3);
-    color: var(--fg);
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
+    border-radius: var(--radius-xl);
+    background: var(--bg-elevated);
+    backdrop-filter: blur(18px);
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+  }
+
+  .hero h1 {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  .hero p {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--muted);
+    max-width: 46ch;
+  }
+
+  .theme-toggle {
+    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-strong);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
   }
-  button:hover { background: #4a4a4a; border-color: #555; }
-  button:active { transform: scale(0.97); }
-  button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-  button.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.accent:hover { background: var(--accent2); }
-
-  button.green { background: var(--green); border-color: var(--green); color: #fff; }
-  button.green:hover { background: #43a047; }
-
-  button.orange { background: var(--orange); border-color: var(--orange); color: #fff; }
-  button.orange:hover { background: #f57c00; }
-
-  button.purple { background: var(--purple); border-color: var(--purple); color: #fff; }
-  button.purple:hover { background: #8e24aa; }
-
-  button.red { background: var(--red); border-color: var(--red); color: #fff; }
-  button.red:hover { background: #e53935; }
-
-  button.full { width: 100%; }
-
-  .btn-row {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 8px;
+  .theme-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    box-shadow: 0 0 0 3px rgba(20, 99, 255, 0.14);
   }
-  .btn-row:last-child { margin-bottom: 0; }
-  .btn-row button { flex: 1; min-width: 80px; }
 
-  .btn-row-3 button { flex: 1 1 calc(33.333% - 4px); }
-  .btn-row-2 button { flex: 1 1 calc(50% - 3px); }
+  .card {
+    background: var(--bg-elevated);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+  }
 
-  /* Labels and inputs */
-  label {
-    font-size: 11px;
-    color: var(--fg2);
+  .card-title {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .card-title h2 {
+    margin: 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
     gap: 6px;
-    cursor: pointer;
-  }
-  label:hover { color: var(--fg); }
-
-  select, input[type="number"] {
-    font-family: var(--font);
-    font-size: 11px;
-    padding: 4px 8px;
-    border-radius: var(--radius);
+    padding: 6px 10px;
+    border-radius: 999px;
     border: 1px solid var(--border);
-    background: var(--bg3);
-    color: var(--fg);
-    outline: none;
+    background: var(--bg-strong);
+    color: var(--muted);
+    font-size: 11px;
+    white-space: nowrap;
   }
-  select:focus, input[type="number"]:focus {
-    border-color: var(--accent);
-  }
-  input[type="number"] { width: 60px; }
 
-  .inline-controls {
+  .selection-bar {
     display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(20, 99, 255, 0.2);
+    background: rgba(20, 99, 255, 0.08);
+    color: var(--text);
+  }
+
+  .selection-bar strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+
+  .selection-bar span {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  .grid.two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .grid.one {
+    grid-template-columns: 1fr;
+  }
+
+  button, input[type="number"] {
+    font: inherit;
+  }
+
+  button {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--bg-strong);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(20, 99, 255, 0.4);
+    box-shadow: 0 8px 18px rgba(20, 99, 255, 0.08);
+  }
+
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  button.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: #fff;
+    border-color: transparent;
+  }
+
+  button.success { color: var(--success); }
+  button.warning { color: var(--warning); }
+  button.danger { color: var(--danger); }
+
+  button.small {
+    min-height: 38px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .button-stack { gap: 10px; }
+
+  .action-copy {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.35;
+  }
+
+  .section-subtitle {
+    margin: 0 0 12px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 2px;
+  }
+
+  label {
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 12px;
   }
 
-  /* Progress bar */
-  .progress-container {
-    margin-top: 8px;
-    display: none;
+  input[type="number"] {
+    width: 72px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-strong);
+    color: var(--text);
   }
-  .progress-container.show { display: block; }
+
+  input[type="number"]:focus {
+    outline: 2px solid rgba(20, 99, 255, 0.24);
+    outline-offset: 1px;
+  }
+
+  details {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-strong);
+    overflow: hidden;
+  }
+
+  summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  summary::-webkit-details-marker { display: none; }
+
+  details .details-body {
+    padding: 0 16px 16px;
+  }
+
+  .progress {
+    display: none;
+    margin-top: 14px;
+  }
+
+  .progress.show { display: block; }
 
   .progress-bar {
-    height: 6px;
-    background: var(--bg3);
-    border-radius: 3px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(127, 127, 127, 0.18);
     overflow: hidden;
-    margin-bottom: 4px;
   }
+
   .progress-fill {
     height: 100%;
-    background: var(--accent);
-    border-radius: 3px;
     width: 0%;
-    transition: width 0.3s ease;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    border-radius: 999px;
+    transition: width 180ms ease;
   }
+
   .progress-text {
-    font-size: 10px;
-    color: var(--fg2);
-    text-align: center;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
   }
 
-  /* Log area */
   .log {
-    background: var(--bg);
+    display: none;
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: var(--radius-lg);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 8px;
-    max-height: 150px;
+    background: rgba(0, 0, 0, 0.04);
+    max-height: 160px;
     overflow-y: auto;
-    font-size: 10px;
-    font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
-    color: var(--fg2);
-    line-height: 1.6;
-    margin-top: 8px;
-    display: none;
+    font-size: 11px;
+    line-height: 1.55;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    color: var(--muted);
   }
+
   .log.show { display: block; }
-  .log .log-entry { padding: 1px 0; }
-  .log .log-entry.success { color: var(--green); }
-  .log .log-entry.error { color: var(--red); }
-  .log .log-entry.info { color: var(--accent); }
-
-  /* Spinner */
-  .spinner {
-    display: none;
-    width: 14px;
-    height: 14px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-    vertical-align: middle;
-  }
-  .spinner.show { display: inline-block; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* Status */
-  .status {
-    text-align: center;
-    font-size: 10px;
-    color: var(--fg2);
-    margin-top: 8px;
-    min-height: 18px;
-  }
-
-  hr {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 12px 0;
-  }
-
-  .badge {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 10px;
-    font-size: 9px;
-    font-weight: 600;
-    margin-left: 4px;
-  }
-  .badge.svg { background: rgba(24,160,251,0.2); color: var(--accent); }
-  .badge.png { background: rgba(156,39,176,0.2); color: var(--purple); }
-  .badge.json { background: rgba(76,175,80,0.2); color: var(--green); }
+  .log-entry { padding: 1px 0; }
+  .log-entry.success { color: var(--success); }
+  .log-entry.error { color: var(--danger); }
+  .log-entry.info { color: var(--accent); }
 
   .footer {
+    padding: 0 2px 10px;
     text-align: center;
-    font-size: 9px;
-    color: #555;
-    margin-top: 12px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
   }
-  .footer a { color: var(--accent); text-decoration: none; }
+
+  .footer a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
   .footer a:hover { text-decoration: underline; }
 
-  /* Selection info */
-  .selection-info {
-    background: rgba(24,160,251,0.08);
-    border: 1px solid rgba(24,160,251,0.25);
-    border-radius: var(--radius);
-    padding: 6px 10px;
-    font-size: 10px;
-    color: var(--accent);
-    margin-bottom: 8px;
-    display: none;
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
-  .selection-info.show { display: block; }
+
+  @media (max-width: 520px) {
+    .hero { flex-direction: column; }
+    .grid.two, .grid.three { grid-template-columns: 1fr; }
+    .selection-bar { flex-direction: column; align-items: flex-start; }
+  }
 </style>
 </head>
 <body>
-
-<div class="header">
-  <h1>⬇ Extract All</h1>
-  <div class="subtitle">Figma to Anything • One-Click Export</div>
-</div>
-
-<!-- Selected Nodes Info -->
-<div class="selection-info" id="selectionInfo">
-  📌 <span id="selectionCount">0</span> node(s) selected
-  — use the "Selected" buttons below to export
-</div>
-
-<!-- ═══════════════ DATA EXTRACTION ═══════════════ -->
-<div class="section">
-  <div class="section-title"><span class="icon">📊</span> Data Extraction</div>
-
-  <div class="btn-row btn-row-2">
-    <button class="green full" onclick="requestExtract('get-full-extract')" id="btnFullExtract">
-      📦 Full Extract (JSON)
-    </button>
-    <button onclick="requestExtract('get-text')" id="btnText">
-      📝 Text Only
-    </button>
-  </div>
-  <div class="btn-row btn-row-2">
-    <button onclick="requestExtract('get-variables')" id="btnVars">
-      🎨 Variables
-    </button>
-    <button onclick="requestExtract('get-styles')" id="btnStyles">
-      🖌 Styles
-    </button>
-  </div>
-  <div class="btn-row btn-row-2">
-    <button onclick="requestExtract('get-components')" id="btnComps">
-      🧩 Components
-    </button>
-    <button onclick="requestExtract('get-pages')" id="btnPages">
-      📄 Pages Info
-    </button>
-  </div>
-</div>
-
-<!-- ═══════════════ SELECTED NODES ═══════════════ -->
-<div class="section">
-  <div class="section-title"><span class="icon">🎯</span> Selected Nodes Export</div>
-
-  <div class="inline-controls">
-    <label>Scale: <input type="number" id="scaleSelected" value="2" min="0.25" max="8" step="0.25"></label>
-  </div>
-
-  <div class="btn-row btn-row-3">
-    <button class="accent" onclick="exportSelected('export-selected-svg')">
-      <span class="badge svg">SVG</span> Export
-    </button>
-    <button class="purple" onclick="exportSelected('export-selected-png')">
-      <span class="badge png">PNG</span> Export
-    </button>
-    <button class="orange" onclick="exportSelected('export-selected-jpg')">
-      <span class="badge">JPG</span> Export
-    </button>
-  </div>
-  <div class="btn-row">
-    <button onclick="exportSelected('get-svg-as-text')" style="flex:1;">
-      📋 SVG Code (Text)
-    </button>
-  </div>
-</div>
-
-<!-- ═══════════════ BATCH EXPORT ═══════════════ -->
-<div class="section">
-  <div class="section-title"><span class="icon">🗂</span> Batch Export (All Nodes)</div>
-
-  <div class="inline-controls">
-    <label>Scale: <input type="number" id="scaleBatch" value="1" min="0.25" max="8" step="0.25"></label>
-  </div>
-
-  <div class="btn-row">
-    <button class="accent full" onclick="batchExport('export-all-svg-page', 'current')" id="btnAllSvgPage">
-      🖼 Export ALL as SVG — Current Page
-    </button>
-  </div>
-  <div class="btn-row">
-    <button class="purple full" onclick="batchExport('export-all-png-page', 'current')" id="btnAllPngPage">
-      🖼 Export ALL as PNG — Current Page
-    </button>
-  </div>
-
-  <hr>
-
-  <div class="btn-row">
-    <button class="accent full" onclick="batchExport('export-all-svg-all-pages', 'all')" id="btnAllSvgAll">
-      🌐 Export ALL as SVG — ALL Pages
-    </button>
-  </div>
-  <div class="btn-row">
-    <button class="purple full" onclick="batchExport('export-all-png-all-pages', 'all')" id="btnAllPngAll">
-      🌐 Export ALL as PNG — ALL Pages
-    </button>
-  </div>
-
-  <!-- Progress -->
-  <div class="progress-container" id="progressContainer">
-    <div class="progress-bar">
-      <div class="progress-fill" id="progressFill"></div>
+<div class="shell">
+  <header class="hero">
+    <div>
+      <h1>Extract All</h1>
+      <p>Fast exports for Figma: extract data, export selected nodes, or batch export the current page.</p>
     </div>
-    <div class="progress-text" id="progressText">0 / 0</div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme">
+      <span class="theme-swatch" aria-hidden="true"></span>
+      <span id="themeLabel">Theme</span>
+    </button>
+  </header>
+
+  <div class="selection-bar" id="selectionInfo">
+    <div>
+      <strong><span id="selectionCount">0</span> nodes selected</strong>
+      <span id="selectionPage">Waiting for selection state</span>
+    </div>
+    <span class="pill" id="statusPill">Ready</span>
   </div>
-</div>
 
-<!-- ═══════════════ LOG ═══════════════ -->
-<div class="log" id="logArea"></div>
+  <section class="card">
+    <div class="card-title">
+      <h2>Quick Actions</h2>
+      <span class="pill">Primary workflows</span>
+    </div>
+    <p class="section-subtitle">Use these first. The advanced exports are below if you need specific output formats.</p>
+    <div class="grid one">
+      <button class="primary" onclick="requestExtract('get-full-extract')" id="btnFullExtract">
+        Full Extract (JSON)
+      </button>
+      <button onclick="requestExtract('get-text')" id="btnText">Text only</button>
+      <button class="success" onclick="exportSelected('export-selected-svg')" id="btnSelected">
+        Export selected nodes
+      </button>
+    </div>
+  </section>
 
-<!-- Status -->
-<div class="status" id="statusBar">
-  Ready — select nodes or use batch export
-</div>
+  <section class="card">
+    <div class="card-title">
+      <h2>Selected Export</h2>
+      <span class="pill">Scale controls</span>
+    </div>
+    <div class="controls">
+      <label>SVG/PNG/JPG scale <input type="number" id="scaleSelected" value="2" min="0.25" max="8" step="0.25"></label>
+    </div>
+    <div class="grid three" style="margin-top: 12px;">
+      <button class="primary" onclick="exportSelected('export-selected-svg')">SVG</button>
+      <button class="warning" onclick="exportSelected('export-selected-png')">PNG</button>
+      <button class="danger" onclick="exportSelected('export-selected-jpg')">JPG</button>
+    </div>
+    <div class="grid one" style="margin-top: 10px;">
+      <button onclick="exportSelected('get-svg-as-text')">SVG code as text</button>
+    </div>
+  </section>
 
-<!-- Footer -->
-<div class="footer">
-  Extract All v1.0.0 • <a href="https://github.com" target="_blank">GitHub</a> •
-  Open Source MIT
+  <section class="card">
+    <div class="card-title">
+      <h2>Batch Export</h2>
+      <span class="pill">All nodes</span>
+    </div>
+    <div class="controls">
+      <label>Batch scale <input type="number" id="scaleBatch" value="1" min="0.25" max="8" step="0.25"></label>
+    </div>
+    <div class="grid two" style="margin-top: 12px;">
+      <button class="primary" onclick="batchExport('export-all-svg-page', 'current')">Current page SVG</button>
+      <button class="warning" onclick="batchExport('export-all-png-page', 'current')">Current page PNG</button>
+      <button class="primary" onclick="batchExport('export-all-svg-all-pages', 'all')">All pages SVG</button>
+      <button class="warning" onclick="batchExport('export-all-png-all-pages', 'all')">All pages PNG</button>
+    </div>
+    <div class="progress" id="progressContainer">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-text" id="progressText">0 / 0</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ LOTTIE / AFTER EFFECTS ═══════════════ -->
+  <section class="card">
+    <div class="card-title">
+      <h2>After Effects / Lottie Export</h2>
+      <span class="pill">Motion-ready</span>
+    </div>
+    <p class="section-subtitle">
+      Export selected nodes as a Lottie-compatible JSON bundle. Each node becomes an SVG layer with position & size metadata — ready for After Effects or Lottie animation tools.
+    </p>
+    <div class="grid one">
+      <button class="primary" onclick="exportLottie()" id="btnLottie">
+        🎬 Export Lottie JSON Bundle
+      </button>
+    </div>
+    <div style="margin-top:10px;">
+      <label style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">
+        <span style="color:var(--muted);font-size:11px;">Import & validate a Lottie JSON file</span>
+        <input type="file" id="lottieFileInput" accept=".json" style="width:100%;font:inherit;font-size:11px;padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--bg-strong);color:var(--text);">
+      </label>
+      <div id="lottieSummary" style="margin-top:8px;font-size:11px;color:var(--muted);display:none;"></div>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>Advanced data exports</summary>
+    <div class="details-body">
+      <p class="section-subtitle">Extra exports for handoff and automation. Keep this collapsed if you only need the main workflows.</p>
+      <div class="grid two">
+        <button onclick="requestExtract('get-variables')">Variables</button>
+        <button onclick="requestExtract('get-styles')">Styles</button>
+        <button onclick="requestExtract('get-components')">Components</button>
+        <button onclick="requestExtract('get-pages')">Pages</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="log" id="logArea"></div>
+
+  <div class="footer">
+    Extract All v1.1.0 • <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a>
+  </div>
 </div>
 
 <script>
-// ─────────────────────────────────────────────
-// UI Script for Extract All Figma Plugin
-// ─────────────────────────────────────────────
-
 const logArea = document.getElementById("logArea");
-const statusBar = document.getElementById("statusBar");
 const progressContainer = document.getElementById("progressContainer");
 const progressFill = document.getElementById("progressFill");
 const progressText = document.getElementById("progressText");
 const selectionInfo = document.getElementById("selectionInfo");
 const selectionCount = document.getElementById("selectionCount");
+const selectionPage = document.getElementById("selectionPage");
+const statusPill = document.getElementById("statusPill");
+const themeToggle = document.getElementById("themeToggle");
+const themeLabel = document.getElementById("themeLabel");
 
 let exportCount = 0;
 let isExporting = false;
 
-// ── Logging ────────────────────────────────────
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("extract-all-theme", theme);
+  themeLabel.textContent = theme === "dark" ? "Dark" : "Light";
+}
+
+function initTheme() {
+  const saved = localStorage.getItem("extract-all-theme");
+  const systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  setTheme(saved || (systemDark ? "dark" : "light"));
+}
 
 function log(message, type) {
   type = type || "info";
@@ -426,24 +565,29 @@ function log(message, type) {
   }
   const entry = document.createElement("div");
   entry.className = "log-entry " + type;
-  entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+  entry.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
   logArea.appendChild(entry);
   logArea.scrollTop = logArea.scrollHeight;
 
-  // Auto-hide after 15 seconds of no activity
   clearTimeout(logArea._hideTimeout);
   logArea._hideTimeout = setTimeout(() => {
     if (!isExporting) {
       logArea.classList.remove("show");
     }
-  }, 15000);
+  }, 12000);
 }
 
 function setStatus(msg) {
-  statusBar.textContent = msg;
+  statusPill.textContent = msg;
 }
 
-// ── Download Helpers ───────────────────────────
+function updateSelectionState(msg) {
+  const count = msg && typeof msg.count === "number" ? msg.count : 0;
+  selectionCount.textContent = String(count);
+  selectionPage.textContent = msg && msg.pageName ? "Page: " + msg.pageName : "Waiting for selection state";
+  selectionInfo.style.borderColor = count > 0 ? "rgba(20, 99, 255, 0.28)" : "var(--border)";
+  selectionInfo.style.background = count > 0 ? "rgba(20, 99, 255, 0.08)" : "transparent";
+}
 
 function downloadFile(fileName, content, mimeType) {
   const blob = new Blob([content], { type: mimeType });
@@ -455,7 +599,7 @@ function downloadFile(fileName, content, mimeType) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  log(`📥 Downloaded: ${fileName}`, "success");
+  log("Downloaded: " + fileName, "success");
 }
 
 function downloadBytes(fileName, bytes, format) {
@@ -478,166 +622,196 @@ function downloadBytes(fileName, bytes, format) {
   URL.revokeObjectURL(url);
 }
 
-// ── Request to Plugin ──────────────────────────
-
 function requestExtract(type) {
   if (isExporting) {
-    log("⚠ Already exporting, please wait...", "error");
+    log("Already exporting, please wait.", "error");
     return;
   }
-  log(`🔍 Requesting: ${type}`, "info");
-  setStatus(`Extracting ${type.replace("get-", "")}...`);
+  log("Requesting " + type, "info");
+  setStatus("Working");
   parent.postMessage({ pluginMessage: { type: type } }, "*");
 }
 
 function exportSelected(type) {
   if (isExporting) {
-    log("⚠ Already exporting, please wait...", "error");
+    log("Already exporting, please wait.", "error");
     return;
   }
   const scale = parseFloat(document.getElementById("scaleSelected").value) || 1;
   isExporting = true;
   exportCount = 0;
-  log(`🎯 Exporting selected nodes as ${type} (scale: ${scale}x)...`, "info");
-  setStatus("Exporting selected nodes...");
+  progressContainer.classList.add("show");
+  progressFill.style.width = "0%";
+  progressText.textContent = "Starting...";
+  log("Exporting selected nodes as " + type + " (scale: " + scale + "x)", "info");
+  setStatus("Exporting selected nodes");
   parent.postMessage({ pluginMessage: { type: type, scale: scale } }, "*");
+}
+
+function exportLottie() {
+  if (isExporting) {
+    log("Already exporting, please wait.", "error");
+    return;
+  }
+  isExporting = true;
+  log("Building Lottie JSON bundle from selected nodes...", "info");
+  setStatus("Building Lottie bundle");
+  parent.postMessage({ pluginMessage: { type: "export-lottie-json" } }, "*");
 }
 
 function batchExport(type, scope) {
   if (isExporting) {
-    log("⚠ Already exporting, please wait...", "error");
+    log("Already exporting, please wait.", "error");
     return;
   }
   const scale = parseFloat(document.getElementById("scaleBatch").value) || 1;
   isExporting = true;
   exportCount = 0;
-
-  // Show progress
   progressContainer.classList.add("show");
   progressFill.style.width = "0%";
   progressText.textContent = "Starting...";
-
-  log(`🗂 Batch export: ${type} (scale: ${scale}x, scope: ${scope})...`, "info");
-  setStatus(`Batch exporting ${scope === "all" ? "ALL pages" : "current page"}...`);
-
+  log("Batch export " + type + " (scale: " + scale + "x, scope: " + scope + ")", "info");
+  setStatus(scope === "all" ? "Exporting all pages" : "Exporting current page");
   parent.postMessage({ pluginMessage: { type: type, scale: scale } }, "*");
 }
-
-// ── Message Handler ────────────────────────────
 
 window.addEventListener("message", (event) => {
   const msg = event.data.pluginMessage;
   if (!msg) return;
 
   switch (msg.type) {
-
-    // ── Full Extract ──
-    case "full-extract":
-      log(`✅ Full extract complete: ${msg.data.fileName}`, "success");
-      log(`   Pages: ${msg.data.totalPages}, Text nodes: ${msg.data.textNodes.length}, Variables: ${msg.data.variables.length}, Styles: ${msg.data.styles.length}`, "info");
-      setStatus("Full extract complete — downloading JSON...");
+    case "selection-state":
+      updateSelectionState(msg);
       break;
 
-    // ── Download File (text/json) ──
+    case "full-extract":
+      log("Full extract complete: " + msg.data.fileName, "success");
+      log("Pages: " + msg.data.totalPages + ", text nodes: " + msg.data.textNodes.length + ", variables: " + msg.data.variables.length + ", styles: " + msg.data.styles.length, "info");
+      setStatus("Full extract complete");
+      break;
+
     case "download-file":
       downloadFile(msg.fileName, msg.content, msg.mimeType);
-      setStatus(`Downloaded: ${msg.fileName}`);
+      setStatus("Downloaded " + msg.fileName);
+      // Reset isExporting for single-shot operations (Lottie, text, etc.)
+      if (isExporting && exportCount === 0) {
+        isExporting = false;
+        progressContainer.classList.remove("show");
+      }
       break;
 
-    // ── Export Results (binary: SVGs, PNGs, etc.) ──
     case "export-results":
       if (msg.results && msg.results.length > 0) {
         for (const item of msg.results) {
           const ext = item.format.toLowerCase();
-          const fileName = `${item.name}.${ext}`;
-          downloadBytes(fileName, item.bytes, ext);
+          downloadBytes(item.name + "." + ext, item.bytes, ext);
           exportCount++;
         }
-        log(`   ✅ Exported ${msg.results.length} file(s)`, "success");
-        setStatus(`Exported ${exportCount} files so far...`);
+        log("Exported " + msg.results.length + " file(s)", "success");
+        setStatus("Exported " + exportCount + " files");
       }
       break;
 
-    // ── Progress ──
     case "progress":
       if (msg.total > 0) {
         const pct = Math.round((msg.current / msg.total) * 100);
         progressFill.style.width = pct + "%";
-        progressText.textContent = `${msg.current} / ${msg.total} (${pct}%)`;
+        progressText.textContent = msg.current + " / " + msg.total + " (" + pct + "%)";
       }
       break;
 
-    // ── Export Complete ──
     case "export-complete":
       isExporting = false;
       progressFill.style.width = "100%";
-      progressText.textContent = `Complete — ${exportCount} files exported`;
-      log(`🏁 Batch export complete! Total files: ${exportCount}`, "success");
-      setStatus(`✅ Done! Exported ${exportCount} files.`);
-
-      // Hide progress after 3 seconds
+      progressText.textContent = "Complete — " + exportCount + " files exported";
+      log("Batch export complete: " + exportCount + " file(s)", "success");
+      setStatus("Done");
       setTimeout(() => {
         progressContainer.classList.remove("show");
         progressFill.style.width = "0%";
-      }, 3000);
+      }, 2500);
       break;
 
-    // ── Node Tree ──
-    case "node-tree":
-      log(`🌳 Node tree: ${msg.nodes.length} nodes on current page`, "info");
-      setStatus(`Loaded node tree: ${msg.nodes.length} nodes`);
+    case "full-extract-progress":
+      if (msg.progress) {
+        const p = msg.progress;
+        log("[" + p.current + "/" + p.total + "] " + p.label, "info");
+        setStatus(p.label);
+      }
       break;
 
-    // ── Error ──
+    case "lottie-import-summary":
+      isExporting = false;
+      const summary = msg.summary;
+      const summaryEl = document.getElementById("lottieSummary");
+      summaryEl.style.display = "block";
+      if (summary.valid) {
+        summaryEl.style.color = "var(--success)";
+        summaryEl.innerHTML = "✅ Valid Lottie: <strong>" + summary.fileName + "</strong><br>" +
+          "Top-level keys: " + (summary.topLevelKeys.length > 0 ? summary.topLevelKeys.join(", ") : "(none)") + "<br>" +
+          "Layers: " + summary.layerCount + "<br>" +
+          summary.warning;
+      } else {
+        summaryEl.style.color = "var(--danger)";
+        summaryEl.innerHTML = "❌ Invalid: <strong>" + summary.fileName + "</strong><br>" + summary.warning;
+      }
+      setStatus("Import validated");
+      break;
+
     case "error":
       isExporting = false;
-      log(`❌ ${msg.message}`, "error");
-      setStatus(`Error: ${msg.message}`);
+      log(msg.message, "error");
+      setStatus("Error");
       progressContainer.classList.remove("show");
-      break;
-
-    default:
       break;
   }
 });
 
-// ── Selection Listener ─────────────────────────
-// We poll for selection changes by requesting from the plugin
+themeToggle.addEventListener("click", () => {
+  const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  setTheme(current === "dark" ? "light" : "dark");
+});
 
-function refreshSelection() {
-  parent.postMessage({ pluginMessage: { type: "get-node-tree" } }, "*");
-}
-
-// Initial refresh
-setTimeout(refreshSelection, 300);
-
-// ── Keyboard Shortcuts ─────────────────────────
 document.addEventListener("keydown", (e) => {
-  // Ctrl+Enter or Cmd+Enter to do full extract
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
     e.preventDefault();
     requestExtract("get-full-extract");
   }
-  // Escape to cancel / close
   if (e.key === "Escape" && isExporting) {
     isExporting = false;
-    log("⚠ Export cancelled by user", "error");
+    log("Export cancelled by user", "error");
     setStatus("Cancelled");
     progressContainer.classList.remove("show");
   }
 });
 
-// ── Init ────────────────────────────────────────
-log("🚀 Extract All ready. Select nodes or use batch export.", "info");
-log("💡 Tip: Select nodes in Figma, then use 'Selected Nodes' section.", "info");
-log("⌨ Shortcut: Ctrl+Enter = Full Extract", "info");
-setStatus("Ready — select nodes or use batch export");
+initTheme();
+log("Extract All ready.", "info");
+log("Ctrl+Enter runs Full Extract.", "info");
+setStatus("Ready");
+updateSelectionState({ count: 0, pageName: "Waiting for selection state" });
 
-// Periodically check for selection updates
-setInterval(() => {
-  parent.postMessage({ pluginMessage: { type: "get-node-tree" } }, "*");
-}, 2000);
+// Lottie file import reader
+const lottieInput = document.getElementById("lottieFileInput");
+if (lottieInput) {
+  lottieInput.addEventListener("change", function() {
+    const file = this.files && this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const content = e.target.result;
+      parent.postMessage({
+        pluginMessage: {
+          type: "import-lottie-json",
+          fileName: file.name,
+          content: content
+        }
+      }, "*");
+      log("Validating Lottie file: " + file.name, "info");
+    };
+    reader.readAsText(file);
+  });
+}
 </script>
-
 </body>
 </html>

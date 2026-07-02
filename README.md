@@ -178,11 +178,45 @@ Finds all components and component sets with:
 
 ---
 
+## 🎬 After Effects / Lottie Workflow
+
+The plugin includes a dedicated **After Effects / Lottie Export** section:
+
+1. **Select** the nodes you want to animate/motion-design
+2. Click **"Export Lottie JSON Bundle"** — this generates a single JSON file containing:
+   - Every selected node as an embedded SVG string
+   - Position metadata (x, y, width, height)
+   - Page and type information for each layer
+3. Use the resulting JSON in After Effects (via Bodymovin), LottieFiles, or any Lottie-compatible tool
+4. **Import & Validate** — drag any Lottie JSON file into the validator to see its structure, layer count, and top-level keys
+
+### Lottie Export Bundle Structure
+```json
+{
+  "fileName": "YourFile_lottie.json",
+  "exportDate": "2024-07-02T...",
+  "source": "FigmaFile",
+  "items": [
+    {
+      "id": "node-id",
+      "name": "button",
+      "type": "FRAME",
+      "pageName": "Page 1",
+      "width": 200,
+      "height": 60,
+      "svg": "<svg>...</svg>"
+    }
+  ]
+}
+```
+
+---
+
 ## 🚀 Use Cases
 
 | Scenario | What to Use |
 |---|---|
-| **Import to After Effects** | Export all as SVG + full JSON for positioning/scale data |
+| **Import to After Effects** | Lottie JSON Bundle (motion-ready SVGs + positions) or batch SVG + full JSON |
 | **Build a website with AI** | Full Extract JSON + all SVGs → feed to LLM |
 | **Design token pipeline** | Variables JSON + Styles JSON |
 | **Content audit** | Text JSON + Text TXT |

@@ -69,6 +69,13 @@ function objectFromEntries(entries) {
 function isExportable(node) {
     return node.visible !== false && EXPORTABLE_TYPES.indexOf(node.type) >= 0;
 }
+function postSelectionState() {
+    figma.ui.postMessage({
+        type: "selection-state",
+        count: figma.currentPage.selection.length,
+        pageName: figma.currentPage.name,
+    });
+}
 function extractTextData(node) {
     let lineHeight = null;
     const lh = node.lineHeight;
@@ -191,13 +198,26 @@ function extractPages() {
     }
     return pages;
 }
-async function buildFullExtract(currentPage) {
+async function buildFullExtract(currentPage, onProgress) {
+    const totalSteps = 6;
+    const reportProgress = (current, label) => {
+        if (onProgress) {
+            onProgress({ current, total: totalSteps, label });
+        }
+    };
+    reportProgress(0, "Starting full extract");
     const allTextNodes = flattenNodeTree(currentPage, (n) => n.type === "TEXT").map((n) => extractTextData(n));
+    reportProgress(1, "Extracted text nodes");
     const variables = await extractAllVariables();
+    reportProgress(2, "Extracted variables");
     const styles = await extractAllStyles();
+    reportProgress(3, "Extracted styles");
     const components = extractAllComponents(currentPage);
+    reportProgress(4, "Extracted components");
     const pages = extractPages();
+    reportProgress(5, "Extracted page data");
     const nodeCounts = countNodeTypes(currentPage);
+    reportProgress(6, "Full extract complete");
     return {
         fileName: figma.root.name || "Untitled",
         extractDate: new Date().toISOString(),
@@ -209,6 +229,61 @@ async function buildFullExtract(currentPage) {
         components,
         nodeCounts,
     };
+}
+async function buildLottieExportBundle(nodeIds) {
+    const items = [];
+    for (const id of nodeIds) {
+        const node = await figma.getNodeByIdAsync(id);
+        if (!node || node.type === "PAGE" || node.type === "DOCUMENT") {
+            continue;
+        }
+        try {
+            const svgString = await node.exportAsync({
+                format: "SVG_STRING",
+            });
+            items.push({
+                id: node.id,
+                name: sanitizeName(node.name),
+                type: node.type,
+                pageName: getPageName(node),
+                width: node.width,
+                height: node.height,
+                svg: svgString,
+            });
+        }
+        catch (err) {
+            console.error(`Failed to build Lottie export for ${node.name}:`, err);
+        }
+    }
+    return {
+        fileName: `${sanitizeName(figma.root.name)}_lottie.json`,
+        exportDate: new Date().toISOString(),
+        source: figma.root.name || "Untitled",
+        items,
+    };
+}
+function summarizeLottieImport(fileName, content) {
+    try {
+        const parsed = JSON.parse(content);
+        const topLevelKeys = parsed && typeof parsed === "object" ? Object.keys(parsed) : [];
+        const layers = Array.isArray(parsed === null || parsed === void 0 ? void 0 : parsed.layers) ? parsed.layers.length : 0;
+        return {
+            fileName,
+            valid: true,
+            topLevelKeys,
+            layerCount: layers,
+            warning: layers === 0 ? "No top-level layers array was found." : "Imported successfully.",
+        };
+    }
+    catch (err) {
+        return {
+            fileName,
+            valid: false,
+            topLevelKeys: [],
+            layerCount: 0,
+            warning: "The file could not be parsed as JSON.",
+        };
+    }
 }
 async function exportNodes(nodeIds, format, scale) {
     const results = [];
@@ -275,13 +350,18 @@ async function exportNodeAsSVGString(nodeId) {
 }
 figma.showUI(__html__, {
     width: 480,
-    height: 700,
+    height: 640,
     title: "Extract All – Figma to Anything",
 });
+figma.on("selectionchange", postSelectionState);
+figma.on("currentpagechange", postSelectionState);
+postSelectionState();
 figma.ui.onmessage = async (msg) => {
     if (msg.type === "get-full-extract") {
         const currentPage = figma.currentPage;
-        const data = await buildFullExtract(currentPage);
+        const data = await buildFullExtract(currentPage, (progress) => {
+            figma.ui.postMessage({ type: "full-extract-progress", progress });
+        });
         figma.ui.postMessage({ type: "full-extract", data });
         const jsonStr = JSON.stringify(data, null, 2);
         figma.ui.postMessage({
@@ -290,6 +370,24 @@ figma.ui.onmessage = async (msg) => {
             content: jsonStr,
             mimeType: "application/json",
         });
+    }
+    if (msg.type === "export-lottie-json") {
+        const selection = figma.currentPage.selection;
+        if (selection.length === 0) {
+            figma.ui.postMessage({ type: "error", message: "No nodes selected." });
+            return;
+        }
+        const bundle = await buildLottieExportBundle(selection.map((n) => n.id));
+        figma.ui.postMessage({
+            type: "download-file",
+            fileName: bundle.fileName,
+            content: JSON.stringify(bundle, null, 2),
+            mimeType: "application/json",
+        });
+    }
+    if (msg.type === "import-lottie-json") {
+        const summary = summarizeLottieImport(msg.fileName || "lottie.json", String(msg.content || ""));
+        figma.ui.postMessage({ type: "lottie-import-summary", summary });
     }
     if (msg.type === "get-text") {
         const textNodes = flattenNodeTree(figma.currentPage, (n) => n.type === "TEXT").map((n) => extractTextData(n));
@@ -374,16 +472,6 @@ figma.ui.onmessage = async (msg) => {
                 });
             }
         }
-    }
-    if (msg.type === "get-node-tree") {
-        const nodes = flattenNodeTree(figma.currentPage).map((n) => ({
-            id: n.id,
-            name: n.name,
-            type: n.type,
-            visible: n.visible,
-            pageName: getPageName(n),
-        }));
-        figma.ui.postMessage({ type: "node-tree", nodes });
     }
     if (msg.type === "export-all-svg-page" || msg.type === "export-all-png-page") {
         const format = msg.type === "export-all-svg-page" ? "SVG" : "PNG";
