@@ -35,108 +35,31 @@
     --red: #ff6b72;
     --purple: #b392f0;
   }
-
   * { box-sizing: border-box; }
   body {
-    font-family: var(--font);
-    color: var(--text);
-    background: var(--bg);
-    margin: 0;
-    padding: 12px;
-    overflow-y: auto;
-    user-select: none;
-    font-size: 12px;
+    font-family: var(--font); color: var(--text); background: var(--bg);
+    margin: 0; padding: 12px; overflow-y: auto; user-select: none; font-size: 12px;
   }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
   .wrap { max-width: 580px; margin: 0 auto; }
 
-  .hdr {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--bg-el);
-    margin-bottom: 10px;
-  }
+  .hdr { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-el); margin-bottom: 10px; }
   .hdr h1 { margin: 0; font-size: 16px; white-space: nowrap; }
   .hdr p { margin: 2px 0 0; font-size: 10px; color: var(--muted); }
+  .theme-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--text); padding: 6px 10px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 10px; flex-shrink: 0; }
+  .theme-dot { width: 8px; height: 8px; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent2)); flex-shrink: 0; }
 
-  .theme-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg-solid);
-    color: var(--text);
-    padding: 6px 10px;
-    border-radius: 999px;
-    cursor: pointer;
-    font: inherit;
-    font-size: 10px;
-    flex-shrink: 0;
-    width: auto !important;
-  }
-  .theme-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    flex-shrink: 0;
-  }
-
-  .selbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(20,99,255,0.2);
-    background: rgba(20,99,255,0.06);
-    margin-bottom: 10px;
-    font-size: 11px;
-  }
+  .selbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 12px; border: 1px solid rgba(20,99,255,0.2); background: rgba(20,99,255,0.06); margin-bottom: 10px; font-size: 11px; }
   .selbar b { display: block; font-size: 12px; }
   .selbar span { font-size: 10px; color: var(--muted); }
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--bg-solid);
-    color: var(--muted);
-    font-size: 9px;
-    white-space: nowrap;
-  }
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--muted); font-size: 9px; white-space: nowrap; }
 
-  /* Tabs */
-  .tabs { display: flex; gap: 1px; margin-bottom: 0; }
-  .tab-btn {
-    flex: 1;
-    padding: 10px 4px;
-    border: 1px solid var(--border);
-    border-bottom: none;
-    border-radius: 12px 12px 0 0;
-    background: var(--bg-el);
-    color: var(--muted);
-    cursor: pointer;
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
-    text-align: center;
-    transition: background 120ms ease, color 120ms ease;
-    width: auto !important;
-    min-height: auto !important;
-  }
+  .tabs { display: flex; gap: 1px; }
+  .tab-btn { flex: 1; padding: 10px 4px; border: 1px solid var(--border); border-bottom: none; border-radius: 12px 12px 0 0; background: var(--bg-el); color: var(--muted); cursor: pointer; font: inherit; font-size: 11px; font-weight: 600; text-align: center; transition: background 120ms, color 120ms; }
   .tab-btn.active { background: var(--bg-solid); color: var(--accent); }
   .tab-emoji { display: block; font-size: 16px; margin-bottom: 1px; }
 
-  /* Panels */
   .panel { display: none; padding: 14px; border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); background: var(--bg-el); margin-bottom: 10px; }
   .panel.active { display: block; }
   .panel .desc { margin: 0 0 12px; font-size: 10px; color: var(--muted); line-height: 1.5; }
@@ -145,44 +68,17 @@
   .card h3 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 
   .checks { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-  .checks label { display: flex; align-items: center; gap: 7px; font-size: 11px; cursor: pointer; padding: 2px 0; }
+  .checks label { display: flex; align-items: center; gap: 7px; font-size: 11px; cursor: pointer; padding: 2px 0; color: var(--text); }
   .checks input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
 
-  /* Buttons */
-  button {
-    font: inherit;
-    appearance: none;
-    border: 1px solid var(--border);
-    background: var(--bg-solid);
-    color: var(--text);
-    padding: 10px 12px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 600;
-    transition: background 120ms ease, border-color 120ms ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-  }
+  button { font: inherit; appearance: none; border: 1px solid var(--border); background: var(--bg-solid); color: var(--text); padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: 600; transition: background 120ms, border-color 120ms; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
   button:hover { border-color: var(--accent); }
   button.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border-color: transparent; }
   button.primary:hover { opacity: 0.92; }
-  button.full { width: 100%; }
   button.purple { color: var(--purple); border-color: transparent; }
   button.orange { color: var(--orange); border-color: transparent; }
 
-  input[type=number] {
-    font: inherit;
-    width: 60px;
-    padding: 6px 8px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-solid);
-    color: var(--text);
-    font-size: 11px;
-  }
+  input[type=number] { font: inherit; width: 60px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--text); font-size: 11px; }
 
   .row2 { display: flex; gap: 6px; }
   .row2 > * { flex: 1; }
@@ -191,14 +87,13 @@
   .scale-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
   .scale-row label { font-size: 10px; color: var(--muted); white-space: nowrap; }
 
-  /* Progress */
   .prog { display: none; margin-top: 8px; }
   .prog.show { display: block; }
   .prog-bar { height: 5px; border-radius: 999px; background: rgba(127,127,127,0.18); overflow: hidden; }
-  .prog-fill { height: 100%; width: 0%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 999px; transition: width 150ms ease; }
+  .prog-fill { height: 100%; width: 0%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 999px; transition: width 150ms; }
   .prog-txt { margin-top: 4px; font-size: 9px; color: var(--muted); text-align: right; }
 
-  .log { display: none; margin-top: 8px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.03); max-height: 120px; overflow-y: auto; font: 10px/1.5 ui-monospace, "Consolas", monospace; color: var(--muted); }
+  .log { display: none; margin-top: 8px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.03); max-height: 120px; overflow-y: auto; font: 10px/1.5 ui-monospace, Consolas, monospace; color: var(--muted); }
   .log.show { display: block; }
   .log .ok { color: var(--green); }
   .log .err { color: var(--red); }
@@ -206,59 +101,40 @@
 
   .ftr { text-align: center; margin-top: 8px; font-size: 9px; color: var(--muted); }
   .ftr a { color: var(--accent); text-decoration: none; }
-
-  /* Override any width:100% from body-level rules on special buttons */
-  .tab-btn { width: auto !important; min-height: auto !important; }
-  .theme-btn { width: auto !important; min-height: auto !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
-
   <div class="hdr">
     <div>
       <h1>Extract All</h1>
       <p>Pick your intent below, then click one button.</p>
     </div>
-    <button class="theme-btn" id="themeToggle" type="button">
-      <span class="theme-dot"></span>
-      <span id="themeLabel">Theme</span>
-    </button>
+    <button class="theme-btn" id="themeToggle"><span class="theme-dot"></span><span id="themeLabel">Theme</span></button>
   </div>
-
-  <div class="selbar" id="selbar">
-    <div>
-      <b><span id="selCount">0</span> nodes selected</b>
-      <span id="selPage">—</span>
-    </div>
+  <div class="selbar">
+    <div><b><span id="selCount">0</span> nodes</b> <span id="selPage">—</span></div>
     <span class="pill" id="statusPill">Ready</span>
   </div>
 
-  <!-- Tabs -->
-  <div class="tabs" id="tabBar">
-    <button class="tab-btn active" data-tab="ae">
-      <span class="tab-emoji">🎬</span> After Effects
-    </button>
-    <button class="tab-btn" data-tab="ai">
-      <span class="tab-emoji">🤖</span> AI / Website
-    </button>
-    <button class="tab-btn" data-tab="assets">
-      <span class="tab-emoji">📦</span> Assets
-    </button>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="ae"><span class="tab-emoji">🎬</span>After Effects</button>
+    <button class="tab-btn" data-tab="ai"><span class="tab-emoji">🤖</span>AI / Website</button>
+    <button class="tab-btn" data-tab="assets"><span class="tab-emoji">📦</span>Assets</button>
   </div>
 
-  <!-- Panel: After Effects -->
+  <!-- AE Panel -->
   <div class="panel active" id="panel-ae">
-    <p class="desc">Export everything as SVGs for <strong>Adobe After Effects</strong>. Includes position metadata, Lottie bundle, and Bodymovin import.</p>
+    <p class="desc">Export everything as SVGs for <strong>Adobe After Effects</strong>.</p>
     <div class="card">
       <h3>Export for After Effects</h3>
       <div class="checks">
         <label><input type="checkbox" id="ae-svgs" checked> Export all SVGs (individual files)</label>
-        <label><input type="checkbox" id="ae-json" checked> Position metadata JSON (x, y, w, h, parent hierarchy)</label>
+        <label><input type="checkbox" id="ae-json" checked> Position metadata JSON (x,y,w,h,parent hierarchy)</label>
         <label><input type="checkbox" id="ae-lottie" checked> Lottie JSON Bundle (selected nodes)</label>
         <label><input type="checkbox" id="ae-text" checked> Include text content</label>
       </div>
-      <button class="primary full" onclick="runAEExport()">🎬 Extract for After Effects</button>
+      <button class="primary" data-action="ae-extract">🎬 Extract for After Effects</button>
     </div>
     <div class="card">
       <h3>Import from After Effects</h3>
@@ -267,413 +143,238 @@
     </div>
   </div>
 
-  <!-- Panel: AI / Website -->
+  <!-- AI Panel -->
   <div class="panel" id="panel-ai">
-    <p class="desc">Get everything an AI needs to build a <strong>React / Next.js / Vue</strong> website from your design.</p>
+    <p class="desc">Get everything an AI needs to build a <strong>React/Next.js/Vue</strong> website.</p>
     <div class="card">
       <h3>Extract for AI Code Generation</h3>
       <div class="checks">
         <label><input type="checkbox" id="ai-svgs" checked> Embed all SVGs in JSON + download files</label>
         <label><input type="checkbox" id="ai-text" checked> All text (hex colors, fonts, positions, parent hierarchy)</label>
-        <label><input type="checkbox" id="ai-vars" checked> Design tokens / variables (named modes, hex, CSS)</label>
+        <label><input type="checkbox" id="ai-vars" checked> Design tokens/variables (named modes, hex, CSS)</label>
         <label><input type="checkbox" id="ai-styles" checked> Text & paint styles (typography, colors, effects)</label>
         <label><input type="checkbox" id="ai-comps" checked> Component structure (names, dimensions, variants)</label>
         <label><input type="checkbox" id="ai-tree" checked> Full node hierarchy tree</label>
         <label><input type="checkbox" id="ai-txtfile" checked> Plain text dump</label>
       </div>
-      <button class="primary full" onclick="runAIExtract()">🤖 Extract for AI Website Generation</button>
+      <button class="primary" data-action="ai-extract">🤖 Extract for AI Website Generation</button>
     </div>
   </div>
 
-  <!-- Panel: Assets -->
+  <!-- Assets Panel -->
   <div class="panel" id="panel-assets">
-    <p class="desc">Select specific nodes or batch export everything. Choose your format and scale.</p>
+    <p class="desc">Select specific nodes or batch export everything.</p>
     <div class="card">
       <h3>Selected Nodes</h3>
-      <div class="scale-row">
-        <label>Scale: <input type="number" id="scaleSel" value="2" min="0.25" max="8" step="0.25"></label>
-      </div>
+      <div class="scale-row"><label>Scale: <input type="number" id="scaleSel" value="2" min="0.25" max="8" step="0.25"></label></div>
       <div class="row3">
-        <button onclick="exportSel('export-selected-svg')">SVG</button>
-        <button class="purple" onclick="exportSel('export-selected-png')">PNG</button>
-        <button class="orange" onclick="exportSel('export-selected-jpg')">JPG</button>
+        <button data-action="sel-svg">SVG</button>
+        <button class="purple" data-action="sel-png">PNG</button>
+        <button class="orange" data-action="sel-jpg">JPG</button>
       </div>
-      <div style="margin-top:6px;">
-        <button onclick="exportSel('get-svg-as-text')" style="width:100%">SVG Code (text)</button>
-      </div>
+      <div style="margin-top:6px;"><button data-action="sel-svg-text" style="width:100%;">SVG Code (text)</button></div>
     </div>
     <div class="card">
       <h3>Batch Export All</h3>
-      <div class="scale-row">
-        <label>Scale: <input type="number" id="scaleBatch" value="1" min="0.25" max="8" step="0.25"></label>
-      </div>
+      <div class="scale-row"><label>Scale: <input type="number" id="scaleBatch" value="1" min="0.25" max="8" step="0.25"></label></div>
       <div class="checks" style="margin-bottom:8px;">
         <label><input type="checkbox" id="batch-scope" checked> All pages <span style="color:var(--muted);">(uncheck = current page only)</span></label>
       </div>
       <div class="row2">
-        <button onclick="runBatch('svg')">All as SVG</button>
-        <button class="purple" onclick="runBatch('png')">All as PNG</button>
+        <button data-action="batch-svg">All as SVG</button>
+        <button class="purple" data-action="batch-png">All as PNG</button>
       </div>
     </div>
     <div class="card">
       <h3>Individual Data</h3>
       <div class="row2">
-        <button onclick="request('get-variables')">Variables</button>
-        <button onclick="request('get-styles')">Styles</button>
+        <button data-action="req-variables">Variables</button>
+        <button data-action="req-styles">Styles</button>
       </div>
       <div class="row2" style="margin-top:4px;">
-        <button onclick="request('get-components')">Components</button>
-        <button onclick="request('get-pages')">Pages</button>
+        <button data-action="req-components">Components</button>
+        <button data-action="req-pages">Pages</button>
       </div>
     </div>
   </div>
 
-  <!-- Progress -->
-  <div class="prog" id="prog">
-    <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
-    <div class="prog-txt" id="progTxt"></div>
-  </div>
-
-  <!-- Log -->
+  <div class="prog" id="prog"><div class="prog-bar"><div class="prog-fill" id="progFill"></div></div><div class="prog-txt" id="progTxt"></div></div>
   <div class="log" id="logArea"></div>
-
-  <div class="ftr">
-    Extract All v4.0.0 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a>
-  </div>
+  <div class="ftr">Extract All v4.0.1 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a></div>
 </div>
 
 <script>
 (function(){
-  'use strict';
-
   var el = function(id){ return document.getElementById(id); };
-
-  var logEl = el("logArea");
-  var progEl = el("prog");
-  var progFill = el("progFill");
-  var progTxt = el("progTxt");
-  var statusPill = el("statusPill");
-  var selCount = el("selCount");
-  var selPage = el("selPage");
-  var themeLabel = el("themeLabel");
-
-  var exportCount = 0;
-  var isExporting = false;
-  var currentTheme = "light";
+  var logEl = el("logArea"), progEl = el("prog"), progFill = el("progFill"), progTxt = el("progTxt");
+  var statusPill = el("statusPill"), selCount = el("selCount"), selPage = el("selPage"), themeLabel = el("themeLabel");
+  var exportCount = 0, isExporting = false, currentTheme = "light";
 
   // ── Theme ──
   function applyTheme(t) {
     currentTheme = t;
-    if (t === "dark") {
-      document.body.classList.add("dark");
-    } else {
-      document.body.classList.remove("dark");
-    }
+    document.body.classList.toggle("dark", t === "dark");
     if (themeLabel) themeLabel.textContent = t === "dark" ? "Dark" : "Light";
     try { localStorage.setItem("ea-theme", t); } catch(e) {}
   }
-
-  function toggleTheme() {
-    applyTheme(currentTheme === "dark" ? "light" : "dark");
-  }
-
-  // Init theme
   var saved = null;
   try { saved = localStorage.getItem("ea-theme"); } catch(e) {}
   var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
   applyTheme(saved || (prefersDark ? "dark" : "light"));
 
-  // Theme button click
   var themeBtn = el("themeToggle");
-  if (themeBtn) {
-    themeBtn.addEventListener("click", toggleTheme);
-  }
+  if (themeBtn) themeBtn.addEventListener("click", function(){ applyTheme(currentTheme === "dark" ? "light" : "dark"); });
 
   // ── Tabs ──
   var tabButtons = document.querySelectorAll(".tab-btn");
   var panels = document.querySelectorAll(".panel");
-
-  function switchTab(tabName) {
-    for (var i = 0; i < tabButtons.length; i++) {
-      tabButtons[i].classList.remove("active");
+  function switchTab(name) {
+    for (var i=0; i<tabButtons.length; i++) tabButtons[i].classList.remove("active");
+    for (var j=0; j<panels.length; j++) panels[j].classList.remove("active");
+    for (var k=0; k<tabButtons.length; k++) {
+      if (tabButtons[k].getAttribute("data-tab") === name) { tabButtons[k].classList.add("active"); break; }
     }
-    for (var j = 0; j < panels.length; j++) {
-      panels[j].classList.remove("active");
-    }
-    // Find and activate the correct tab button and panel
-    for (var k = 0; k < tabButtons.length; k++) {
-      if (tabButtons[k].getAttribute("data-tab") === tabName) {
-        tabButtons[k].classList.add("active");
-        break;
-      }
-    }
-    var panel = el("panel-" + tabName);
-    if (panel) panel.classList.add("active");
+    var p = el("panel-" + name);
+    if (p) p.classList.add("active");
   }
-
-  for (var t = 0; t < tabButtons.length; t++) {
-    tabButtons[t].addEventListener("click", function(e) {
-      var tn = this.getAttribute("data-tab");
-      if (tn) switchTab(tn);
-    });
+  for (var t=0; t<tabButtons.length; t++) {
+    tabButtons[t].addEventListener("click", function(){ var n = this.getAttribute("data-tab"); if (n) switchTab(n); });
   }
 
   // ── Logging ──
   function log(msg, type) {
     type = type || "inf";
-    if (!logEl.classList.contains("show")) {
-      logEl.classList.add("show");
-      logEl.innerHTML = "";
-    }
-    var div = document.createElement("div");
-    div.className = type;
-    div.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
-    logEl.appendChild(div);
-    logEl.scrollTop = logEl.scrollHeight;
-    clearTimeout(logEl._timeout);
-    logEl._timeout = setTimeout(function() {
-      if (!isExporting) logEl.classList.remove("show");
-    }, 12000);
+    if (!logEl.classList.contains("show")) { logEl.classList.add("show"); logEl.innerHTML = ""; }
+    var d = document.createElement("div"); d.className = type;
+    d.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+    logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
+    clearTimeout(logEl._t); logEl._t = setTimeout(function(){ if (!isExporting) logEl.classList.remove("show"); }, 12000);
   }
-
-  function status(msg) {
-    if (statusPill) statusPill.textContent = msg;
-  }
+  function status(m) { if (statusPill) statusPill.textContent = m; }
 
   // ── Downloads ──
-  function dlFile(name, content, mime) {
-    var blob = new Blob([content], { type: mime });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    log("Downloaded: " + name, "ok");
-  }
+  function dlFile(n,c,m){ var b=new Blob([c],{type:m}), u=URL.createObjectURL(b), a=document.createElement("a"); a.href=u; a.download=n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); log("Downloaded: "+n,"ok"); }
+  function dlBytes(n,bytes,f){ var mm={svg:"image/svg+xml",png:"image/png",jpg:"image/jpeg"}, m=mm[f]||"application/octet-stream", u8=new Uint8Array(bytes), b=new Blob([u8],{type:m}), u=URL.createObjectURL(b), a=document.createElement("a"); a.href=u; a.download=n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
 
-  function dlBytes(name, bytes, format) {
-    var mimeMap = { svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg" };
-    var mime = mimeMap[format] || "application/octet-stream";
-    var u8 = new Uint8Array(bytes);
-    var blob = new Blob([u8], { type: mime });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  // ── Actions ──
+  // ── Core actions ──
   function request(type) {
-    if (isExporting) { log("Already exporting.", "err"); return; }
-    log("Requesting " + type, "inf");
-    status("Working");
+    if (isExporting) { log("Already exporting","err"); return; }
+    log("Requesting "+type,"inf"); status("Working");
     parent.postMessage({ pluginMessage: { type: type } }, "*");
   }
 
   function exportSel(type) {
-    if (isExporting) { log("Already exporting.", "err"); return; }
+    if (isExporting) { log("Already exporting","err"); return; }
     var s = parseFloat(el("scaleSel").value) || 1;
-    isExporting = true;
-    exportCount = 0;
-    progEl.classList.add("show");
-    progFill.style.width = "0%";
-    progTxt.textContent = "Starting...";
-    status("Exporting selected");
-    log("Export: " + type + " (" + s + "x)", "inf");
+    isExporting = true; exportCount = 0;
+    progEl.classList.add("show"); progFill.style.width = "0%"; progTxt.textContent = "Starting...";
+    status("Exporting selected"); log("Export: "+type+" ("+s+"x)","inf");
     parent.postMessage({ pluginMessage: { type: type, scale: s } }, "*");
   }
 
   function runBatch(fmt) {
-    if (isExporting) { log("Already exporting.", "err"); return; }
+    if (isExporting) { log("Already exporting","err"); return; }
     var s = parseFloat(el("scaleBatch").value) || 1;
     var all = el("batch-scope").checked;
-    isExporting = true;
-    exportCount = 0;
-    progEl.classList.add("show");
-    progFill.style.width = "0%";
-    progTxt.textContent = "Starting...";
-    var msgType = fmt === "svg"
-      ? (all ? "export-all-svg-all-pages" : "export-all-svg-page")
-      : (all ? "export-all-png-all-pages" : "export-all-png-page");
+    isExporting = true; exportCount = 0;
+    progEl.classList.add("show"); progFill.style.width = "0%"; progTxt.textContent = "Starting...";
+    var t = fmt === "svg" ? (all ? "export-all-svg-all-pages" : "export-all-svg-page") : (all ? "export-all-png-all-pages" : "export-all-png-page");
     status(all ? "Exporting all pages" : "Exporting current page");
-    log("Batch " + fmt.toUpperCase() + " (" + s + "x, " + (all ? "all pages" : "current page") + ")", "inf");
-    parent.postMessage({ pluginMessage: { type: msgType, scale: s } }, "*");
+    log("Batch "+fmt.toUpperCase()+" ("+s+"x)","inf");
+    parent.postMessage({ pluginMessage: { type: t, scale: s } }, "*");
   }
 
-  // AE Export
   function runAEExport() {
-    if (isExporting) { log("Already exporting.", "err"); return; }
-    isExporting = true;
-    exportCount = 0;
-    progEl.classList.add("show");
-    progFill.style.width = "0%";
-    var opts = {
-      includeSVGs: el("ae-svgs").checked,
-      includeJSON: el("ae-json").checked,
-      includeLottie: el("ae-lottie").checked,
-      includeText: el("ae-text").checked,
-    };
-    status("Extracting for After Effects");
-    progTxt.textContent = "Starting...";
-    progFill.style.width = "5%";
-    parent.postMessage({ pluginMessage: { type: "get-full-extract", aeOpts: opts } }, "*");
-    if (opts.includeLottie) {
-      parent.postMessage({ pluginMessage: { type: "export-lottie-json" } }, "*");
-    }
+    if (isExporting) { log("Already exporting","err"); return; }
+    isExporting = true; exportCount = 0;
+    progEl.classList.add("show"); progFill.style.width = "0%"; progTxt.textContent = "Starting...";
+    status("Extracting for AE");
+    var o = { includeSVGs: el("ae-svgs").checked, includeJSON: el("ae-json").checked, includeLottie: el("ae-lottie").checked, includeText: el("ae-text").checked };
+    parent.postMessage({ pluginMessage: { type: "get-full-extract", aeOpts: o } }, "*");
+    if (o.includeLottie) parent.postMessage({ pluginMessage: { type: "export-lottie-json" } }, "*");
   }
 
-  // AI Extract
   function runAIExtract() {
-    if (isExporting) { log("Already exporting.", "err"); return; }
-    isExporting = true;
-    exportCount = 0;
-    progEl.classList.add("show");
-    progFill.style.width = "0%";
-    var opts = {
-      includeSVGs: el("ai-svgs").checked,
-      includeText: el("ai-text").checked,
-      includeVars: el("ai-vars").checked,
-      includeStyles: el("ai-styles").checked,
-      includeComps: el("ai-comps").checked,
-      includeTree: el("ai-tree").checked,
-      includeTXT: el("ai-txtfile").checked,
-    };
+    if (isExporting) { log("Already exporting","err"); return; }
+    isExporting = true; exportCount = 0;
+    progEl.classList.add("show"); progFill.style.width = "0%"; progTxt.textContent = "Starting...";
     status("Extracting for AI");
-    progTxt.textContent = "Starting...";
-    progFill.style.width = "5%";
-    parent.postMessage({ pluginMessage: { type: "get-full-extract", aiOpts: opts } }, "*");
+    var o = { includeSVGs: el("ai-svgs").checked, includeText: el("ai-text").checked, includeVars: el("ai-vars").checked, includeStyles: el("ai-styles").checked, includeComps: el("ai-comps").checked, includeTree: el("ai-tree").checked, includeTXT: el("ai-txtfile").checked };
+    parent.postMessage({ pluginMessage: { type: "get-full-extract", aiOpts: o } }, "*");
   }
 
-  // ── Message Handler ──
-  window.addEventListener("message", function(e) {
+  // ── Wire up all data-action buttons ──
+  document.querySelectorAll("[data-action]").forEach(function(btn){
+    var act = btn.getAttribute("data-action");
+    btn.addEventListener("click", function(e){
+      e.preventDefault();
+      if (act === "ae-extract") { runAEExport(); }
+      else if (act === "ai-extract") { runAIExtract(); }
+      else if (act === "sel-svg") { exportSel("export-selected-svg"); }
+      else if (act === "sel-png") { exportSel("export-selected-png"); }
+      else if (act === "sel-jpg") { exportSel("export-selected-jpg"); }
+      else if (act === "sel-svg-text") { exportSel("get-svg-as-text"); }
+      else if (act === "batch-svg") { runBatch("svg"); }
+      else if (act === "batch-png") { runBatch("png"); }
+      else if (act === "req-variables") { request("get-variables"); }
+      else if (act === "req-styles") { request("get-styles"); }
+      else if (act === "req-components") { request("get-components"); }
+      else if (act === "req-pages") { request("get-pages"); }
+    });
+  });
+
+  // ── Message handler ──
+  window.addEventListener("message", function(e){
     var m = e.data.pluginMessage;
     if (!m) return;
-
     switch (m.type) {
       case "selection-state":
         selCount.textContent = String(m.count || 0);
         selPage.textContent = m.pageName ? "Page: " + m.pageName : "\u2014";
         break;
-
       case "full-extract":
         isExporting = false;
         progFill.style.width = "100%";
         progTxt.textContent = "Done \u2014 " + m.data.textNodes + " texts, " + m.data.svgs + " SVGs";
-        log("Complete: " + m.data.textNodes + " texts, " + m.data.svgs + " SVGs, " + m.data.variables + " vars, " + m.data.styles + " styles", "ok");
+        log("Complete: "+m.data.textNodes+" texts, "+m.data.svgs+" SVGs, "+m.data.variables+" vars, "+m.data.styles+" styles, "+m.data.components+" comps","ok");
         status("Done");
-        setTimeout(function() { progEl.classList.remove("show"); progFill.style.width = "0%"; }, 3000);
+        setTimeout(function(){ progEl.classList.remove("show"); progFill.style.width = "0%"; }, 3000);
         break;
-
       case "full-extract-progress":
-        if (m.progress) {
-          var p = m.progress;
-          var pct = Math.round((p.step / p.totalSteps) * 100);
-          progFill.style.width = pct + "%";
-          progEl.classList.add("show");
-          progTxt.textContent = p.label + " \u2014 " + p.detail;
-          status(p.label);
-        }
+        if (m.progress) { var p=m.progress; var pct=Math.round((p.step/p.totalSteps)*100); progFill.style.width=pct+"%"; progEl.classList.add("show"); progTxt.textContent=p.label+" \u2014 "+p.detail; status(p.label); }
         break;
-
       case "download-file":
-        dlFile(m.fileName, m.content, m.mimeType);
-        status("Downloaded " + m.fileName);
-        if (isExporting && exportCount === 0) {
-          isExporting = false;
-          progEl.classList.remove("show");
-        }
+        dlFile(m.fileName, m.content, m.mimeType); status("Downloaded "+m.fileName);
+        if (isExporting && exportCount===0) { isExporting=false; progEl.classList.remove("show"); }
         break;
-
       case "export-results":
-        if (m.results && m.results.length > 0) {
-          for (var i = 0; i < m.results.length; i++) {
-            var item = m.results[i];
-            dlBytes(item.name + "." + item.format.toLowerCase(), item.bytes, item.format.toLowerCase());
-            exportCount++;
-          }
-          log("Exported " + m.results.length + " file(s)", "ok");
-          status("Exported " + exportCount + " files");
-        }
+        if (m.results && m.results.length>0) { for (var i=0; i<m.results.length; i++) { var it=m.results[i]; dlBytes(it.name+"."+it.format.toLowerCase(), it.bytes, it.format.toLowerCase()); exportCount++; } log("Exported "+m.results.length+" file(s)","ok"); status("Exported "+exportCount+" files"); }
         break;
-
       case "progress":
-        if (m.total > 0) {
-          progFill.style.width = Math.round((m.current / m.total) * 100) + "%";
-          progTxt.textContent = m.current + " / " + m.total + (m.label ? " \u2014 " + m.label : "");
-        }
+        if (m.total>0) { progFill.style.width=Math.round((m.current/m.total)*100)+"%"; progTxt.textContent=m.current+" / "+m.total+(m.label?" \u2014 "+m.label:""); }
         break;
-
       case "export-complete":
-        isExporting = false;
-        progFill.style.width = "100%";
-        progTxt.textContent = "Complete \u2014 " + exportCount + " files";
-        log("Batch complete: " + exportCount + " files", "ok");
-        status("Done");
-        setTimeout(function() { progEl.classList.remove("show"); progFill.style.width = "0%"; }, 2500);
+        isExporting=false; progFill.style.width="100%"; progTxt.textContent="Complete \u2014 "+exportCount+" files"; log("Batch complete: "+exportCount+" files","ok"); status("Done");
+        setTimeout(function(){ progEl.classList.remove("show"); progFill.style.width="0%"; }, 2500);
         break;
-
       case "lottie-import-summary":
-        isExporting = false;
-        var s = m.summary;
-        var sumEl = el("lottieSummary");
-        sumEl.style.display = "block";
-        sumEl.style.color = s.valid ? "var(--green)" : "var(--red)";
-        sumEl.innerHTML = (s.valid ? "\u2705 " : "\u274c ") + "<b>" + s.fileName + "</b> \u2014 " +
-          (s.valid ? ("Layers: " + s.layerCount + ", Keys: " + s.topLevelKeys.join(", ")) : s.warning);
-        status("Validated");
-        break;
-
+        isExporting=false; var s=m.summary; var se=el("lottieSummary"); se.style.display="block"; se.style.color=s.valid?"var(--green)":"var(--red)"; se.innerHTML=(s.valid?"\u2705 ":"\u274c ")+"<b>"+s.fileName+"</b> \u2014 "+(s.valid?("Layers: "+s.layerCount+", Keys: "+s.topLevelKeys.join(", ")):s.warning); status("Validated"); break;
       case "error":
-        isExporting = false;
-        log(m.message, "err");
-        status("Error");
-        progEl.classList.remove("show");
-        break;
+        isExporting=false; log(m.message,"err"); status("Error"); progEl.classList.remove("show"); break;
     }
   });
 
   // Lottie file input
-  var lottieInput = el("lottieFileInput");
-  if (lottieInput) {
-    lottieInput.addEventListener("change", function() {
-      var file = this.files && this.files[0];
-      if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        parent.postMessage({
-          pluginMessage: { type: "import-lottie-json", fileName: file.name, content: e.target.result }
-        }, "*");
-        log("Validating: " + file.name, "inf");
-      };
-      reader.readAsText(file);
-    });
-  }
+  var li = el("lottieFileInput");
+  if (li) li.addEventListener("change", function(){ var f=this.files&&this.files[0]; if(!f)return; var r=new FileReader(); r.onload=function(e){ parent.postMessage({ pluginMessage: { type:"import-lottie-json", fileName:f.name, content:e.target.result } }, "*"); log("Validating: "+f.name,"inf"); }; r.readAsText(f); });
 
-  // Keyboard shortcut
-  document.addEventListener("keydown", function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      runAEExport();
-    }
-    if (e.key === "Escape" && isExporting) {
-      isExporting = false;
-      log("Cancelled", "err");
-      status("Cancelled");
-      progEl.classList.remove("show");
-    }
+  // Keyboard
+  document.addEventListener("keydown", function(e){
+    if ((e.ctrlKey||e.metaKey) && e.key==="Enter") { e.preventDefault(); runAEExport(); }
+    if (e.key==="Escape" && isExporting) { isExporting=false; log("Cancelled","err"); status("Cancelled"); progEl.classList.remove("show"); }
   });
 
-  log("Ready \u2014 choose a tab above.", "inf");
-  log("Ctrl+Enter = AE Extract, Esc = cancel", "inf");
-  status("Ready");
-
+  log("Ready","inf"); log("Ctrl+Enter = AE Extract, Esc = cancel","inf"); status("Ready");
 })();
 </script>
 </body>
