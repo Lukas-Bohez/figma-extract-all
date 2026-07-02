@@ -3,37 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Extract All – Figma to Anything</title>
+<title>Extract All — Figma to Anything</title>
 <style>
   :root {
-    --bg: #f6f3ee;
-    --bg-el: #ffffff;
-    --bg-solid: #ffffff;
-    --text: #1f2328;
-    --muted: #5f6570;
-    --border: rgba(31,35,40,0.12);
-    --accent: #1463ff;
-    --accent2: #0f4fd1;
-    --green: #1f8f4b;
-    --orange: #b4690e;
-    --red: #c2262d;
-    --purple: #8250df;
-    --radius: 16px;
-    --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    --bg: #f6f3ee; --bg-el: #fff; --bg-solid: #fff;
+    --text: #1f2328; --muted: #5f6570; --border: rgba(31,35,40,0.12);
+    --accent: #1463ff; --accent2: #0f4fd1;
+    --green: #1f8f4b; --orange: #b4690e; --red: #c2262d; --purple: #8250df;
+    --radius: 16px; --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
   }
   .dark {
-    --bg: #111317;
-    --bg-el: #161921;
-    --bg-solid: #161921;
-    --text: #eef1f6;
-    --muted: #a5adba;
-    --border: rgba(255,255,255,0.1);
-    --accent: #69a0ff;
-    --accent2: #8ab4ff;
-    --green: #5cc17a;
-    --orange: #f0b35e;
-    --red: #ff6b72;
-    --purple: #b392f0;
+    --bg: #111317; --bg-el: #161921; --bg-solid: #161921;
+    --text: #eef1f6; --muted: #a5adba; --border: rgba(255,255,255,0.1);
+    --accent: #69a0ff; --accent2: #8ab4ff;
+    --green: #5cc17a; --orange: #f0b35e; --red: #ff6b72; --purple: #b392f0;
   }
   * { box-sizing: border-box; }
   body {
@@ -42,7 +25,7 @@
   }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
-  .wrap { max-width: 580px; margin: 0 auto; }
+  .wrap { max-width: 560px; margin: 0 auto; }
 
   .hdr { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-el); margin-bottom: 10px; }
   .hdr h1 { margin: 0; font-size: 16px; white-space: nowrap; }
@@ -51,8 +34,8 @@
   .theme-dot { width: 8px; height: 8px; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent2)); flex-shrink: 0; }
 
   .selbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 12px; border: 1px solid rgba(20,99,255,0.2); background: rgba(20,99,255,0.06); margin-bottom: 10px; font-size: 11px; }
-  .selbar b { display: block; font-size: 12px; }
-  .selbar span { font-size: 10px; color: var(--muted); }
+  .selbar b { font-size: 12px; }
+  .selbar .sel-sub { font-size: 10px; color: var(--muted); }
   .pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--muted); font-size: 9px; white-space: nowrap; }
 
   .tabs { display: flex; gap: 1px; }
@@ -77,6 +60,8 @@
   button.primary:hover { opacity: 0.92; }
   button.purple { color: var(--purple); border-color: transparent; }
   button.orange { color: var(--orange); border-color: transparent; }
+  button.danger { color: var(--red); background: rgba(194,38,45,0.08); }
+  button.danger:hover { border-color: var(--red); }
 
   input[type=number] { font: inherit; width: 60px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--text); font-size: 11px; }
 
@@ -108,12 +93,16 @@
   <div class="hdr">
     <div>
       <h1>Extract All</h1>
-      <p>Pick your intent below, then click one button.</p>
+      <p>Pick your intent, click one button.</p>
     </div>
     <button class="theme-btn" id="themeToggle"><span class="theme-dot"></span><span id="themeLabel">Theme</span></button>
   </div>
+
   <div class="selbar">
-    <div><b><span id="selCount">0</span> nodes</b> <span id="selPage">—</span></div>
+    <div>
+      <b><span id="selCount">0</span> nodes selected</b>
+      <div class="sel-sub"><span id="selPage">—</span></div>
+    </div>
     <span class="pill" id="statusPill">Ready</span>
   </div>
 
@@ -125,14 +114,14 @@
 
   <!-- AE Panel -->
   <div class="panel active" id="panel-ae">
-    <p class="desc">Export everything as SVGs for <strong>Adobe After Effects</strong>.</p>
+    <p class="desc">Export SVGs + metadata for <strong>Adobe After Effects</strong>. Supports Lottie/Bodymovin.</p>
     <div class="card">
       <h3>Export for After Effects</h3>
       <div class="checks">
-        <label><input type="checkbox" id="ae-svgs" checked> Export all SVGs (individual files)</label>
-        <label><input type="checkbox" id="ae-json" checked> Position metadata JSON (x,y,w,h,parent hierarchy)</label>
-        <label><input type="checkbox" id="ae-lottie" checked> Lottie JSON Bundle (selected nodes)</label>
-        <label><input type="checkbox" id="ae-text" checked> Include text content</label>
+        <label><input type="checkbox" id="ae-svgs" checked> SVGs (individual files)</label>
+        <label><input type="checkbox" id="ae-json" checked> Position JSON (x,y,w,h, parent hierarchy)</label>
+        <label><input type="checkbox" id="ae-lottie" checked> Lottie JSON Bundle</label>
+        <label><input type="checkbox" id="ae-text" checked> Text content</label>
       </div>
       <button class="primary" data-action="ae-extract">🎬 Extract for After Effects</button>
     </div>
@@ -145,25 +134,25 @@
 
   <!-- AI Panel -->
   <div class="panel" id="panel-ai">
-    <p class="desc">Get everything an AI needs to build a <strong>React/Next.js/Vue</strong> website.</p>
+    <p class="desc">Everything an AI needs for <strong>React / Next.js / Vue</strong> code generation.</p>
     <div class="card">
-      <h3>Extract for AI Code Generation</h3>
+      <h3>Extract for AI</h3>
       <div class="checks">
-        <label><input type="checkbox" id="ai-svgs" checked> Embed all SVGs in JSON + download files</label>
-        <label><input type="checkbox" id="ai-text" checked> All text (hex colors, fonts, positions, parent hierarchy)</label>
-        <label><input type="checkbox" id="ai-vars" checked> Design tokens/variables (named modes, hex, CSS)</label>
-        <label><input type="checkbox" id="ai-styles" checked> Text & paint styles (typography, colors, effects)</label>
-        <label><input type="checkbox" id="ai-comps" checked> Component structure (names, dimensions, variants)</label>
-        <label><input type="checkbox" id="ai-tree" checked> Full node hierarchy tree</label>
-        <label><input type="checkbox" id="ai-txtfile" checked> Plain text dump</label>
+        <label><input type="checkbox" id="ai-svgs" checked> SVGs in JSON + files</label>
+        <label><input type="checkbox" id="ai-text" checked> Text (hex, fonts, positions, hierarchy)</label>
+        <label><input type="checkbox" id="ai-vars" checked> Variables (named modes, hex, CSS)</label>
+        <label><input type="checkbox" id="ai-styles" checked> Styles (typography, colors)</label>
+        <label><input type="checkbox" id="ai-comps" checked> Components (names, dims, variants)</label>
+        <label><input type="checkbox" id="ai-tree" checked> Node hierarchy tree</label>
+        <label><input type="checkbox" id="ai-txtfile" checked> Text dump (.txt)</label>
       </div>
-      <button class="primary" data-action="ai-extract">🤖 Extract for AI Website Generation</button>
+      <button class="primary" data-action="ai-extract">🤖 Extract for AI</button>
     </div>
   </div>
 
   <!-- Assets Panel -->
   <div class="panel" id="panel-assets">
-    <p class="desc">Select specific nodes or batch export everything.</p>
+    <p class="desc">Select nodes or batch export.</p>
     <div class="card">
       <h3>Selected Nodes</h3>
       <div class="scale-row"><label>Scale: <input type="number" id="scaleSel" value="2" min="0.25" max="8" step="0.25"></label></div>
@@ -172,21 +161,21 @@
         <button class="purple" data-action="sel-png">PNG</button>
         <button class="orange" data-action="sel-jpg">JPG</button>
       </div>
-      <div style="margin-top:6px;"><button data-action="sel-svg-text" style="width:100%;">SVG Code (text)</button></div>
+      <div style="margin-top:6px;"><button data-action="sel-svg-text" style="width:100%">SVG Code</button></div>
     </div>
     <div class="card">
-      <h3>Batch Export All</h3>
+      <h3>Batch Export</h3>
       <div class="scale-row"><label>Scale: <input type="number" id="scaleBatch" value="1" min="0.25" max="8" step="0.25"></label></div>
       <div class="checks" style="margin-bottom:8px;">
-        <label><input type="checkbox" id="batch-scope" checked> All pages <span style="color:var(--muted);">(uncheck = current page only)</span></label>
+        <label><input type="checkbox" id="batch-scope" checked> All pages <span style="color:var(--muted);">(uncheck = current only)</span></label>
       </div>
       <div class="row2">
-        <button data-action="batch-svg">All as SVG</button>
-        <button class="purple" data-action="batch-png">All as PNG</button>
+        <button data-action="batch-svg">All SVG</button>
+        <button class="purple" data-action="batch-png">All PNG</button>
       </div>
     </div>
     <div class="card">
-      <h3>Individual Data</h3>
+      <h3>Data</h3>
       <div class="row2">
         <button data-action="req-variables">Variables</button>
         <button data-action="req-styles">Styles</button>
@@ -198,47 +187,56 @@
     </div>
   </div>
 
-  <div class="prog" id="prog"><div class="prog-bar"><div class="prog-fill" id="progFill"></div></div><div class="prog-txt" id="progTxt"></div></div>
+  <!-- Progress + Cancel -->
+  <div class="prog" id="prog">
+    <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+    <div class="prog-txt" id="progTxt">Ready</div>
+    <div style="margin-top:6px;text-align:right;">
+      <button class="danger" id="btnCancel" style="display:none;font-size:10px;padding:5px 10px;min-height:auto;">Cancel</button>
+    </div>
+  </div>
+
   <div class="log" id="logArea"></div>
-  <div class="ftr">Extract All v4.0.1 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a></div>
+  <div class="ftr">Extract All v5.0.0 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a></div>
 </div>
 
 <script>
 (function(){
-  var el = function(id){ return document.getElementById(id); };
+  'use strict';
+  var el = function(id) { return document.getElementById(id); };
   var logEl = el("logArea"), progEl = el("prog"), progFill = el("progFill"), progTxt = el("progTxt");
   var statusPill = el("statusPill"), selCount = el("selCount"), selPage = el("selPage"), themeLabel = el("themeLabel");
+  var cancelBtn = el("btnCancel");
   var exportCount = 0, isExporting = false, currentTheme = "light";
 
-  // ── Theme ──
+  // ── Theme (class-based, localStorage safe) ──
   function applyTheme(t) {
     currentTheme = t;
     document.body.classList.toggle("dark", t === "dark");
     if (themeLabel) themeLabel.textContent = t === "dark" ? "Dark" : "Light";
-    try { localStorage.setItem("ea-theme", t); } catch(e) {}
+    try { localStorage.setItem("ea-theme", t); } catch (e) {}
   }
   var saved = null;
-  try { saved = localStorage.getItem("ea-theme"); } catch(e) {}
-  var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  applyTheme(saved || (prefersDark ? "dark" : "light"));
-
-  var themeBtn = el("themeToggle");
-  if (themeBtn) themeBtn.addEventListener("click", function(){ applyTheme(currentTheme === "dark" ? "light" : "dark"); });
+  try { saved = localStorage.getItem("ea-theme"); } catch (e) {}
+  applyTheme(saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+  el("themeToggle").addEventListener("click", function () {
+    applyTheme(currentTheme === "dark" ? "light" : "dark");
+  });
 
   // ── Tabs ──
   var tabButtons = document.querySelectorAll(".tab-btn");
   var panels = document.querySelectorAll(".panel");
   function switchTab(name) {
-    for (var i=0; i<tabButtons.length; i++) tabButtons[i].classList.remove("active");
-    for (var j=0; j<panels.length; j++) panels[j].classList.remove("active");
-    for (var k=0; k<tabButtons.length; k++) {
+    for (var i = 0; i < tabButtons.length; i++) tabButtons[i].classList.remove("active");
+    for (var j = 0; j < panels.length; j++) panels[j].classList.remove("active");
+    for (var k = 0; k < tabButtons.length; k++) {
       if (tabButtons[k].getAttribute("data-tab") === name) { tabButtons[k].classList.add("active"); break; }
     }
     var p = el("panel-" + name);
     if (p) p.classList.add("active");
   }
-  for (var t=0; t<tabButtons.length; t++) {
-    tabButtons[t].addEventListener("click", function(){ var n = this.getAttribute("data-tab"); if (n) switchTab(n); });
+  for (var t = 0; t < tabButtons.length; t++) {
+    tabButtons[t].addEventListener("click", function () { var n = this.getAttribute("data-tab"); if (n) switchTab(n); });
   }
 
   // ── Logging ──
@@ -248,133 +246,219 @@
     var d = document.createElement("div"); d.className = type;
     d.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
     logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
-    clearTimeout(logEl._t); logEl._t = setTimeout(function(){ if (!isExporting) logEl.classList.remove("show"); }, 12000);
+    clearTimeout(logEl._t);
+    logEl._t = setTimeout(function () { if (!isExporting) logEl.classList.remove("show"); }, 15000);
   }
   function status(m) { if (statusPill) statusPill.textContent = m; }
 
+  // ── Show/hide cancel button ──
+  function showCancel() { if (cancelBtn) cancelBtn.style.display = "inline-flex"; }
+  function hideCancel() { if (cancelBtn) cancelBtn.style.display = "none"; }
+
+  // ── Cancel (sends cancel message to plugin) ──
+  function doCancel() {
+    if (!isExporting) return;
+    parent.postMessage({ pluginMessage: { type: "cancel" } }, "*");
+    isExporting = false;
+    progEl.classList.remove("show");
+    hideCancel();
+    log("Cancelled", "err");
+    status("Cancelled");
+  }
+  if (cancelBtn) cancelBtn.addEventListener("click", doCancel);
+
   // ── Downloads ──
-  function dlFile(n,c,m){ var b=new Blob([c],{type:m}), u=URL.createObjectURL(b), a=document.createElement("a"); a.href=u; a.download=n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); log("Downloaded: "+n,"ok"); }
-  function dlBytes(n,bytes,f){ var mm={svg:"image/svg+xml",png:"image/png",jpg:"image/jpeg"}, m=mm[f]||"application/octet-stream", u8=new Uint8Array(bytes), b=new Blob([u8],{type:m}), u=URL.createObjectURL(b), a=document.createElement("a"); a.href=u; a.download=n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
+  function dlFile(n, c, m) { var b = new Blob([c], { type: m }), u = URL.createObjectURL(b), a = document.createElement("a"); a.href = u; a.download = n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); log("Downloaded: " + n, "ok"); }
+  function dlBytes(n, bytes, f) { var mm = { svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg" }, m = mm[f] || "application/octet-stream", u8 = new Uint8Array(bytes), b = new Blob([u8], { type: m }), u = URL.createObjectURL(b), a = document.createElement("a"); a.href = u; a.download = n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
 
   // ── Core actions ──
   function request(type) {
-    if (isExporting) { log("Already exporting","err"); return; }
-    log("Requesting "+type,"inf"); status("Working");
+    if (isExporting) { log("Already exporting", "err"); return; }
+    log("Requesting " + type, "inf"); status("Working");
     parent.postMessage({ pluginMessage: { type: type } }, "*");
   }
 
   function exportSel(type) {
-    if (isExporting) { log("Already exporting","err"); return; }
+    if (isExporting) { log("Already exporting", "err"); return; }
     var s = parseFloat(el("scaleSel").value) || 1;
     isExporting = true; exportCount = 0;
-    progEl.classList.add("show"); progFill.style.width = "0%"; progTxt.textContent = "Starting...";
-    status("Exporting selected"); log("Export: "+type+" ("+s+"x)","inf");
+    progEl.classList.add("show"); showCancel();
+    progFill.style.width = "0%"; progTxt.textContent = "Exporting selected...";
+    status("Exporting selected");
     parent.postMessage({ pluginMessage: { type: type, scale: s } }, "*");
   }
 
   function runBatch(fmt) {
-    if (isExporting) { log("Already exporting","err"); return; }
+    if (isExporting) { log("Already exporting", "err"); return; }
     var s = parseFloat(el("scaleBatch").value) || 1;
     var all = el("batch-scope").checked;
     isExporting = true; exportCount = 0;
-    progEl.classList.add("show"); progFill.style.width = "0%"; progTxt.textContent = "Starting...";
+    progEl.classList.add("show"); showCancel();
+    progFill.style.width = "0%"; progTxt.textContent = "Starting...";
     var t = fmt === "svg" ? (all ? "export-all-svg-all-pages" : "export-all-svg-page") : (all ? "export-all-png-all-pages" : "export-all-png-page");
     status(all ? "Exporting all pages" : "Exporting current page");
-    log("Batch "+fmt.toUpperCase()+" ("+s+"x)","inf");
     parent.postMessage({ pluginMessage: { type: t, scale: s } }, "*");
   }
 
   function runAEExport() {
-    if (isExporting) { log("Already exporting","err"); return; }
+    if (isExporting) { log("Already exporting", "err"); return; }
     isExporting = true; exportCount = 0;
-    progEl.classList.add("show"); progFill.style.width = "0%"; progTxt.textContent = "Starting...";
+    progEl.classList.add("show"); showCancel();
+    progFill.style.width = "0%"; progTxt.textContent = "Starting Full Extract...";
     status("Extracting for AE");
-    var o = { includeSVGs: el("ae-svgs").checked, includeJSON: el("ae-json").checked, includeLottie: el("ae-lottie").checked, includeText: el("ae-text").checked };
+    var o = {
+      includeSVGs: el("ae-svgs").checked, includeJSON: el("ae-json").checked,
+      includeLottie: el("ae-lottie").checked, includeText: el("ae-text").checked
+    };
     parent.postMessage({ pluginMessage: { type: "get-full-extract", aeOpts: o } }, "*");
     if (o.includeLottie) parent.postMessage({ pluginMessage: { type: "export-lottie-json" } }, "*");
   }
 
   function runAIExtract() {
-    if (isExporting) { log("Already exporting","err"); return; }
+    if (isExporting) { log("Already exporting", "err"); return; }
     isExporting = true; exportCount = 0;
-    progEl.classList.add("show"); progFill.style.width = "0%"; progTxt.textContent = "Starting...";
+    progEl.classList.add("show"); showCancel();
+    progFill.style.width = "0%"; progTxt.textContent = "Starting Full Extract...";
     status("Extracting for AI");
-    var o = { includeSVGs: el("ai-svgs").checked, includeText: el("ai-text").checked, includeVars: el("ai-vars").checked, includeStyles: el("ai-styles").checked, includeComps: el("ai-comps").checked, includeTree: el("ai-tree").checked, includeTXT: el("ai-txtfile").checked };
+    var o = {
+      includeSVGs: el("ai-svgs").checked, includeText: el("ai-text").checked,
+      includeVars: el("ai-vars").checked, includeStyles: el("ai-styles").checked,
+      includeComps: el("ai-comps").checked, includeTree: el("ai-tree").checked,
+      includeTXT: el("ai-txtfile").checked
+    };
     parent.postMessage({ pluginMessage: { type: "get-full-extract", aiOpts: o } }, "*");
   }
 
-  // ── Wire up all data-action buttons ──
-  document.querySelectorAll("[data-action]").forEach(function(btn){
-    var act = btn.getAttribute("data-action");
-    btn.addEventListener("click", function(e){
+  // ── Wire data-action buttons ──
+  document.querySelectorAll("[data-action]").forEach(function (btn) {
+    btn.addEventListener("click", function (e) {
       e.preventDefault();
-      if (act === "ae-extract") { runAEExport(); }
-      else if (act === "ai-extract") { runAIExtract(); }
-      else if (act === "sel-svg") { exportSel("export-selected-svg"); }
-      else if (act === "sel-png") { exportSel("export-selected-png"); }
-      else if (act === "sel-jpg") { exportSel("export-selected-jpg"); }
-      else if (act === "sel-svg-text") { exportSel("get-svg-as-text"); }
-      else if (act === "batch-svg") { runBatch("svg"); }
-      else if (act === "batch-png") { runBatch("png"); }
-      else if (act === "req-variables") { request("get-variables"); }
-      else if (act === "req-styles") { request("get-styles"); }
-      else if (act === "req-components") { request("get-components"); }
-      else if (act === "req-pages") { request("get-pages"); }
+      var act = this.getAttribute("data-action");
+      if (act === "ae-extract") runAEExport();
+      else if (act === "ai-extract") runAIExtract();
+      else if (act === "sel-svg") exportSel("export-selected-svg");
+      else if (act === "sel-png") exportSel("export-selected-png");
+      else if (act === "sel-jpg") exportSel("export-selected-jpg");
+      else if (act === "sel-svg-text") exportSel("get-svg-as-text");
+      else if (act === "batch-svg") runBatch("svg");
+      else if (act === "batch-png") runBatch("png");
+      else if (act === "req-variables") request("get-variables");
+      else if (act === "req-styles") request("get-styles");
+      else if (act === "req-components") request("get-components");
+      else if (act === "req-pages") request("get-pages");
     });
   });
 
   // ── Message handler ──
-  window.addEventListener("message", function(e){
+  window.addEventListener("message", function (e) {
     var m = e.data.pluginMessage;
     if (!m) return;
+
     switch (m.type) {
       case "selection-state":
         selCount.textContent = String(m.count || 0);
         selPage.textContent = m.pageName ? "Page: " + m.pageName : "\u2014";
         break;
+
+      case "full-extract-progress":
+        if (m.progress) {
+          var p = m.progress;
+          var pct = Math.round((p.step / p.totalSteps) * 100);
+          progFill.style.width = pct + "%";
+          progEl.classList.add("show");
+          progTxt.textContent = "Step " + p.step + "/" + p.totalSteps + " \u2014 " + p.label + ": " + p.detail;
+          status(p.label);
+        }
+        break;
+
       case "full-extract":
         isExporting = false;
+        hideCancel();
         progFill.style.width = "100%";
-        progTxt.textContent = "Done \u2014 " + m.data.textNodes + " texts, " + m.data.svgs + " SVGs";
-        log("Complete: "+m.data.textNodes+" texts, "+m.data.svgs+" SVGs, "+m.data.variables+" vars, "+m.data.styles+" styles, "+m.data.components+" comps","ok");
+        progTxt.textContent = "Done \u2014 " + m.data.textNodes + " texts, " + m.data.variables + " vars, " + m.data.styles + " styles, " + m.data.components + " comps";
+        log("Complete: " + m.data.textNodes + " texts, " + m.data.variables + " vars, " + m.data.styles + " styles, " + m.data.components + " comps on " + m.data.totalNodes + " nodes", "ok");
         status("Done");
-        setTimeout(function(){ progEl.classList.remove("show"); progFill.style.width = "0%"; }, 3000);
+        setTimeout(function () { progEl.classList.remove("show"); progFill.style.width = "0%"; }, 3000);
         break;
-      case "full-extract-progress":
-        if (m.progress) { var p=m.progress; var pct=Math.round((p.step/p.totalSteps)*100); progFill.style.width=pct+"%"; progEl.classList.add("show"); progTxt.textContent=p.label+" \u2014 "+p.detail; status(p.label); }
-        break;
+
       case "download-file":
-        dlFile(m.fileName, m.content, m.mimeType); status("Downloaded "+m.fileName);
-        if (isExporting && exportCount===0) { isExporting=false; progEl.classList.remove("show"); }
+        dlFile(m.fileName, m.content, m.mimeType);
+        status("Downloaded " + m.fileName);
         break;
+
       case "export-results":
-        if (m.results && m.results.length>0) { for (var i=0; i<m.results.length; i++) { var it=m.results[i]; dlBytes(it.name+"."+it.format.toLowerCase(), it.bytes, it.format.toLowerCase()); exportCount++; } log("Exported "+m.results.length+" file(s)","ok"); status("Exported "+exportCount+" files"); }
+        if (m.results && m.results.length > 0) {
+          for (var i = 0; i < m.results.length; i++) {
+            var it = m.results[i];
+            dlBytes(it.name + "." + it.format.toLowerCase(), it.bytes, it.format.toLowerCase());
+            exportCount++;
+          }
+          log("Exported " + m.results.length + " files", "ok");
+          status("Exported " + exportCount + " files");
+        }
         break;
+
       case "progress":
-        if (m.total>0) { progFill.style.width=Math.round((m.current/m.total)*100)+"%"; progTxt.textContent=m.current+" / "+m.total+(m.label?" \u2014 "+m.label:""); }
+        if (m.total > 0) {
+          progFill.style.width = Math.round((m.current / m.total) * 100) + "%";
+          progTxt.textContent = m.current + " / " + m.total + (m.label ? " \u2014 " + m.label : "");
+        }
         break;
+
       case "export-complete":
-        isExporting=false; progFill.style.width="100%"; progTxt.textContent="Complete \u2014 "+exportCount+" files"; log("Batch complete: "+exportCount+" files","ok"); status("Done");
-        setTimeout(function(){ progEl.classList.remove("show"); progFill.style.width="0%"; }, 2500);
+        isExporting = false;
+        hideCancel();
+        progFill.style.width = "100%";
+        progTxt.textContent = "Complete \u2014 " + exportCount + " files";
+        log("Batch complete: " + exportCount + " files", "ok");
+        status("Done");
+        setTimeout(function () { progEl.classList.remove("show"); progFill.style.width = "0%"; }, 2500);
         break;
+
       case "lottie-import-summary":
-        isExporting=false; var s=m.summary; var se=el("lottieSummary"); se.style.display="block"; se.style.color=s.valid?"var(--green)":"var(--red)"; se.innerHTML=(s.valid?"\u2705 ":"\u274c ")+"<b>"+s.fileName+"</b> \u2014 "+(s.valid?("Layers: "+s.layerCount+", Keys: "+s.topLevelKeys.join(", ")):s.warning); status("Validated"); break;
+        isExporting = false;
+        hideCancel();
+        var s = m.summary;
+        var se = el("lottieSummary");
+        se.style.display = "block";
+        se.style.color = s.valid ? "var(--green)" : "var(--red)";
+        se.innerHTML = (s.valid ? "\u2705 " : "\u274c ") + "<b>" + s.fileName + "</b> \u2014 " +
+          (s.valid ? ("Layers: " + s.layerCount + ", Keys: " + (s.topLevelKeys.length > 0 ? s.topLevelKeys.join(", ") : "(none)")) : s.warning);
+        status("Validated");
+        break;
+
       case "error":
-        isExporting=false; log(m.message,"err"); status("Error"); progEl.classList.remove("show"); break;
+        isExporting = false;
+        hideCancel();
+        log(m.message, "err");
+        status("Error");
+        progEl.classList.remove("show");
+        break;
     }
   });
 
-  // Lottie file input
+  // ── Lottie file input ──
   var li = el("lottieFileInput");
-  if (li) li.addEventListener("change", function(){ var f=this.files&&this.files[0]; if(!f)return; var r=new FileReader(); r.onload=function(e){ parent.postMessage({ pluginMessage: { type:"import-lottie-json", fileName:f.name, content:e.target.result } }, "*"); log("Validating: "+f.name,"inf"); }; r.readAsText(f); });
-
-  // Keyboard
-  document.addEventListener("keydown", function(e){
-    if ((e.ctrlKey||e.metaKey) && e.key==="Enter") { e.preventDefault(); runAEExport(); }
-    if (e.key==="Escape" && isExporting) { isExporting=false; log("Cancelled","err"); status("Cancelled"); progEl.classList.remove("show"); }
+  if (li) li.addEventListener("change", function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function (e) {
+      parent.postMessage({ pluginMessage: { type: "import-lottie-json", fileName: f.name, content: e.target.result } }, "*");
+      log("Validating: " + f.name, "inf");
+    };
+    r.readAsText(f);
   });
 
-  log("Ready","inf"); log("Ctrl+Enter = AE Extract, Esc = cancel","inf"); status("Ready");
+  // ── Keyboard ──
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runAEExport(); }
+    if (e.key === "Escape" && isExporting) { e.preventDefault(); doCancel(); }
+  });
+
+  log("Ready \u2014 pick a tab", "inf");
+  log("Ctrl+Enter = AE Extract, Esc = cancel", "inf");
+  status("Ready");
 })();
 </script>
 </body>

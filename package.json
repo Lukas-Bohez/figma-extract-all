@@ -1,12 +1,12 @@
 {
   "name": "figma-extract-all",
-  "version": "4.0.1",
+  "version": "5.0.0",
   "description": "Extract everything from Figma: SVGs, PNGs, text, variables, styles, components — with one click.",
   "main": "code.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch",
-    "release": "npm run build && git add -A && git commit -m 'Release v4.0.1' && git tag v4.0.1 && git push origin master --tags"
+    "release": "npm run build && git add -A && git commit -m 'Release v5.0.0' && git tag v5.0.0 && git push origin master --tags"
   },
   "keywords": [
     "figma",
