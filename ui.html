@@ -3,827 +3,401 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Extract All  EFigma to Anything</title>
+<title>Extract All – Figma to Anything</title>
 <style>
   :root {
     --bg: #f6f3ee;
-    --bg-elevated: rgba(255, 255, 255, 0.82);
-    --bg-strong: #ffffff;
+    --bg-el: rgba(255,255,255,0.82);
+    --bg-solid: #fff;
     --text: #1f2328;
     --muted: #5f6570;
-    --border: rgba(31, 35, 40, 0.12);
-    --shadow: 0 18px 40px rgba(31, 35, 40, 0.12);
+    --border: rgba(31,35,40,0.12);
     --accent: #1463ff;
-    --accent-strong: #0f4fd1;
-    --success: #1f8f4b;
-    --warning: #b4690e;
-    --danger: #c2262d;
-    --radius-xl: 22px;
-    --radius-lg: 16px;
-    --radius-md: 12px;
-    --radius-sm: 10px;
-    --font: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --accent2: #0f4fd1;
+    --green: #1f8f4b;
+    --orange: #b4690e;
+    --red: #c2262d;
+    --purple: #8250df;
+    --radius: 16px;
+    --font: Inter,"Segoe UI",system-ui,sans-serif;
   }
-
   html[data-theme="dark"] {
     --bg: #111317;
-    --bg-elevated: rgba(22, 25, 31, 0.84);
-    --bg-strong: #161921;
+    --bg-el: rgba(22,25,31,0.84);
+    --bg-solid: #161921;
     --text: #eef1f6;
     --muted: #a5adba;
-    --border: rgba(255, 255, 255, 0.1);
-    --shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+    --border: rgba(255,255,255,0.1);
     --accent: #69a0ff;
-    --accent-strong: #8ab4ff;
-    --success: #5cc17a;
-    --warning: #f0b35e;
-    --danger: #ff6b72;
+    --accent2: #8ab4ff;
+    --green: #5cc17a;
+    --orange: #f0b35e;
+    --red: #ff6b72;
+    --purple: #b392f0;
   }
-
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    min-height: 100%;
-  }
-
+  * { box-sizing:border-box; }
   body {
-    font-family: var(--font);
-    color: var(--text);
-    background:
-      radial-gradient(circle at top left, rgba(20, 99, 255, 0.16), transparent 34%),
-      radial-gradient(circle at top right, rgba(31, 143, 75, 0.12), transparent 28%),
-      linear-gradient(180deg, var(--bg), var(--bg));
-    padding: 16px;
-    user-select: none;
-    overflow-y: auto;
+    font-family:var(--font); color:var(--text);
+    background: radial-gradient(circle at top left, rgba(20,99,255,0.12), transparent 34%),
+                radial-gradient(circle at top right, rgba(31,143,75,0.08), transparent 28%),
+                var(--bg);
+    margin:0; padding:14px; overflow-y:auto; user-select:none; font-size:13px;
   }
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:999px; }
+  .wrap { max-width:620px; margin:0 auto; }
 
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-    background-size: 32px 32px;
-    mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 70%);
-    opacity: 0.15;
+  /* Header */
+  .hdr { display:flex; justify-content:space-between; align-items:flex-start; padding:14px 16px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-el); backdrop-filter:blur(18px); margin-bottom:12px; }
+  .hdr h1 { margin:0; font-size:18px; letter-spacing:-0.01em; }
+  .hdr p { margin:4px 0 0; font-size:11px; color:var(--muted); max-width:36ch; line-height:1.4; }
+  .theme-btn { flex-shrink:0; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--bg-solid); color:var(--text); padding:8px 12px; border-radius:999px; cursor:pointer; font:inherit; font-size:11px; }
+  .theme-dot { width:10px; height:10px; border-radius:999px; background:linear-gradient(135deg,var(--accent),var(--accent2)); }
+
+  /* Selection bar */
+  .selbar { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-radius:12px; border:1px solid rgba(20,99,255,0.2); background:rgba(20,99,255,0.06); margin-bottom:12px; }
+  .selbar b { display:block; font-size:13px; }
+  .selbar span { font-size:11px; color:var(--muted); }
+  .pill { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:999px; border:1px solid var(--border); background:var(--bg-solid); color:var(--muted); font-size:10px; white-space:nowrap; }
+
+  /* Tabs */
+  .tabs { display:flex; gap:2px; margin-bottom:0; }
+  .tab-btn { flex:1; padding:11px 8px; border:1px solid var(--border); border-bottom:none; border-radius:12px 12px 0 0; background:var(--bg-el); color:var(--muted); cursor:pointer; font:inherit; font-size:12px; font-weight:600; text-align:center; transition:all 120ms ease; }
+  .tab-btn.active { background:var(--bg-solid); color:var(--accent); border-color:var(--border); box-shadow:0 -2px 8px rgba(20,99,255,0.06); }
+  .tab-btn:hover:not(.active) { color:var(--text); }
+  .tab-emoji { display:block; font-size:18px; margin-bottom:2px; }
+
+  /* Tab panels */
+  .panel { display:none; padding:16px; border:1px solid var(--border); border-top:none; border-radius:0 0 var(--radius) var(--radius); background:var(--bg-el); backdrop-filter:blur(18px); margin-bottom:12px; }
+  .panel.active { display:block; }
+  .panel p.desc { margin:0 0 14px; font-size:11px; color:var(--muted); line-height:1.5; }
+
+  /* Cards within panels */
+  .card { border:1px solid var(--border); border-radius:12px; background:var(--bg-solid); padding:14px; margin-bottom:10px; }
+  .card h3 { margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); }
+
+  /* Checkbox row */
+  .checks { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+  .checks label { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text); cursor:pointer; padding:4px 0; }
+  .checks label:hover { color:var(--accent); }
+  .checks input[type=checkbox] { accent-color:var(--accent); width:15px; height:15px; cursor:pointer; }
+
+  /* Buttons */
+  button, input[type=number], .btn { font:inherit; }
+  button, .btn {
+    appearance:none; border:1px solid var(--border); background:var(--bg-solid); color:var(--text);
+    padding:12px 14px; border-radius:10px; cursor:pointer; font-size:12px; font-weight:600;
+    transition:all 120ms ease; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px; width:100%;
   }
+  button:hover, .btn:hover { border-color:var(--accent); box-shadow:0 6px 16px rgba(20,99,255,0.06); }
+  button:active { transform:scale(0.98); }
+  button:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+  button.primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; border-color:transparent; }
+  button.accent { color:var(--accent); }
+  button.green { color:var(--green); }
+  button.purple { color:var(--purple); }
+  button.orange { color:var(--orange); }
+  .row2 { display:flex; gap:8px; }
+  .row2>* { flex:1; }
+  .row3 { display:flex; gap:6px; }
+  .row3>* { flex:1; }
 
-  ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+  /* Scale input */
+  .scale-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .scale-row label { font-size:11px; color:var(--muted); white-space:nowrap; }
+  .scale-row input[type=number] { width:64px; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg-solid); color:var(--text); }
 
-  .shell {
-    position: relative;
-    z-index: 1;
-    max-width: 720px;
-    margin: 0 auto;
-  }
+  /* Progress */
+  .prog { display:none; margin-top:10px; }
+  .prog.show { display:block; }
+  .prog-bar { height:6px; border-radius:999px; background:rgba(127,127,127,0.18); overflow:hidden; }
+  .prog-fill { height:100%; width:0%; background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:999px; transition:width 150ms ease; }
+  .prog-txt { margin-top:6px; font-size:10px; color:var(--muted); text-align:right; }
 
-  .hero {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: flex-start;
-    padding: 18px 18px 16px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    background: var(--bg-elevated);
-    backdrop-filter: blur(18px);
-    box-shadow: var(--shadow);
-    margin-bottom: 14px;
-  }
+  /* Log */
+  .log { display:none; margin-top:10px; padding:10px; border-radius:10px; border:1px solid var(--border); background:rgba(0,0,0,0.03); max-height:140px; overflow-y:auto; font:11px/1.5 ui-monospace,Consolas,monospace; color:var(--muted); }
+  .log.show { display:block; }
+  .log .ok { color:var(--green); }
+  .log .err { color:var(--red); }
+  .log .inf { color:var(--accent); }
 
-  .hero h1 {
-    margin: 0;
-    font-size: 20px;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-  }
-
-  .hero p {
-    margin: 6px 0 0;
-    font-size: 12px;
-    line-height: 1.45;
-    color: var(--muted);
-    max-width: 46ch;
-  }
-
-  .theme-toggle {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-strong);
-    color: var(--text);
-    padding: 10px 12px;
-    border-radius: 999px;
-    cursor: pointer;
-    font: inherit;
-    font-size: 12px;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
-  }
-
-  .theme-swatch {
-    width: 12px;
-    height: 12px;
-    border-radius: 999px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    box-shadow: 0 0 0 3px rgba(20, 99, 255, 0.14);
-  }
-
-  .card {
-    background: var(--bg-elevated);
-    backdrop-filter: blur(18px);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    padding: 16px;
-    box-shadow: var(--shadow);
-    margin-bottom: 14px;
-  }
-
-  .card-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .card-title h2 {
-    margin: 0;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--muted);
-  }
-
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--bg-strong);
-    color: var(--muted);
-    font-size: 11px;
-    white-space: nowrap;
-  }
-
-  .selection-bar {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
-    margin-bottom: 14px;
-    padding: 12px 14px;
-    border-radius: var(--radius-lg);
-    border: 1px solid rgba(20, 99, 255, 0.2);
-    background: rgba(20, 99, 255, 0.08);
-    color: var(--text);
-  }
-
-  .selection-bar strong {
-    display: block;
-    font-size: 13px;
-    margin-bottom: 2px;
-  }
-
-  .selection-bar span {
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .grid {
-    display: grid;
-    gap: 10px;
-  }
-
-  .grid.two {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .grid.three {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .grid.one {
-    grid-template-columns: 1fr;
-  }
-
-  button, input[type="number"] {
-    font: inherit;
-  }
-
-  button {
-    appearance: none;
-    border: 1px solid var(--border);
-    background: var(--bg-strong);
-    color: var(--text);
-    padding: 12px 14px;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 44px;
-  }
-
-  button:hover {
-    transform: translateY(-1px);
-    border-color: rgba(20, 99, 255, 0.4);
-    box-shadow: 0 8px 18px rgba(20, 99, 255, 0.08);
-  }
-
-  button:active { transform: translateY(0); }
-  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
-
-  button.primary {
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    color: #fff;
-    border-color: transparent;
-  }
-
-  button.success { color: var(--success); }
-  button.warning { color: var(--warning); }
-  button.danger { color: var(--danger); }
-
-  button.small {
-    min-height: 38px;
-    padding: 10px 12px;
-    font-size: 12px;
-  }
-
-  .button-stack { gap: 10px; }
-
-  .action-copy {
-    display: block;
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 6px;
-    line-height: 1.35;
-  }
-
-  .section-subtitle {
-    margin: 0 0 12px;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
-  .controls {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: center;
-    margin-top: 2px;
-  }
-
-  label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--muted);
-    font-size: 12px;
-  }
-
-  input[type="number"] {
-    width: 72px;
-    padding: 9px 10px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg-strong);
-    color: var(--text);
-  }
-
-  input[type="number"]:focus {
-    outline: 2px solid rgba(20, 99, 255, 0.24);
-    outline-offset: 1px;
-  }
-
-  details {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--bg-strong);
-    overflow: hidden;
-  }
-
-  summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 14px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  summary::-webkit-details-marker { display: none; }
-
-  details .details-body {
-    padding: 0 16px 16px;
-  }
-
-  .progress {
-    display: none;
-    margin-top: 14px;
-  }
-
-  .progress.show { display: block; }
-
-  .progress-bar {
-    height: 8px;
-    border-radius: 999px;
-    background: rgba(127, 127, 127, 0.18);
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    border-radius: 999px;
-    transition: width 180ms ease;
-  }
-
-  .progress-text {
-    margin-top: 8px;
-    font-size: 11px;
-    color: var(--muted);
-    text-align: right;
-  }
-
-  .log {
-    display: none;
-    margin-top: 12px;
-    padding: 12px;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
-    background: rgba(0, 0, 0, 0.04);
-    max-height: 160px;
-    overflow-y: auto;
-    font-size: 11px;
-    line-height: 1.55;
-    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-    color: var(--muted);
-  }
-
-  .log.show { display: block; }
-  .log-entry { padding: 1px 0; }
-  .log-entry.success { color: var(--success); }
-  .log-entry.error { color: var(--danger); }
-  .log-entry.info { color: var(--accent); }
-
-  .footer {
-    padding: 0 2px 10px;
-    text-align: center;
-    color: var(--muted);
-    font-size: 11px;
-  }
-
-  .footer a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-
-  .footer a:hover { text-decoration: underline; }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  @media (max-width: 520px) {
-    .hero { flex-direction: column; }
-    .grid.two, .grid.three { grid-template-columns: 1fr; }
-    .selection-bar { flex-direction: column; align-items: flex-start; }
-  }
+  .ftr { text-align:center; margin-top:10px; font-size:10px; color:var(--muted); }
+  .ftr a { color:var(--accent); text-decoration:none; }
 </style>
 </head>
 <body>
-<div class="shell">
-  <header class="hero">
+<div class="wrap">
+
+  <div class="hdr">
     <div>
       <h1>Extract All</h1>
-      <p>Fast exports for Figma: extract data, export selected nodes, or batch export the current page.</p>
+      <p>One-click extraction for your Figma workflow — pick your intent below.</p>
     </div>
-    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme">
-      <span class="theme-swatch" aria-hidden="true"></span>
-      <span id="themeLabel">Theme</span>
-    </button>
-  </header>
+    <button class="theme-btn" id="themeToggle"><span class="theme-dot"></span> <span id="themeLabel">Theme</span></button>
+  </div>
 
-  <div class="selection-bar" id="selectionInfo">
-    <div>
-      <strong><span id="selectionCount">0</span> nodes selected</strong>
-      <span id="selectionPage">Waiting for selection state</span>
-    </div>
+  <div class="selbar">
+    <div><b><span id="selCount">0</span> nodes selected</b><span id="selPage">—</span></div>
     <span class="pill" id="statusPill">Ready</span>
   </div>
 
-  <section class="card">
-    <div class="card-title">
-      <h2>Quick Actions</h2>
-      <span class="pill">Primary workflows</span>
-    </div>
-    <p class="section-subtitle">Use these first. The advanced exports are below if you need specific output formats.</p>
-    <div class="grid one">
-      <button class="primary" onclick="requestExtract('get-full-extract')" id="btnFullExtract">
-        Full Extract (JSON)
-      </button>
-      <button onclick="requestExtract('get-text')" id="btnText">Text only</button>
-      <button class="success" onclick="exportSelected('export-selected-svg')" id="btnSelected">
-        Export selected nodes
-      </button>
-    </div>
-  </section>
+  <!-- ═══════════ TABS ═══════════ -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="ae">
+      <span class="tab-emoji">🎬</span> After Effects
+    </button>
+    <button class="tab-btn" data-tab="ai">
+      <span class="tab-emoji">🤖</span> AI / Website
+    </button>
+    <button class="tab-btn" data-tab="assets">
+      <span class="tab-emoji">📦</span> Assets Export
+    </button>
+  </div>
 
-  <section class="card">
-    <div class="card-title">
-      <h2>Selected Export</h2>
-      <span class="pill">Scale controls</span>
-    </div>
-    <div class="controls">
-      <label>SVG/PNG/JPG scale <input type="number" id="scaleSelected" value="2" min="0.25" max="8" step="0.25"></label>
-    </div>
-    <div class="grid three" style="margin-top: 12px;">
-      <button class="primary" onclick="exportSelected('export-selected-svg')">SVG</button>
-      <button class="warning" onclick="exportSelected('export-selected-png')">PNG</button>
-      <button class="danger" onclick="exportSelected('export-selected-jpg')">JPG</button>
-    </div>
-    <div class="grid one" style="margin-top: 10px;">
-      <button onclick="exportSelected('get-svg-as-text')">SVG code as text</button>
-    </div>
-  </section>
+  <!-- ═══════════ PANEL 1: AFTER EFFECTS ═══════════ -->
+  <div class="panel active" id="panel-ae">
+    <p class="desc">Extract everything as SVGs for <strong>Adobe After Effects</strong>. Includes position data in JSON, Lottie bundle, and Bodymovin import.</p>
 
-  <section class="card">
-    <div class="card-title">
-      <h2>Batch Export</h2>
-      <span class="pill">All nodes</span>
+    <div class="card">
+      <h3>Export for After Effects</h3>
+      <div class="checks">
+        <label><input type="checkbox" id="ae-svgs" checked> Export all SVGs (individual files)</label>
+        <label><input type="checkbox" id="ae-json" checked> Include position metadata JSON (x, y, w, h, parent hierarchy)</label>
+        <label><input type="checkbox" id="ae-lottie" checked> Export Lottie JSON Bundle (selected nodes as embedded SVGs)</label>
+        <label><input type="checkbox" id="ae-text" checked> Include text content</label>
+      </div>
+      <button class="primary" onclick="runAEExport()" id="btnAE">🎬 Extract for After Effects</button>
     </div>
-    <div class="controls">
-      <label>Batch scale <input type="number" id="scaleBatch" value="1" min="0.25" max="8" step="0.25"></label>
-    </div>
-    <div class="grid two" style="margin-top: 12px;">
-      <button class="primary" onclick="batchExport('export-all-svg-page', 'current')">Current page SVG</button>
-      <button class="warning" onclick="batchExport('export-all-png-page', 'current')">Current page PNG</button>
-      <button class="primary" onclick="batchExport('export-all-svg-all-pages', 'all')">All pages SVG</button>
-      <button class="warning" onclick="batchExport('export-all-png-all-pages', 'all')">All pages PNG</button>
-    </div>
-    <div class="progress" id="progressContainer">
-      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-text" id="progressText">0 / 0</div>
-    </div>
-  </section>
 
-  <!-- ══════════════╁ELOTTIE / AFTER EFFECTS ══════════════╁E-->
-  <section class="card">
-    <div class="card-title">
-      <h2>After Effects / Lottie Export</h2>
-      <span class="pill">Motion-ready</span>
-    </div>
-    <p class="section-subtitle">
-      Export selected nodes as a Lottie-compatible JSON bundle. Each node becomes an SVG layer with position & size metadata  Eready for After Effects or Lottie animation tools.
-    </p>
-    <div class="grid one">
-      <button class="primary" onclick="exportLottie()" id="btnLottie">
-        🎬 Export Lottie JSON Bundle
-      </button>
-    </div>
-    <div style="margin-top:10px;">
-      <label style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">
-        <span style="color:var(--muted);font-size:11px;">Import & validate a Lottie JSON file</span>
-        <input type="file" id="lottieFileInput" accept=".json" style="width:100%;font:inherit;font-size:11px;padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--bg-strong);color:var(--text);">
+    <div class="card">
+      <h3>Import from After Effects</h3>
+      <label style="display:flex;flex-direction:column;gap:4px;">
+        <span style="font-size:11px;color:var(--muted);">Drop a Bodymovin/Lottie JSON file here to validate:</span>
+        <input type="file" id="lottieFileInput" accept=".json" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-solid);color:var(--text);font:inherit;font-size:11px;">
       </label>
-      <div id="lottieSummary" style="margin-top:8px;font-size:11px;color:var(--muted);display:none;"></div>
+      <div id="lottieSummary" style="margin-top:8px;font-size:11px;display:none;"></div>
     </div>
-  </section>
+  </div>
 
-  <details class="card">
-    <summary>Advanced data exports</summary>
-    <div class="details-body">
-      <p class="section-subtitle">Extra exports for handoff and automation. Keep this collapsed if you only need the main workflows.</p>
-      <div class="grid two">
-        <button onclick="requestExtract('get-variables')">Variables</button>
-        <button onclick="requestExtract('get-styles')">Styles</button>
-        <button onclick="requestExtract('get-components')">Components</button>
-        <button onclick="requestExtract('get-pages')">Pages</button>
+  <!-- ═══════════ PANEL 2: AI / WEBSITE ═══════════ -->
+  <div class="panel" id="panel-ai">
+    <p class="desc">Get everything an AI needs to build a <strong>React / Next.js / Vue</strong> website from your design. One click, complete context.</p>
+
+    <div class="card">
+      <h3>Extract for AI Code Generation</h3>
+      <div class="checks">
+        <label><input type="checkbox" id="ai-svgs" checked> Embed all SVGs in JSON + download separate files</label>
+        <label><input type="checkbox" id="ai-text" checked> All text content (hex colors, fonts, positions, parent hierarchy)</label>
+        <label><input type="checkbox" id="ai-vars" checked> Design tokens / variables (named modes, hex, CSS)</label>
+        <label><input type="checkbox" id="ai-styles" checked> Text & paint styles (typography, colors, effects)</label>
+        <label><input type="checkbox" id="ai-comps" checked> Component structure (names, dimensions, variant props)</label>
+        <label><input type="checkbox" id="ai-tree" checked> Full node hierarchy tree</label>
+        <label><input type="checkbox" id="ai-txtfile" checked> Plain text dump (AI_NAVIGATION.txt style)</label>
+      </div>
+      <button class="primary" onclick="runAIExtract()" id="btnAI">🤖 Extract for AI Website Generation</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ PANEL 3: ASSETS EXPORT ═══════════ -->
+  <div class="panel" id="panel-assets">
+    <p class="desc">Select specific nodes or batch export everything. Pick your format and scale.</p>
+
+    <div class="card">
+      <h3>Selected Nodes</h3>
+      <div class="scale-row">
+        <label>Scale: <input type="number" id="scaleSel" value="2" min="0.25" max="8" step="0.25"></label>
+      </div>
+      <div class="row3">
+        <button onclick="exportSel('export-selected-svg')">SVG</button>
+        <button class="purple" onclick="exportSel('export-selected-png')">PNG</button>
+        <button class="orange" onclick="exportSel('export-selected-jpg')">JPG</button>
+      </div>
+      <div style="margin-top:8px;">
+        <button onclick="exportSel('get-svg-as-text')">SVG Code (text)</button>
       </div>
     </div>
-  </details>
 
+    <div class="card">
+      <h3>Batch Export All</h3>
+      <div class="scale-row">
+        <label>Scale: <input type="number" id="scaleBatch" value="1" min="0.25" max="8" step="0.25"></label>
+      </div>
+      <div class="checks" style="margin-bottom:8px;">
+        <label><input type="checkbox" id="batch-scope" checked> All pages <span style="color:var(--muted);">(uncheck for current page only)</span></label>
+      </div>
+      <div class="row2">
+        <button onclick="runBatch('svg')">All as SVG</button>
+        <button class="purple" onclick="runBatch('png')">All as PNG</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Individual Data</h3>
+      <div class="row2">
+        <button onclick="request('get-variables')">Variables</button>
+        <button onclick="request('get-styles')">Styles</button>
+      </div>
+      <div class="row2" style="margin-top:6px;">
+        <button onclick="request('get-components')">Components</button>
+        <button onclick="request('get-pages')">Pages</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="prog" id="prog">
+    <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+    <div class="prog-txt" id="progTxt"></div>
+  </div>
+
+  <!-- Log -->
   <div class="log" id="logArea"></div>
 
-  <div class="footer">
-    Extract All v1.1.0 • <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a>
+  <div class="ftr">
+    Extract All v3.0.0 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a>
   </div>
 </div>
 
 <script>
-const logArea = document.getElementById("logArea");
-const progressContainer = document.getElementById("progressContainer");
-const progressFill = document.getElementById("progressFill");
-const progressText = document.getElementById("progressText");
-const selectionInfo = document.getElementById("selectionInfo");
-const selectionCount = document.getElementById("selectionCount");
-const selectionPage = document.getElementById("selectionPage");
+const logEl = document.getElementById("logArea");
+const progEl = document.getElementById("prog");
+const progFill = document.getElementById("progFill");
+const progTxt = document.getElementById("progTxt");
 const statusPill = document.getElementById("statusPill");
-const themeToggle = document.getElementById("themeToggle");
-const themeLabel = document.getElementById("themeLabel");
+const selCount = document.getElementById("selCount");
+const selPage = document.getElementById("selPage");
 
-let exportCount = 0;
-let isExporting = false;
+let exportCount=0, isExporting=false;
 
-function setTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem("extract-all-theme", theme);
-  themeLabel.textContent = theme === "dark" ? "Dark" : "Light";
+// Theme
+function setTheme(t) {
+  document.documentElement.dataset.theme=t;
+  localStorage.setItem("ea-theme",t);
+  document.getElementById("themeLabel").textContent = t==="dark"?"Dark":"Light";
 }
-
-function initTheme() {
-  const saved = localStorage.getItem("extract-all-theme");
-  const systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  setTheme(saved || (systemDark ? "dark" : "light"));
-}
-
-function log(message, type) {
-  type = type || "info";
-  if (!logArea.classList.contains("show")) {
-    logArea.classList.add("show");
-    logArea.innerHTML = "";
-  }
-  const entry = document.createElement("div");
-  entry.className = "log-entry " + type;
-  entry.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
-  logArea.appendChild(entry);
-  logArea.scrollTop = logArea.scrollHeight;
-
-  clearTimeout(logArea._hideTimeout);
-  logArea._hideTimeout = setTimeout(() => {
-    if (!isExporting) {
-      logArea.classList.remove("show");
-    }
-  }, 12000);
-}
-
-function setStatus(msg) {
-  statusPill.textContent = msg;
-}
-
-function updateSelectionState(msg) {
-  const count = msg && typeof msg.count === "number" ? msg.count : 0;
-  selectionCount.textContent = String(count);
-  selectionPage.textContent = msg && msg.pageName ? "Page: " + msg.pageName : "Waiting for selection state";
-  selectionInfo.style.borderColor = count > 0 ? "rgba(20, 99, 255, 0.28)" : "var(--border)";
-  selectionInfo.style.background = count > 0 ? "rgba(20, 99, 255, 0.08)" : "transparent";
-}
-
-function downloadFile(fileName, content, mimeType) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  log("Downloaded: " + fileName, "success");
-}
-
-function downloadBytes(fileName, bytes, format) {
-  const mimeMap = {
-    svg: "image/svg+xml",
-    png: "image/png",
-    jpg: "image/jpeg",
-    pdf: "application/pdf",
-  };
-  const mimeType = mimeMap[format] || "application/octet-stream";
-  const uint8 = new Uint8Array(bytes);
-  const blob = new Blob([uint8], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function requestExtract(type) {
-  if (isExporting) {
-    log("Already exporting, please wait.", "error");
-    return;
-  }
-  log("Requesting " + type, "info");
-  setStatus("Working");
-  parent.postMessage({ pluginMessage: { type: type } }, "*");
-}
-
-function exportSelected(type) {
-  if (isExporting) {
-    log("Already exporting, please wait.", "error");
-    return;
-  }
-  const scale = parseFloat(document.getElementById("scaleSelected").value) || 1;
-  isExporting = true;
-  exportCount = 0;
-  progressContainer.classList.add("show");
-  progressFill.style.width = "0%";
-  progressText.textContent = "Starting...";
-  log("Exporting selected nodes as " + type + " (scale: " + scale + "x)", "info");
-  setStatus("Exporting selected nodes");
-  parent.postMessage({ pluginMessage: { type: type, scale: scale } }, "*");
-}
-
-function exportLottie() {
-  if (isExporting) {
-    log("Already exporting, please wait.", "error");
-    return;
-  }
-  isExporting = true;
-  log("Building Lottie JSON bundle from selected nodes...", "info");
-  setStatus("Building Lottie bundle");
-  parent.postMessage({ pluginMessage: { type: "export-lottie-json" } }, "*");
-}
-
-function batchExport(type, scope) {
-  if (isExporting) {
-    log("Already exporting, please wait.", "error");
-    return;
-  }
-  const scale = parseFloat(document.getElementById("scaleBatch").value) || 1;
-  isExporting = true;
-  exportCount = 0;
-  progressContainer.classList.add("show");
-  progressFill.style.width = "0%";
-  progressText.textContent = "Starting...";
-  log("Batch export " + type + " (scale: " + scale + "x, scope: " + scope + ")", "info");
-  setStatus(scope === "all" ? "Exporting all pages" : "Exporting current page");
-  parent.postMessage({ pluginMessage: { type: type, scale: scale } }, "*");
-}
-
-window.addEventListener("message", (event) => {
-  const msg = event.data.pluginMessage;
-  if (!msg) return;
-
-  switch (msg.type) {
-    case "selection-state":
-      updateSelectionState(msg);
-      break;
-
-    case "full-extract":
-      isExporting = false;
-      progressFill.style.width = "100%";
-      progressText.textContent = "Complete  E" + msg.data.textNodes + " texts, " + msg.data.svgs + " SVGs, " + msg.data.variables + " variables, " + msg.data.styles + " styles";
-      log("Full extract complete!", "success");
-      log(msg.data.textNodes + " text nodes, " + msg.data.svgs + " SVGs, " + msg.data.variables + " variables, " + msg.data.styles + " styles, " + msg.data.components + " components", "info");
-      log("Total nodes on page: " + msg.data.totalNodes, "info");
-      setStatus("Done  E" + msg.data.svgs + " SVGs exported");
-      setTimeout(function() {
-        progressContainer.classList.remove("show");
-        progressFill.style.width = "0%";
-      }, 3000);
-      break;
-
-    case "download-file":
-      downloadFile(msg.fileName, msg.content, msg.mimeType);
-      setStatus("Downloaded " + msg.fileName);
-      // Reset isExporting for single-shot operations (Lottie, text, etc.)
-      if (isExporting && exportCount === 0) {
-        isExporting = false;
-        progressContainer.classList.remove("show");
-      }
-      break;
-
-    case "export-results":
-      if (msg.results && msg.results.length > 0) {
-        for (const item of msg.results) {
-          const ext = item.format.toLowerCase();
-          downloadBytes(item.name + "." + ext, item.bytes, ext);
-          exportCount++;
-        }
-        log("Exported " + msg.results.length + " file(s)", "success");
-        setStatus("Exported " + exportCount + " files");
-      }
-      break;
-
-    case "progress":
-      if (msg.total > 0) {
-        const pct = Math.round((msg.current / msg.total) * 100);
-        progressFill.style.width = pct + "%";
-        progressText.textContent = msg.current + " / " + msg.total + " (" + pct + "%)";
-      }
-      break;
-
-    case "export-complete":
-      isExporting = false;
-      progressFill.style.width = "100%";
-      progressText.textContent = "Complete  E" + exportCount + " files exported";
-      log("Batch export complete: " + exportCount + " file(s)", "success");
-      setStatus("Done");
-      setTimeout(() => {
-        progressContainer.classList.remove("show");
-        progressFill.style.width = "0%";
-      }, 2500);
-      break;
-
-    case "full-extract-progress":
-      if (msg.progress) {
-        const p = msg.progress;
-        const pct = Math.round((p.step / p.totalSteps) * 100);
-        progressFill.style.width = pct + "%";
-        progressContainer.classList.add("show");
-        progressText.textContent = p.label + "  E" + p.detail;
-        log("[" + p.step + "/" + p.totalSteps + "] " + p.label + ": " + p.detail, "info");
-        setStatus(p.label);
-      }
-      break;
-
-    case "lottie-import-summary":
-      isExporting = false;
-      const summary = msg.summary;
-      const summaryEl = document.getElementById("lottieSummary");
-      summaryEl.style.display = "block";
-      if (summary.valid) {
-        summaryEl.style.color = "var(--success)";
-        summaryEl.innerHTML = "✁EValid Lottie: <strong>" + summary.fileName + "</strong><br>" +
-          "Top-level keys: " + (summary.topLevelKeys.length > 0 ? summary.topLevelKeys.join(", ") : "(none)") + "<br>" +
-          "Layers: " + summary.layerCount + "<br>" +
-          summary.warning;
-      } else {
-        summaryEl.style.color = "var(--danger)";
-        summaryEl.innerHTML = "❁EInvalid: <strong>" + summary.fileName + "</strong><br>" + summary.warning;
-      }
-      setStatus("Import validated");
-      break;
-
-    case "error":
-      isExporting = false;
-      log(msg.message, "error");
-      setStatus("Error");
-      progressContainer.classList.remove("show");
-      break;
-  }
+(function(){
+  const s=localStorage.getItem("ea-theme");
+  setTheme(s||(window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"));
+})();
+document.getElementById("themeToggle").addEventListener("click",function(){
+  setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
 });
 
-themeToggle.addEventListener("click", () => {
-  const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-  setTheme(current === "dark" ? "light" : "dark");
-});
-
-document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-    e.preventDefault();
-    requestExtract("get-full-extract");
-  }
-  if (e.key === "Escape" && isExporting) {
-    isExporting = false;
-    log("Export cancelled by user", "error");
-    setStatus("Cancelled");
-    progressContainer.classList.remove("show");
-  }
-});
-
-initTheme();
-log("Extract All ready.", "info");
-log("Ctrl+Enter runs Full Extract.", "info");
-setStatus("Ready");
-updateSelectionState({ count: 0, pageName: "Waiting for selection state" });
-
-// Lottie file import reader
-const lottieInput = document.getElementById("lottieFileInput");
-if (lottieInput) {
-  lottieInput.addEventListener("change", function() {
-    const file = this.files && this.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const content = e.target.result;
-      parent.postMessage({
-        pluginMessage: {
-          type: "import-lottie-json",
-          fileName: file.name,
-          content: content
-        }
-      }, "*");
-      log("Validating Lottie file: " + file.name, "info");
-    };
-    reader.readAsText(file);
+// Tabs
+document.querySelectorAll(".tab-btn").forEach(b=>{
+  b.addEventListener("click",function(){
+    document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
+    this.classList.add("active");
+    document.getElementById("panel-"+this.dataset.tab).classList.add("active");
   });
+});
+
+// Logging
+function log(m,t){t=t||"inf";
+  if(!logEl.classList.contains("show")){logEl.classList.add("show");logEl.innerHTML="";}
+  const d=document.createElement("div");d.className=t;d.textContent="["+new Date().toLocaleTimeString()+"] "+m;
+  logEl.appendChild(d);logEl.scrollTop=logEl.scrollHeight;
+  clearTimeout(logEl._t);logEl._t=setTimeout(function(){if(!isExporting)logEl.classList.remove("show");},12000);
 }
+function status(m){statusPill.textContent=m;}
+
+// Downloads
+function dlFile(n,c,m){const b=new Blob([c],{type:m});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);log("Downloaded: "+n,"ok");}
+function dlBytes(n,bytes,f){const mMap={svg:"image/svg+xml",png:"image/png",jpg:"image/jpeg"};const u8=new Uint8Array(bytes);const b=new Blob([u8],{type:mMap[f]||"application/octet-stream"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}
+
+function request(type){if(isExporting){log("Already exporting, wait.","err");return;}log("Requesting "+type,"inf");status("Working");parent.postMessage({pluginMessage:{type:type}},"*");}
+function exportSel(type){if(isExporting){log("Already exporting.","err");return;}const s=parseFloat(document.getElementById("scaleSel").value)||1;isExporting=true;exportCount=0;progEl.classList.add("show");progFill.style.width="0%";progTxt.textContent="Starting...";status("Exporting selected");log("Export: "+type+" ("+s+"x)","inf");parent.postMessage({pluginMessage:{type:type,scale:s}},"*");}
+
+function runBatch(fmt){if(isExporting){log("Already exporting.","err");return;}const s=parseFloat(document.getElementById("scaleBatch").value)||1;const all=document.getElementById("batch-scope").checked;isExporting=true;exportCount=0;progEl.classList.add("show");progFill.style.width="0%";progTxt.textContent="Starting...";const t=fmt==="svg"?(all?"export-all-svg-all-pages":"export-all-svg-page"):(all?"export-all-png-all-pages":"export-all-png-page");status(all?"Exporting all pages":"Exporting current page");log("Batch "+fmt.toUpperCase()+" ("+s+"x, "+(all?"all pages":"current page")+")","inf");parent.postMessage({pluginMessage:{type:t,scale:s}},"*");}
+
+// ═══ AE Export ═══
+function runAEExport(){if(isExporting){log("Already exporting.","err");return;}
+  isExporting=true;exportCount=0;progEl.classList.add("show");progFill.style.width="0%";
+  const opts={
+    includeSVGs:document.getElementById("ae-svgs").checked,
+    includeJSON:document.getElementById("ae-json").checked,
+    includeLottie:document.getElementById("ae-lottie").checked,
+    includeText:document.getElementById("ae-text").checked,
+  };
+  status("Extracting for After Effects");log("AE Export: SVGs="+opts.includeSVGs+", JSON="+opts.includeJSON+", Lottie="+opts.includeLottie+", Text="+opts.includeText,"inf");
+  progrTxt=opts.includeSVGs?"Step 1/4: Full extract...":"Step 1/3...";
+  progFill.style.width="10%";
+  // Simply do a full extract (which includes everything) + Lottie if selected
+  parent.postMessage({pluginMessage:{type:"get-full-extract", aeOpts:opts}},"*");
+  if(opts.includeLottie){parent.postMessage({pluginMessage:{type:"export-lottie-json"}},"*");}
+}
+
+// ═══ AI Extract ═══
+function runAIExtract(){if(isExporting){log("Already exporting.","err");}return;
+  isExporting=true;exportCount=0;progEl.classList.add("show");progFill.style.width="0%";
+  const opts={
+    includeSVGs:document.getElementById("ai-svgs").checked,
+    includeText:document.getElementById("ai-text").checked,
+    includeVars:document.getElementById("ai-vars").checked,
+    includeStyles:document.getElementById("ai-styles").checked,
+    includeComps:document.getElementById("ai-comps").checked,
+    includeTree:document.getElementById("ai-tree").checked,
+    includeTXT:document.getElementById("ai-txtfile").checked,
+  };
+  status("Extracting for AI");log("AI Export with "+Object.values(opts).filter(Boolean).length+" options","inf");
+  parent.postMessage({pluginMessage:{type:"get-full-extract", aiOpts:opts}},"*");
+}
+
+// Message handler
+window.addEventListener("message",function(e){
+  const m=e.data.pluginMessage;
+  if(!m)return;
+  switch(m.type){
+    case "selection-state":
+      selCount.textContent=String(m.count||0);
+      selPage.textContent=m.pageName?"Page: "+m.pageName:"—";
+      break;
+    case "full-extract":
+      isExporting=false;
+      progFill.style.width="100%";
+      progTxt.textContent="Done — "+m.data.textNodes+" texts, "+m.data.svgs+" SVGs";
+      log("Complete: "+m.data.textNodes+" texts, "+m.data.svgs+" SVGs, "+m.data.variables+" vars, "+m.data.styles+" styles, "+m.data.components+" comps","ok");
+      status("Done");
+      setTimeout(function(){progEl.classList.remove("show");progFill.style.width="0%";},3000);
+      break;
+    case "full-extract-progress":
+      if(m.progress){const p=m.progress;const pct=Math.round((p.step/p.totalSteps)*100);progFill.style.width=pct+"%";progEl.classList.add("show");progTxt.textContent=p.label+" — "+p.detail;status(p.label);}
+      break;
+    case "download-file":
+      dlFile(m.fileName,m.content,m.mimeType);
+      status("Downloaded "+m.fileName);
+      if(isExporting&&exportCount===0){isExporting=false;progEl.classList.remove("show");}
+      break;
+    case "export-results":
+      if(m.results&&m.results.length>0){for(const i of m.results){dlBytes(i.name+"."+i.format.toLowerCase(),i.bytes,i.format.toLowerCase());exportCount++;}log("Exported "+m.results.length+" file(s)","ok");status("Exported "+exportCount+" files");}
+      break;
+    case "progress":
+      if(m.total>0){progFill.style.width=Math.round((m.current/m.total)*100)+"%";progTxt.textContent=m.current+" / "+m.total+(m.label?" — "+m.label:"");}
+      break;
+    case "export-complete":
+      isExporting=false;progFill.style.width="100%";progTxt.textContent="Complete — "+exportCount+" files";log("Batch complete: "+exportCount+" files","ok");status("Done");
+      setTimeout(function(){progEl.classList.remove("show");progFill.style.width="0%";},2500);
+      break;
+    case "lottie-import-summary":
+      isExporting=false;const s=m.summary;const el=document.getElementById("lottieSummary");el.style.display="block";
+      el.style.color=s.valid?"var(--green)":"var(--red)";
+      el.innerHTML=(s.valid?"✅ ":"❌ ")+"<b>"+s.fileName+"</b> — "+(s.valid?("Layers: "+s.layerCount+", Keys: "+s.topLevelKeys.join(", ")):s.warning);
+      status("Validated");break;
+    case "error":isExporting=false;log(m.message,"err");status("Error");progEl.classList.remove("show");break;
+  }
+});
+
+// Lottie file reader
+var li=document.getElementById("lottieFileInput");
+if(li)li.addEventListener("change",function(){var f=this.files&&this.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){parent.postMessage({pluginMessage:{type:"import-lottie-json",fileName:f.name,content:e.target.result}},"*");log("Validating: "+f.name,"inf");};r.readAsText(f);});
+
+// Keyboard shortcut
+document.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();runAEExport();}if(e.key==="Escape"&&isExporting){isExporting=false;log("Cancelled","err");status("Cancelled");progEl.classList.remove("show");}});
+
+log("Ready — choose a tab above.","inf");
+log("Ctrl+Enter = AE Extract, Esc = cancel","inf");
+status("Ready");
 </script>
 </body>
 </html>
