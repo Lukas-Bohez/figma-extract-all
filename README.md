@@ -48,18 +48,20 @@ page-name/node-name.svg         ← Page-prefixed when exporting all pages
 ### 1. Install the Plugin
 
 **Option A — Figma Desktop (recommended):**
-1. Download the latest `.zip` from [Releases](https://github.com/YOUR_USERNAME/figma-extract-all/releases)
+1. Download the latest `.zip` from [Releases](https://github.com/Lukas-Bohez/figma-extract-all/releases)
 2. In Figma, go to **Plugins → Development → Import plugin from manifest**
 3. Select the `manifest.json` file from the unzipped folder
 
 **Option B — From Source:**
 ```bash
-git clone https://github.com/YOUR_USERNAME/figma-extract-all.git
+git clone https://github.com/Lukas-Bohez/figma-extract-all.git
 cd figma-extract-all
 npm install
 npm run build
 ```
 Then in Figma: **Plugins → Development → Import plugin from manifest** → select `manifest.json`
+
+If you already cloned the repo into another folder, make sure you run `npm install` and `npm run build` from the folder that actually contains `package.json`.
 
 ### 2. Use the Plugin
 
