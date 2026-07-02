@@ -7,8 +7,8 @@
 <style>
   :root {
     --bg: #f6f3ee;
-    --bg-el: rgba(255,255,255,0.82);
-    --bg-solid: #fff;
+    --bg-el: #ffffff;
+    --bg-solid: #ffffff;
     --text: #1f2328;
     --muted: #5f6570;
     --border: rgba(31,35,40,0.12);
@@ -19,11 +19,11 @@
     --red: #c2262d;
     --purple: #8250df;
     --radius: 16px;
-    --font: Inter,"Segoe UI",system-ui,sans-serif;
+    --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
   }
-  html[data-theme="dark"] {
+  .dark {
     --bg: #111317;
-    --bg-el: rgba(22,25,31,0.84);
+    --bg-el: #161921;
     --bg-solid: #161921;
     --text: #eef1f6;
     --muted: #a5adba;
@@ -35,94 +35,181 @@
     --red: #ff6b72;
     --purple: #b392f0;
   }
-  * { box-sizing:border-box; }
+
+  * { box-sizing: border-box; }
   body {
-    font-family:var(--font); color:var(--text);
-    background: radial-gradient(circle at top left, rgba(20,99,255,0.12), transparent 34%),
-                radial-gradient(circle at top right, rgba(31,143,75,0.08), transparent 28%),
-                var(--bg);
-    margin:0; padding:14px; overflow-y:auto; user-select:none; font-size:13px;
+    font-family: var(--font);
+    color: var(--text);
+    background: var(--bg);
+    margin: 0;
+    padding: 12px;
+    overflow-y: auto;
+    user-select: none;
+    font-size: 12px;
   }
-  ::-webkit-scrollbar { width:6px; }
-  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:999px; }
-  .wrap { max-width:620px; margin:0 auto; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+  .wrap { max-width: 580px; margin: 0 auto; }
 
-  /* Header */
-  .hdr { display:flex; justify-content:space-between; align-items:flex-start; padding:14px 16px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-el); backdrop-filter:blur(18px); margin-bottom:12px; }
-  .hdr h1 { margin:0; font-size:18px; letter-spacing:-0.01em; }
-  .hdr p { margin:4px 0 0; font-size:11px; color:var(--muted); max-width:36ch; line-height:1.4; }
-  .theme-btn { flex-shrink:0; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--bg-solid); color:var(--text); padding:8px 12px; border-radius:999px; cursor:pointer; font:inherit; font-size:11px; }
-  .theme-dot { width:10px; height:10px; border-radius:999px; background:linear-gradient(135deg,var(--accent),var(--accent2)); }
+  .hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-el);
+    margin-bottom: 10px;
+  }
+  .hdr h1 { margin: 0; font-size: 16px; white-space: nowrap; }
+  .hdr p { margin: 2px 0 0; font-size: 10px; color: var(--muted); }
 
-  /* Selection bar */
-  .selbar { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-radius:12px; border:1px solid rgba(20,99,255,0.2); background:rgba(20,99,255,0.06); margin-bottom:12px; }
-  .selbar b { display:block; font-size:13px; }
-  .selbar span { font-size:11px; color:var(--muted); }
-  .pill { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:999px; border:1px solid var(--border); background:var(--bg-solid); color:var(--muted); font-size:10px; white-space:nowrap; }
+  .theme-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-solid);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 10px;
+    flex-shrink: 0;
+    width: auto !important;
+  }
+  .theme-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    flex-shrink: 0;
+  }
+
+  .selbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(20,99,255,0.2);
+    background: rgba(20,99,255,0.06);
+    margin-bottom: 10px;
+    font-size: 11px;
+  }
+  .selbar b { display: block; font-size: 12px; }
+  .selbar span { font-size: 10px; color: var(--muted); }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-solid);
+    color: var(--muted);
+    font-size: 9px;
+    white-space: nowrap;
+  }
 
   /* Tabs */
-  .tabs { display:flex; gap:2px; margin-bottom:0; }
-  .tab-btn { flex:1; padding:11px 8px; border:1px solid var(--border); border-bottom:none; border-radius:12px 12px 0 0; background:var(--bg-el); color:var(--muted); cursor:pointer; font:inherit; font-size:12px; font-weight:600; text-align:center; transition:all 120ms ease; }
-  .tab-btn.active { background:var(--bg-solid); color:var(--accent); border-color:var(--border); box-shadow:0 -2px 8px rgba(20,99,255,0.06); }
-  .tab-btn:hover:not(.active) { color:var(--text); }
-  .tab-emoji { display:block; font-size:18px; margin-bottom:2px; }
+  .tabs { display: flex; gap: 1px; margin-bottom: 0; }
+  .tab-btn {
+    flex: 1;
+    padding: 10px 4px;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    background: var(--bg-el);
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    transition: background 120ms ease, color 120ms ease;
+    width: auto !important;
+    min-height: auto !important;
+  }
+  .tab-btn.active { background: var(--bg-solid); color: var(--accent); }
+  .tab-emoji { display: block; font-size: 16px; margin-bottom: 1px; }
 
-  /* Tab panels */
-  .panel { display:none; padding:16px; border:1px solid var(--border); border-top:none; border-radius:0 0 var(--radius) var(--radius); background:var(--bg-el); backdrop-filter:blur(18px); margin-bottom:12px; }
-  .panel.active { display:block; }
-  .panel p.desc { margin:0 0 14px; font-size:11px; color:var(--muted); line-height:1.5; }
+  /* Panels */
+  .panel { display: none; padding: 14px; border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); background: var(--bg-el); margin-bottom: 10px; }
+  .panel.active { display: block; }
+  .panel .desc { margin: 0 0 12px; font-size: 10px; color: var(--muted); line-height: 1.5; }
 
-  /* Cards within panels */
-  .card { border:1px solid var(--border); border-radius:12px; background:var(--bg-solid); padding:14px; margin-bottom:10px; }
-  .card h3 { margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); }
+  .card { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-solid); padding: 12px; margin-bottom: 8px; }
+  .card h3 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 
-  /* Checkbox row */
-  .checks { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
-  .checks label { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text); cursor:pointer; padding:4px 0; }
-  .checks label:hover { color:var(--accent); }
-  .checks input[type=checkbox] { accent-color:var(--accent); width:15px; height:15px; cursor:pointer; }
+  .checks { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .checks label { display: flex; align-items: center; gap: 7px; font-size: 11px; cursor: pointer; padding: 2px 0; }
+  .checks input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
 
   /* Buttons */
-  button, input[type=number], .btn { font:inherit; }
-  button, .btn {
-    appearance:none; border:1px solid var(--border); background:var(--bg-solid); color:var(--text);
-    padding:12px 14px; border-radius:10px; cursor:pointer; font-size:12px; font-weight:600;
-    transition:all 120ms ease; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px; width:100%;
+  button {
+    font: inherit;
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--bg-solid);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    transition: background 120ms ease, border-color 120ms ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
   }
-  button:hover, .btn:hover { border-color:var(--accent); box-shadow:0 6px 16px rgba(20,99,255,0.06); }
-  button:active { transform:scale(0.98); }
-  button:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
-  button.primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; border-color:transparent; }
-  button.accent { color:var(--accent); }
-  button.green { color:var(--green); }
-  button.purple { color:var(--purple); }
-  button.orange { color:var(--orange); }
-  .row2 { display:flex; gap:8px; }
-  .row2>* { flex:1; }
-  .row3 { display:flex; gap:6px; }
-  .row3>* { flex:1; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border-color: transparent; }
+  button.primary:hover { opacity: 0.92; }
+  button.full { width: 100%; }
+  button.purple { color: var(--purple); border-color: transparent; }
+  button.orange { color: var(--orange); border-color: transparent; }
 
-  /* Scale input */
-  .scale-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .scale-row label { font-size:11px; color:var(--muted); white-space:nowrap; }
-  .scale-row input[type=number] { width:64px; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg-solid); color:var(--text); }
+  input[type=number] {
+    font: inherit;
+    width: 60px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-solid);
+    color: var(--text);
+    font-size: 11px;
+  }
+
+  .row2 { display: flex; gap: 6px; }
+  .row2 > * { flex: 1; }
+  .row3 { display: flex; gap: 4px; }
+  .row3 > * { flex: 1; }
+  .scale-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .scale-row label { font-size: 10px; color: var(--muted); white-space: nowrap; }
 
   /* Progress */
-  .prog { display:none; margin-top:10px; }
-  .prog.show { display:block; }
-  .prog-bar { height:6px; border-radius:999px; background:rgba(127,127,127,0.18); overflow:hidden; }
-  .prog-fill { height:100%; width:0%; background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:999px; transition:width 150ms ease; }
-  .prog-txt { margin-top:6px; font-size:10px; color:var(--muted); text-align:right; }
+  .prog { display: none; margin-top: 8px; }
+  .prog.show { display: block; }
+  .prog-bar { height: 5px; border-radius: 999px; background: rgba(127,127,127,0.18); overflow: hidden; }
+  .prog-fill { height: 100%; width: 0%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 999px; transition: width 150ms ease; }
+  .prog-txt { margin-top: 4px; font-size: 9px; color: var(--muted); text-align: right; }
 
-  /* Log */
-  .log { display:none; margin-top:10px; padding:10px; border-radius:10px; border:1px solid var(--border); background:rgba(0,0,0,0.03); max-height:140px; overflow-y:auto; font:11px/1.5 ui-monospace,Consolas,monospace; color:var(--muted); }
-  .log.show { display:block; }
-  .log .ok { color:var(--green); }
-  .log .err { color:var(--red); }
-  .log .inf { color:var(--accent); }
+  .log { display: none; margin-top: 8px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.03); max-height: 120px; overflow-y: auto; font: 10px/1.5 ui-monospace, "Consolas", monospace; color: var(--muted); }
+  .log.show { display: block; }
+  .log .ok { color: var(--green); }
+  .log .err { color: var(--red); }
+  .log .inf { color: var(--accent); }
 
-  .ftr { text-align:center; margin-top:10px; font-size:10px; color:var(--muted); }
-  .ftr a { color:var(--accent); text-decoration:none; }
+  .ftr { text-align: center; margin-top: 8px; font-size: 9px; color: var(--muted); }
+  .ftr a { color: var(--accent); text-decoration: none; }
+
+  /* Override any width:100% from body-level rules on special buttons */
+  .tab-btn { width: auto !important; min-height: auto !important; }
+  .theme-btn { width: auto !important; min-height: auto !important; }
 </style>
 </head>
 <body>
@@ -131,18 +218,24 @@
   <div class="hdr">
     <div>
       <h1>Extract All</h1>
-      <p>One-click extraction for your Figma workflow — pick your intent below.</p>
+      <p>Pick your intent below, then click one button.</p>
     </div>
-    <button class="theme-btn" id="themeToggle"><span class="theme-dot"></span> <span id="themeLabel">Theme</span></button>
+    <button class="theme-btn" id="themeToggle" type="button">
+      <span class="theme-dot"></span>
+      <span id="themeLabel">Theme</span>
+    </button>
   </div>
 
-  <div class="selbar">
-    <div><b><span id="selCount">0</span> nodes selected</b><span id="selPage">—</span></div>
+  <div class="selbar" id="selbar">
+    <div>
+      <b><span id="selCount">0</span> nodes selected</b>
+      <span id="selPage">—</span>
+    </div>
     <span class="pill" id="statusPill">Ready</span>
   </div>
 
-  <!-- ═══════════ TABS ═══════════ -->
-  <div class="tabs">
+  <!-- Tabs -->
+  <div class="tabs" id="tabBar">
     <button class="tab-btn active" data-tab="ae">
       <span class="tab-emoji">🎬</span> After Effects
     </button>
@@ -150,58 +243,51 @@
       <span class="tab-emoji">🤖</span> AI / Website
     </button>
     <button class="tab-btn" data-tab="assets">
-      <span class="tab-emoji">📦</span> Assets Export
+      <span class="tab-emoji">📦</span> Assets
     </button>
   </div>
 
-  <!-- ═══════════ PANEL 1: AFTER EFFECTS ═══════════ -->
+  <!-- Panel: After Effects -->
   <div class="panel active" id="panel-ae">
-    <p class="desc">Extract everything as SVGs for <strong>Adobe After Effects</strong>. Includes position data in JSON, Lottie bundle, and Bodymovin import.</p>
-
+    <p class="desc">Export everything as SVGs for <strong>Adobe After Effects</strong>. Includes position metadata, Lottie bundle, and Bodymovin import.</p>
     <div class="card">
       <h3>Export for After Effects</h3>
       <div class="checks">
         <label><input type="checkbox" id="ae-svgs" checked> Export all SVGs (individual files)</label>
-        <label><input type="checkbox" id="ae-json" checked> Include position metadata JSON (x, y, w, h, parent hierarchy)</label>
-        <label><input type="checkbox" id="ae-lottie" checked> Export Lottie JSON Bundle (selected nodes as embedded SVGs)</label>
+        <label><input type="checkbox" id="ae-json" checked> Position metadata JSON (x, y, w, h, parent hierarchy)</label>
+        <label><input type="checkbox" id="ae-lottie" checked> Lottie JSON Bundle (selected nodes)</label>
         <label><input type="checkbox" id="ae-text" checked> Include text content</label>
       </div>
-      <button class="primary" onclick="runAEExport()" id="btnAE">🎬 Extract for After Effects</button>
+      <button class="primary full" onclick="runAEExport()">🎬 Extract for After Effects</button>
     </div>
-
     <div class="card">
       <h3>Import from After Effects</h3>
-      <label style="display:flex;flex-direction:column;gap:4px;">
-        <span style="font-size:11px;color:var(--muted);">Drop a Bodymovin/Lottie JSON file here to validate:</span>
-        <input type="file" id="lottieFileInput" accept=".json" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-solid);color:var(--text);font:inherit;font-size:11px;">
-      </label>
-      <div id="lottieSummary" style="margin-top:8px;font-size:11px;display:none;"></div>
+      <input type="file" id="lottieFileInput" accept=".json" style="width:100%;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--bg-solid);color:var(--text);font:inherit;font-size:10px;">
+      <div id="lottieSummary" style="margin-top:6px;font-size:10px;display:none;"></div>
     </div>
   </div>
 
-  <!-- ═══════════ PANEL 2: AI / WEBSITE ═══════════ -->
+  <!-- Panel: AI / Website -->
   <div class="panel" id="panel-ai">
-    <p class="desc">Get everything an AI needs to build a <strong>React / Next.js / Vue</strong> website from your design. One click, complete context.</p>
-
+    <p class="desc">Get everything an AI needs to build a <strong>React / Next.js / Vue</strong> website from your design.</p>
     <div class="card">
       <h3>Extract for AI Code Generation</h3>
       <div class="checks">
-        <label><input type="checkbox" id="ai-svgs" checked> Embed all SVGs in JSON + download separate files</label>
-        <label><input type="checkbox" id="ai-text" checked> All text content (hex colors, fonts, positions, parent hierarchy)</label>
+        <label><input type="checkbox" id="ai-svgs" checked> Embed all SVGs in JSON + download files</label>
+        <label><input type="checkbox" id="ai-text" checked> All text (hex colors, fonts, positions, parent hierarchy)</label>
         <label><input type="checkbox" id="ai-vars" checked> Design tokens / variables (named modes, hex, CSS)</label>
         <label><input type="checkbox" id="ai-styles" checked> Text & paint styles (typography, colors, effects)</label>
-        <label><input type="checkbox" id="ai-comps" checked> Component structure (names, dimensions, variant props)</label>
+        <label><input type="checkbox" id="ai-comps" checked> Component structure (names, dimensions, variants)</label>
         <label><input type="checkbox" id="ai-tree" checked> Full node hierarchy tree</label>
-        <label><input type="checkbox" id="ai-txtfile" checked> Plain text dump (AI_NAVIGATION.txt style)</label>
+        <label><input type="checkbox" id="ai-txtfile" checked> Plain text dump</label>
       </div>
-      <button class="primary" onclick="runAIExtract()" id="btnAI">🤖 Extract for AI Website Generation</button>
+      <button class="primary full" onclick="runAIExtract()">🤖 Extract for AI Website Generation</button>
     </div>
   </div>
 
-  <!-- ═══════════ PANEL 3: ASSETS EXPORT ═══════════ -->
+  <!-- Panel: Assets -->
   <div class="panel" id="panel-assets">
-    <p class="desc">Select specific nodes or batch export everything. Pick your format and scale.</p>
-
+    <p class="desc">Select specific nodes or batch export everything. Choose your format and scale.</p>
     <div class="card">
       <h3>Selected Nodes</h3>
       <div class="scale-row">
@@ -212,32 +298,30 @@
         <button class="purple" onclick="exportSel('export-selected-png')">PNG</button>
         <button class="orange" onclick="exportSel('export-selected-jpg')">JPG</button>
       </div>
-      <div style="margin-top:8px;">
-        <button onclick="exportSel('get-svg-as-text')">SVG Code (text)</button>
+      <div style="margin-top:6px;">
+        <button onclick="exportSel('get-svg-as-text')" style="width:100%">SVG Code (text)</button>
       </div>
     </div>
-
     <div class="card">
       <h3>Batch Export All</h3>
       <div class="scale-row">
         <label>Scale: <input type="number" id="scaleBatch" value="1" min="0.25" max="8" step="0.25"></label>
       </div>
       <div class="checks" style="margin-bottom:8px;">
-        <label><input type="checkbox" id="batch-scope" checked> All pages <span style="color:var(--muted);">(uncheck for current page only)</span></label>
+        <label><input type="checkbox" id="batch-scope" checked> All pages <span style="color:var(--muted);">(uncheck = current page only)</span></label>
       </div>
       <div class="row2">
         <button onclick="runBatch('svg')">All as SVG</button>
         <button class="purple" onclick="runBatch('png')">All as PNG</button>
       </div>
     </div>
-
     <div class="card">
       <h3>Individual Data</h3>
       <div class="row2">
         <button onclick="request('get-variables')">Variables</button>
         <button onclick="request('get-styles')">Styles</button>
       </div>
-      <div class="row2" style="margin-top:6px;">
+      <div class="row2" style="margin-top:4px;">
         <button onclick="request('get-components')">Components</button>
         <button onclick="request('get-pages')">Pages</button>
       </div>
@@ -254,150 +338,343 @@
   <div class="log" id="logArea"></div>
 
   <div class="ftr">
-    Extract All v3.0.0 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a>
+    Extract All v4.0.0 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a>
   </div>
 </div>
 
 <script>
-const logEl = document.getElementById("logArea");
-const progEl = document.getElementById("prog");
-const progFill = document.getElementById("progFill");
-const progTxt = document.getElementById("progTxt");
-const statusPill = document.getElementById("statusPill");
-const selCount = document.getElementById("selCount");
-const selPage = document.getElementById("selPage");
-
-let exportCount=0, isExporting=false;
-
-// Theme
-function setTheme(t) {
-  document.documentElement.dataset.theme=t;
-  localStorage.setItem("ea-theme",t);
-  document.getElementById("themeLabel").textContent = t==="dark"?"Dark":"Light";
-}
 (function(){
-  const s=localStorage.getItem("ea-theme");
-  setTheme(s||(window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"));
-})();
-document.getElementById("themeToggle").addEventListener("click",function(){
-  setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
-});
+  'use strict';
 
-// Tabs
-document.querySelectorAll(".tab-btn").forEach(b=>{
-  b.addEventListener("click",function(){
-    document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
-    document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
-    this.classList.add("active");
-    document.getElementById("panel-"+this.dataset.tab).classList.add("active");
-  });
-});
+  var el = function(id){ return document.getElementById(id); };
 
-// Logging
-function log(m,t){t=t||"inf";
-  if(!logEl.classList.contains("show")){logEl.classList.add("show");logEl.innerHTML="";}
-  const d=document.createElement("div");d.className=t;d.textContent="["+new Date().toLocaleTimeString()+"] "+m;
-  logEl.appendChild(d);logEl.scrollTop=logEl.scrollHeight;
-  clearTimeout(logEl._t);logEl._t=setTimeout(function(){if(!isExporting)logEl.classList.remove("show");},12000);
-}
-function status(m){statusPill.textContent=m;}
+  var logEl = el("logArea");
+  var progEl = el("prog");
+  var progFill = el("progFill");
+  var progTxt = el("progTxt");
+  var statusPill = el("statusPill");
+  var selCount = el("selCount");
+  var selPage = el("selPage");
+  var themeLabel = el("themeLabel");
 
-// Downloads
-function dlFile(n,c,m){const b=new Blob([c],{type:m});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);log("Downloaded: "+n,"ok");}
-function dlBytes(n,bytes,f){const mMap={svg:"image/svg+xml",png:"image/png",jpg:"image/jpeg"};const u8=new Uint8Array(bytes);const b=new Blob([u8],{type:mMap[f]||"application/octet-stream"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}
+  var exportCount = 0;
+  var isExporting = false;
+  var currentTheme = "light";
 
-function request(type){if(isExporting){log("Already exporting, wait.","err");return;}log("Requesting "+type,"inf");status("Working");parent.postMessage({pluginMessage:{type:type}},"*");}
-function exportSel(type){if(isExporting){log("Already exporting.","err");return;}const s=parseFloat(document.getElementById("scaleSel").value)||1;isExporting=true;exportCount=0;progEl.classList.add("show");progFill.style.width="0%";progTxt.textContent="Starting...";status("Exporting selected");log("Export: "+type+" ("+s+"x)","inf");parent.postMessage({pluginMessage:{type:type,scale:s}},"*");}
-
-function runBatch(fmt){if(isExporting){log("Already exporting.","err");return;}const s=parseFloat(document.getElementById("scaleBatch").value)||1;const all=document.getElementById("batch-scope").checked;isExporting=true;exportCount=0;progEl.classList.add("show");progFill.style.width="0%";progTxt.textContent="Starting...";const t=fmt==="svg"?(all?"export-all-svg-all-pages":"export-all-svg-page"):(all?"export-all-png-all-pages":"export-all-png-page");status(all?"Exporting all pages":"Exporting current page");log("Batch "+fmt.toUpperCase()+" ("+s+"x, "+(all?"all pages":"current page")+")","inf");parent.postMessage({pluginMessage:{type:t,scale:s}},"*");}
-
-// ═══ AE Export ═══
-function runAEExport(){if(isExporting){log("Already exporting.","err");return;}
-  isExporting=true;exportCount=0;progEl.classList.add("show");progFill.style.width="0%";
-  const opts={
-    includeSVGs:document.getElementById("ae-svgs").checked,
-    includeJSON:document.getElementById("ae-json").checked,
-    includeLottie:document.getElementById("ae-lottie").checked,
-    includeText:document.getElementById("ae-text").checked,
-  };
-  status("Extracting for After Effects");log("AE Export: SVGs="+opts.includeSVGs+", JSON="+opts.includeJSON+", Lottie="+opts.includeLottie+", Text="+opts.includeText,"inf");
-  progTxt.textContent=opts.includeSVGs?"Step 1/4: Full extract...":"Step 1/3...";
-  progFill.style.width="10%";
-  // Simply do a full extract (which includes everything) + Lottie if selected
-  parent.postMessage({pluginMessage:{type:"get-full-extract", aeOpts:opts}},"*");
-  if(opts.includeLottie){parent.postMessage({pluginMessage:{type:"export-lottie-json"}},"*");}
-}
-
-// ═══ AI Extract ═══
-function runAIExtract(){if(isExporting){log("Already exporting.","err");return;}
-  isExporting=true;exportCount=0;progEl.classList.add("show");progFill.style.width="0%";
-  const opts={
-    includeSVGs:document.getElementById("ai-svgs").checked,
-    includeText:document.getElementById("ai-text").checked,
-    includeVars:document.getElementById("ai-vars").checked,
-    includeStyles:document.getElementById("ai-styles").checked,
-    includeComps:document.getElementById("ai-comps").checked,
-    includeTree:document.getElementById("ai-tree").checked,
-    includeTXT:document.getElementById("ai-txtfile").checked,
-  };
-  status("Extracting for AI");log("AI Export with "+Object.values(opts).filter(Boolean).length+" options","inf");
-  parent.postMessage({pluginMessage:{type:"get-full-extract", aiOpts:opts}},"*");
-}
-
-// Message handler
-window.addEventListener("message",function(e){
-  const m=e.data.pluginMessage;
-  if(!m)return;
-  switch(m.type){
-    case "selection-state":
-      selCount.textContent=String(m.count||0);
-      selPage.textContent=m.pageName?"Page: "+m.pageName:"—";
-      break;
-    case "full-extract":
-      isExporting=false;
-      progFill.style.width="100%";
-      progTxt.textContent="Done — "+m.data.textNodes+" texts, "+m.data.svgs+" SVGs";
-      log("Complete: "+m.data.textNodes+" texts, "+m.data.svgs+" SVGs, "+m.data.variables+" vars, "+m.data.styles+" styles, "+m.data.components+" comps","ok");
-      status("Done");
-      setTimeout(function(){progEl.classList.remove("show");progFill.style.width="0%";},3000);
-      break;
-    case "full-extract-progress":
-      if(m.progress){const p=m.progress;const pct=Math.round((p.step/p.totalSteps)*100);progFill.style.width=pct+"%";progEl.classList.add("show");progTxt.textContent=p.label+" — "+p.detail;status(p.label);}
-      break;
-    case "download-file":
-      dlFile(m.fileName,m.content,m.mimeType);
-      status("Downloaded "+m.fileName);
-      if(isExporting&&exportCount===0){isExporting=false;progEl.classList.remove("show");}
-      break;
-    case "export-results":
-      if(m.results&&m.results.length>0){for(const i of m.results){dlBytes(i.name+"."+i.format.toLowerCase(),i.bytes,i.format.toLowerCase());exportCount++;}log("Exported "+m.results.length+" file(s)","ok");status("Exported "+exportCount+" files");}
-      break;
-    case "progress":
-      if(m.total>0){progFill.style.width=Math.round((m.current/m.total)*100)+"%";progTxt.textContent=m.current+" / "+m.total+(m.label?" — "+m.label:"");}
-      break;
-    case "export-complete":
-      isExporting=false;progFill.style.width="100%";progTxt.textContent="Complete — "+exportCount+" files";log("Batch complete: "+exportCount+" files","ok");status("Done");
-      setTimeout(function(){progEl.classList.remove("show");progFill.style.width="0%";},2500);
-      break;
-    case "lottie-import-summary":
-      isExporting=false;const s=m.summary;const el=document.getElementById("lottieSummary");el.style.display="block";
-      el.style.color=s.valid?"var(--green)":"var(--red)";
-      el.innerHTML=(s.valid?"✅ ":"❌ ")+"<b>"+s.fileName+"</b> — "+(s.valid?("Layers: "+s.layerCount+", Keys: "+s.topLevelKeys.join(", ")):s.warning);
-      status("Validated");break;
-    case "error":isExporting=false;log(m.message,"err");status("Error");progEl.classList.remove("show");break;
+  // ── Theme ──
+  function applyTheme(t) {
+    currentTheme = t;
+    if (t === "dark") {
+      document.body.classList.add("dark");
+    } else {
+      document.body.classList.remove("dark");
+    }
+    if (themeLabel) themeLabel.textContent = t === "dark" ? "Dark" : "Light";
+    try { localStorage.setItem("ea-theme", t); } catch(e) {}
   }
-});
 
-// Lottie file reader
-var li=document.getElementById("lottieFileInput");
-if(li)li.addEventListener("change",function(){var f=this.files&&this.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){parent.postMessage({pluginMessage:{type:"import-lottie-json",fileName:f.name,content:e.target.result}},"*");log("Validating: "+f.name,"inf");};r.readAsText(f);});
+  function toggleTheme() {
+    applyTheme(currentTheme === "dark" ? "light" : "dark");
+  }
 
-// Keyboard shortcut
-document.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();runAEExport();}if(e.key==="Escape"&&isExporting){isExporting=false;log("Cancelled","err");status("Cancelled");progEl.classList.remove("show");}});
+  // Init theme
+  var saved = null;
+  try { saved = localStorage.getItem("ea-theme"); } catch(e) {}
+  var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(saved || (prefersDark ? "dark" : "light"));
 
-log("Ready — choose a tab above.","inf");
-log("Ctrl+Enter = AE Extract, Esc = cancel","inf");
-status("Ready");
+  // Theme button click
+  var themeBtn = el("themeToggle");
+  if (themeBtn) {
+    themeBtn.addEventListener("click", toggleTheme);
+  }
+
+  // ── Tabs ──
+  var tabButtons = document.querySelectorAll(".tab-btn");
+  var panels = document.querySelectorAll(".panel");
+
+  function switchTab(tabName) {
+    for (var i = 0; i < tabButtons.length; i++) {
+      tabButtons[i].classList.remove("active");
+    }
+    for (var j = 0; j < panels.length; j++) {
+      panels[j].classList.remove("active");
+    }
+    // Find and activate the correct tab button and panel
+    for (var k = 0; k < tabButtons.length; k++) {
+      if (tabButtons[k].getAttribute("data-tab") === tabName) {
+        tabButtons[k].classList.add("active");
+        break;
+      }
+    }
+    var panel = el("panel-" + tabName);
+    if (panel) panel.classList.add("active");
+  }
+
+  for (var t = 0; t < tabButtons.length; t++) {
+    tabButtons[t].addEventListener("click", function(e) {
+      var tn = this.getAttribute("data-tab");
+      if (tn) switchTab(tn);
+    });
+  }
+
+  // ── Logging ──
+  function log(msg, type) {
+    type = type || "inf";
+    if (!logEl.classList.contains("show")) {
+      logEl.classList.add("show");
+      logEl.innerHTML = "";
+    }
+    var div = document.createElement("div");
+    div.className = type;
+    div.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+    clearTimeout(logEl._timeout);
+    logEl._timeout = setTimeout(function() {
+      if (!isExporting) logEl.classList.remove("show");
+    }, 12000);
+  }
+
+  function status(msg) {
+    if (statusPill) statusPill.textContent = msg;
+  }
+
+  // ── Downloads ──
+  function dlFile(name, content, mime) {
+    var blob = new Blob([content], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    log("Downloaded: " + name, "ok");
+  }
+
+  function dlBytes(name, bytes, format) {
+    var mimeMap = { svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg" };
+    var mime = mimeMap[format] || "application/octet-stream";
+    var u8 = new Uint8Array(bytes);
+    var blob = new Blob([u8], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Actions ──
+  function request(type) {
+    if (isExporting) { log("Already exporting.", "err"); return; }
+    log("Requesting " + type, "inf");
+    status("Working");
+    parent.postMessage({ pluginMessage: { type: type } }, "*");
+  }
+
+  function exportSel(type) {
+    if (isExporting) { log("Already exporting.", "err"); return; }
+    var s = parseFloat(el("scaleSel").value) || 1;
+    isExporting = true;
+    exportCount = 0;
+    progEl.classList.add("show");
+    progFill.style.width = "0%";
+    progTxt.textContent = "Starting...";
+    status("Exporting selected");
+    log("Export: " + type + " (" + s + "x)", "inf");
+    parent.postMessage({ pluginMessage: { type: type, scale: s } }, "*");
+  }
+
+  function runBatch(fmt) {
+    if (isExporting) { log("Already exporting.", "err"); return; }
+    var s = parseFloat(el("scaleBatch").value) || 1;
+    var all = el("batch-scope").checked;
+    isExporting = true;
+    exportCount = 0;
+    progEl.classList.add("show");
+    progFill.style.width = "0%";
+    progTxt.textContent = "Starting...";
+    var msgType = fmt === "svg"
+      ? (all ? "export-all-svg-all-pages" : "export-all-svg-page")
+      : (all ? "export-all-png-all-pages" : "export-all-png-page");
+    status(all ? "Exporting all pages" : "Exporting current page");
+    log("Batch " + fmt.toUpperCase() + " (" + s + "x, " + (all ? "all pages" : "current page") + ")", "inf");
+    parent.postMessage({ pluginMessage: { type: msgType, scale: s } }, "*");
+  }
+
+  // AE Export
+  function runAEExport() {
+    if (isExporting) { log("Already exporting.", "err"); return; }
+    isExporting = true;
+    exportCount = 0;
+    progEl.classList.add("show");
+    progFill.style.width = "0%";
+    var opts = {
+      includeSVGs: el("ae-svgs").checked,
+      includeJSON: el("ae-json").checked,
+      includeLottie: el("ae-lottie").checked,
+      includeText: el("ae-text").checked,
+    };
+    status("Extracting for After Effects");
+    progTxt.textContent = "Starting...";
+    progFill.style.width = "5%";
+    parent.postMessage({ pluginMessage: { type: "get-full-extract", aeOpts: opts } }, "*");
+    if (opts.includeLottie) {
+      parent.postMessage({ pluginMessage: { type: "export-lottie-json" } }, "*");
+    }
+  }
+
+  // AI Extract
+  function runAIExtract() {
+    if (isExporting) { log("Already exporting.", "err"); return; }
+    isExporting = true;
+    exportCount = 0;
+    progEl.classList.add("show");
+    progFill.style.width = "0%";
+    var opts = {
+      includeSVGs: el("ai-svgs").checked,
+      includeText: el("ai-text").checked,
+      includeVars: el("ai-vars").checked,
+      includeStyles: el("ai-styles").checked,
+      includeComps: el("ai-comps").checked,
+      includeTree: el("ai-tree").checked,
+      includeTXT: el("ai-txtfile").checked,
+    };
+    status("Extracting for AI");
+    progTxt.textContent = "Starting...";
+    progFill.style.width = "5%";
+    parent.postMessage({ pluginMessage: { type: "get-full-extract", aiOpts: opts } }, "*");
+  }
+
+  // ── Message Handler ──
+  window.addEventListener("message", function(e) {
+    var m = e.data.pluginMessage;
+    if (!m) return;
+
+    switch (m.type) {
+      case "selection-state":
+        selCount.textContent = String(m.count || 0);
+        selPage.textContent = m.pageName ? "Page: " + m.pageName : "\u2014";
+        break;
+
+      case "full-extract":
+        isExporting = false;
+        progFill.style.width = "100%";
+        progTxt.textContent = "Done \u2014 " + m.data.textNodes + " texts, " + m.data.svgs + " SVGs";
+        log("Complete: " + m.data.textNodes + " texts, " + m.data.svgs + " SVGs, " + m.data.variables + " vars, " + m.data.styles + " styles", "ok");
+        status("Done");
+        setTimeout(function() { progEl.classList.remove("show"); progFill.style.width = "0%"; }, 3000);
+        break;
+
+      case "full-extract-progress":
+        if (m.progress) {
+          var p = m.progress;
+          var pct = Math.round((p.step / p.totalSteps) * 100);
+          progFill.style.width = pct + "%";
+          progEl.classList.add("show");
+          progTxt.textContent = p.label + " \u2014 " + p.detail;
+          status(p.label);
+        }
+        break;
+
+      case "download-file":
+        dlFile(m.fileName, m.content, m.mimeType);
+        status("Downloaded " + m.fileName);
+        if (isExporting && exportCount === 0) {
+          isExporting = false;
+          progEl.classList.remove("show");
+        }
+        break;
+
+      case "export-results":
+        if (m.results && m.results.length > 0) {
+          for (var i = 0; i < m.results.length; i++) {
+            var item = m.results[i];
+            dlBytes(item.name + "." + item.format.toLowerCase(), item.bytes, item.format.toLowerCase());
+            exportCount++;
+          }
+          log("Exported " + m.results.length + " file(s)", "ok");
+          status("Exported " + exportCount + " files");
+        }
+        break;
+
+      case "progress":
+        if (m.total > 0) {
+          progFill.style.width = Math.round((m.current / m.total) * 100) + "%";
+          progTxt.textContent = m.current + " / " + m.total + (m.label ? " \u2014 " + m.label : "");
+        }
+        break;
+
+      case "export-complete":
+        isExporting = false;
+        progFill.style.width = "100%";
+        progTxt.textContent = "Complete \u2014 " + exportCount + " files";
+        log("Batch complete: " + exportCount + " files", "ok");
+        status("Done");
+        setTimeout(function() { progEl.classList.remove("show"); progFill.style.width = "0%"; }, 2500);
+        break;
+
+      case "lottie-import-summary":
+        isExporting = false;
+        var s = m.summary;
+        var sumEl = el("lottieSummary");
+        sumEl.style.display = "block";
+        sumEl.style.color = s.valid ? "var(--green)" : "var(--red)";
+        sumEl.innerHTML = (s.valid ? "\u2705 " : "\u274c ") + "<b>" + s.fileName + "</b> \u2014 " +
+          (s.valid ? ("Layers: " + s.layerCount + ", Keys: " + s.topLevelKeys.join(", ")) : s.warning);
+        status("Validated");
+        break;
+
+      case "error":
+        isExporting = false;
+        log(m.message, "err");
+        status("Error");
+        progEl.classList.remove("show");
+        break;
+    }
+  });
+
+  // Lottie file input
+  var lottieInput = el("lottieFileInput");
+  if (lottieInput) {
+    lottieInput.addEventListener("change", function() {
+      var file = this.files && this.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        parent.postMessage({
+          pluginMessage: { type: "import-lottie-json", fileName: file.name, content: e.target.result }
+        }, "*");
+        log("Validating: " + file.name, "inf");
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // Keyboard shortcut
+  document.addEventListener("keydown", function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      runAEExport();
+    }
+    if (e.key === "Escape" && isExporting) {
+      isExporting = false;
+      log("Cancelled", "err");
+      status("Cancelled");
+      progEl.classList.remove("show");
+    }
+  });
+
+  log("Ready \u2014 choose a tab above.", "inf");
+  log("Ctrl+Enter = AE Extract, Esc = cancel", "inf");
+  status("Ready");
+
+})();
 </script>
 </body>
 </html>
