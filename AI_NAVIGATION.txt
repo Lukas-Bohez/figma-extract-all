@@ -1,0 +1,159 @@
+================================================================================
+  FIGMA EXTRACT ALL — AI NAVIGATION GUIDE
+  Everything you need to understand this export structure at a glance.
+================================================================================
+
+WHAT THIS IS:
+  A complete data dump from a Figma design file, structured to be consumed
+  by AI/LLMs for code generation, asset pipelines, or design handoff.
+
+================================================================================
+  FILE INDEX — What each file contains
+================================================================================
+
+  *_full-extract.json
+    The master file. Contains ALL data in one structured JSON:
+      - fileName: Original Figma file name
+      - extractDate: ISO timestamp of extraction
+      - totalPages: Number of pages in the Figma file
+      - pages[]: Array of page objects ({id, name, nodeCount, background})
+      - textNodes[]: Every text node with full typography metadata
+          {id, name, characters, fontName{family,style}, fontSize, fontWeight,
+           lineHeight{value,unit}, letterSpacing{value,unit},
+           textAlignHorizontal, textAlignVertical, fills[], opacity,
+           x, y, width, height, constraints, pageName}
+      - variables[]: All design tokens (colors, numbers, strings, booleans)
+          {id, name, resolvedType, valuesByMode, scopes[], codeSyntax, description}
+      - styles[]: All paint/text/effect/grid styles
+          {id, name, key, styleType, description}
+      - components[]: All components and component sets
+          {id, name, key, description, type, pageName, hasVariants, variantProperties}
+      - nodeCounts: {total, byType: {RECTANGLE: n, TEXT: n, FRAME: n, ...}}
+
+  *_text.json
+    Structured JSON array of text nodes only. Same fields as textNodes in the
+    full extract. Useful when you only need text content + typography.
+
+  *_text.txt
+    Plain text dump. Format:
+      // -- NodeName (PageName) --
+      The actual text content...
+
+    Perfect for quick LLM context injection, copy-paste, or content audits.
+
+  *_variables.json
+    Design tokens / variables extracted from the Figma file. Each variable
+    includes its name, resolved type, values per mode, and code syntax.
+
+  *_styles.json
+    All named styles: paint styles (colors/gradients), text styles
+    (typography), effect styles (shadows/blurs), grid styles.
+
+  *_components.json
+    Every component and component set in the document, including variant
+    properties for component sets.
+
+  *_pages.json
+    Page-level metadata: page names, IDs, node counts, background colors.
+
+  Individual .svg / .png / .jpg files
+    Each exportable node (frame, group, rectangle, text, component, vector,
+    etc.) is exported as a separate file named after its Figma node name.
+    When exporting from all pages, files are prefixed: PageName/node-name.svg
+
+================================================================================
+  EXPORT WORKFLOW — How to use this data
+================================================================================
+
+  TO BUILD A WEBSITE WITH AI:
+    1. Read this AI_NAVIGATION.txt first
+    2. Load *_full-extract.json for complete design data (layout, colors,
+       typography, spacing, component structure)
+    3. Reference individual .svg files for exact visual assets
+    4. Use textNodes[].x, .y, .width, .height for positioning
+    5. Use variables[] for design tokens (CSS custom properties)
+    6. Use components[] for reusable component structure
+
+  TO IMPORT INTO AFTER EFFECTS:
+    1. Use individual .svg files as vector layers
+    2. Use *_full-extract.json for:
+       - x, y positions of each node
+       - width, height dimensions
+       - Opacity values
+       - Layer hierarchy (inferred from node structure)
+       - Fill colors
+    3. SVG files preserve vector quality at any resolution
+
+  TO BUILD A DESIGN TOKEN SYSTEM:
+    1. Use *_variables.json → convert to CSS custom properties / SCSS variables
+    2. Use *_styles.json → convert to CSS classes or Tailwind config
+    3. Use textNodes[] fontName, fontSize, fontWeight → typography scale
+
+  TO AUDIT CONTENT:
+    1. Use *_text.txt for plain text search/review
+    2. Use *_text.json for structured text with metadata
+
+================================================================================
+  DATA TYPES REFERENCE
+================================================================================
+
+  NODE TYPES (from nodeCounts.byType):
+    BOOLEAN_OPERATION, COMPONENT, COMPONENT_SET, ELLIPSE, FRAME, GROUP,
+    INSTANCE, LINE, POLYGON, RECTANGLE, SECTION, STAR, TEXT, VECTOR, ...
+
+  VARIABLE TYPES (from variables[].resolvedType):
+    COLOR, FLOAT, STRING, BOOLEAN
+
+  STYLE TYPES (from styles[].styleType):
+    PAINT, TEXT, EFFECT, GRID
+
+  TEXT ALIGNMENT (from textNodes[].textAlignHorizontal):
+    LEFT, CENTER, RIGHT, JUSTIFIED
+
+  TEXT VERTICAL ALIGNMENT (from textNodes[].textAlignVertical):
+    TOP, CENTER, BOTTOM
+
+  CONSTRAINT TYPES (from textNodes[].constraints):
+    horizontal: MIN, MAX, CENTER, STRETCH, SCALE
+    vertical: MIN, MAX, CENTER, STRETCH, SCALE
+
+================================================================================
+  COORDINATE SYSTEM
+================================================================================
+  - x, y: Absolute position from the parent frame/page origin
+  - width, height: Node dimensions in pixels
+  - Coordinates are at 1x scale (Figma default)
+  - Multiply by export scale factor for exported PNG/JPG pixel dimensions
+
+================================================================================
+  QUICK START FOR AI CODE GENERATION
+================================================================================
+
+  Example prompt structure:
+  """
+  I have a Figma design exported with Extract All.
+  Read AI_NAVIGATION.txt to understand the file structure.
+  
+  Design data: [paste *_full-extract.json content]
+  Assets: [list of .svg/.png filenames available]
+  
+  Task: Build a responsive React website from this design.
+  - Use variables[] for your CSS custom properties / design tokens
+  - Use textNodes[] for all text content and typography
+  - Use components[] to understand reusable component structure
+  - Reference SVGs by filename for icons and illustrations
+  - Use nodeCounts and x/y/width/height for layout calculations
+  """
+
+================================================================================
+  FILE NAME CONVENTIONS
+================================================================================
+  - All special characters in node names are replaced with underscores
+  - Trailing periods are stripped
+  - Empty names become "unnamed"
+  - Cross-page exports use: {PageName}/{NodeName}.{ext}
+  - Formats: .svg, .png, .jpg, .json, .txt
+
+================================================================================
+  END OF NAVIGATION GUIDE
+================================================================================
