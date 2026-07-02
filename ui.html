@@ -321,7 +321,7 @@ function runAEExport(){if(isExporting){log("Already exporting.","err");return;}
     includeText:document.getElementById("ae-text").checked,
   };
   status("Extracting for After Effects");log("AE Export: SVGs="+opts.includeSVGs+", JSON="+opts.includeJSON+", Lottie="+opts.includeLottie+", Text="+opts.includeText,"inf");
-  progrTxt=opts.includeSVGs?"Step 1/4: Full extract...":"Step 1/3...";
+  progTxt.textContent=opts.includeSVGs?"Step 1/4: Full extract...":"Step 1/3...";
   progFill.style.width="10%";
   // Simply do a full extract (which includes everything) + Lottie if selected
   parent.postMessage({pluginMessage:{type:"get-full-extract", aeOpts:opts}},"*");
@@ -329,7 +329,7 @@ function runAEExport(){if(isExporting){log("Already exporting.","err");return;}
 }
 
 // ═══ AI Extract ═══
-function runAIExtract(){if(isExporting){log("Already exporting.","err");}return;
+function runAIExtract(){if(isExporting){log("Already exporting.","err");return;}
   isExporting=true;exportCount=0;progEl.classList.add("show");progFill.style.width="0%";
   const opts={
     includeSVGs:document.getElementById("ai-svgs").checked,
