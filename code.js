@@ -1,83 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "9.0.0";
-const TE = { encode: (s) => { const r = new Uint8Array(s.length); for (let i = 0; i < s.length; i++)
-        r[i] = s.charCodeAt(i) & 0xFF; return r; } };
-const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++)
-        c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
-    t[i] = c >>> 0;
-} return t; })();
-function crc32(d) { let c = 0xFFFFFFFF; for (let i = 0; i < d.length; i++)
-    c = CRC_TABLE[(c ^ d[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
-function makeZip(files) {
-    const locals = [], cdirs = [];
-    let off = 0;
-    function w32(v) { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v, true); return b; }
-    function w16(v) { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, v, true); return b; }
-    function push(out, ...arrays) {
-        for (const a of arrays)
-            out.push(typeof a === "number" ? new Uint8Array([a]) : a);
-    }
-    for (const f of files) {
-        const nb = TE.encode(f.name);
-        const crc = crc32(f.data);
-        const sz = f.data.length;
-        const lh = new Uint8Array(30 + nb.length);
-        new DataView(lh.buffer).setUint32(0, 0x04034b50, true);
-        lh[6] = 0;
-        lh[7] = 0;
-        lh[8] = 0;
-        lh[9] = 0;
-        new DataView(lh.buffer).setUint32(14, crc, true);
-        new DataView(lh.buffer).setUint32(18, sz, true);
-        new DataView(lh.buffer).setUint32(22, sz, true);
-        new DataView(lh.buffer).setUint16(26, nb.length, true);
-        lh[28] = 0;
-        lh[29] = 0;
-        lh.set(nb, 30);
-        locals.push(lh, f.data);
-        const entryOff = off;
-        off += 30 + nb.length + sz;
-        const cl = f.data.compressedSize !== undefined;
-        if (cl && f.data.compressedSize !== sz)
-            continue;
-        const cd = new Uint8Array(46 + nb.length);
-        new DataView(cd.buffer).setUint32(0, 0x02014b50, true);
-        cd[6] = 0;
-        cd[7] = 0;
-        cd[8] = 0;
-        cd[9] = 0;
-        new DataView(cd.buffer).setUint32(16, crc, true);
-        new DataView(cd.buffer).setUint32(20, sz, true);
-        new DataView(cd.buffer).setUint32(24, sz, true);
-        new DataView(cd.buffer).setUint16(28, nb.length, true);
-        new DataView(cd.buffer).setUint32(42, entryOff, true);
-        cd.set(nb, 46);
-        cdirs.push(cd);
-    }
-    const cdOff = off;
-    const cdSz = cdirs.reduce((s, a) => s + a.length, 0);
-    const eocd = new Uint8Array(22);
-    new DataView(eocd.buffer).setUint32(0, 0x06054b50, true);
-    new DataView(eocd.buffer).setUint16(8, files.length, true);
-    new DataView(eocd.buffer).setUint16(10, files.length, true);
-    new DataView(eocd.buffer).setUint32(12, cdSz, true);
-    new DataView(eocd.buffer).setUint32(16, cdOff, true);
-    const total = off + cdSz + 22;
-    const result = new Uint8Array(total);
-    let pos = 0;
-    for (const p of locals) {
-        result.set(p, pos);
-        pos += p.length;
-    }
-    for (const p of cdirs) {
-        result.set(p, pos);
-        pos += p.length;
-    }
-    result.set(eocd, pos);
-    return result;
-}
+const PLUGIN_VERSION = "10.0.0";
 function sanitizeName(n) { return n.replace(/[<>:"\/\\|?*\x00-\x1f]/g, "_").replace(/\.+$/, "").trim() || "unnamed"; }
 function rgbToHex(r, g, b) { const h = (n) => { const x = Math.round(Math.max(0, Math.min(1, n)) * 255).toString(16); return x.length === 1 ? "0" + x : x; }; return "#" + h(r) + h(g) + h(b); }
 function getPageName(node) { let c = node.parent || null; while (c) {
@@ -170,20 +92,6 @@ function buildPlainText(texts) {
     l.push(`── END (${texts.length} texts) ──`);
     return l.join("\n");
 }
-let zipFiles = [];
-function addToZip(name, content) {
-    if (typeof content === "string")
-        zipFiles.push({ name, data: TE.encode(content) });
-    else
-        zipFiles.push({ name, data: content });
-}
-function flushZipAndDownload(fileNameBase) {
-    if (zipFiles.length === 0)
-        return;
-    const zip = makeZip(zipFiles);
-    figma.ui.postMessage({ type: "download-file-zip", fileName: `${sanitizeName(fileNameBase)}_extract.zip`, bytes: Array.from(zip) });
-    zipFiles = [];
-}
 function buildFullExtractSync(onProgress) {
     const scope = getScope();
     const rpt = (s, l, d) => { if (onProgress)
@@ -222,7 +130,9 @@ function buildFullExtractSync(onProgress) {
     rpt(3, "Done", `${texts.length} texts, ${totalN} nodes`);
     return { meta: { fileName: figma.root.name || "Untitled", extractDate: new Date().toISOString(), pluginVersion: PLUGIN_VERSION, totalPages: figma.root.children.length, extractionScope: "scoped", scopeDescription: scope.desc }, pages, textNodes: texts, variables: [], styles: [], components: comps, nodeCounts: { total: totalN, textNodes: texts.length, frames: fc, components: cc, instances: ic, byType }, hierarchy };
 }
-async function fetchAndDownloadVariables() { var _a; try {
+function downloadFile(fileName, content, mime) { figma.ui.postMessage({ type: "download-file", fileName, content, mimeType: mime }); }
+function downloadBytes(fileName, bytes, mime) { figma.ui.postMessage({ type: "download-file-zip", fileName, bytes: Array.from(bytes), mimeType: mime }); }
+async function fetchAndSendVariables() { var _a; try {
     const localVars = await figma.variables.getLocalVariablesAsync();
     const vars = [];
     let modeMap = {};
@@ -248,13 +158,13 @@ async function fetchAndDownloadVariables() { var _a; try {
         }
         vars.push({ id: v.id, name: v.name, resolvedType: v.resolvedType, valuesByMode: enriched, scopes: v.scopes || [], description: v.description || "", remote: v.remote || false });
     }
-    addToZip(`${sanitizeName(figma.root.name)}_variables.json`, JSON.stringify(vars, null, 2));
+    downloadFile(`${sanitizeName(figma.root.name)}_variables.json`, JSON.stringify(vars, null, 2), "application/json");
     figma.ui.postMessage({ type: "async-data", data: { variables: vars.length } });
 }
 catch (e) {
     figma.ui.postMessage({ type: "async-data", data: { variables: 0, error: true } });
 } }
-async function fetchAndDownloadStyles() { var _a, _b; try {
+async function fetchAndSendStyles() { var _a, _b; try {
     const styles = [];
     const ps = await figma.getLocalPaintStylesAsync();
     for (const s of ps || []) {
@@ -273,7 +183,7 @@ async function fetchAndDownloadStyles() { var _a, _b; try {
     for (const s of gs || []) {
         styles.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", remote: s.remote || false });
     }
-    addToZip(`${sanitizeName(figma.root.name)}_styles.json`, JSON.stringify(styles, null, 2));
+    downloadFile(`${sanitizeName(figma.root.name)}_styles.json`, JSON.stringify(styles, null, 2), "application/json");
     figma.ui.postMessage({ type: "async-data", data: { styles: styles.length } });
 }
 catch (e) {
@@ -284,7 +194,10 @@ async function exportNodeAsSVGEmbedded(nodeId) { const n = await figma.getNodeBy
     const s = await sn.exportAsync({ format: "SVG_STRING" });
     if (!s || s.length < 10)
         return null;
-    return { name: `svgs/${sanitizeName(getPageName(n))}/${sanitizeName(n.name)}.svg`, data: TE.encode(s) };
+    const u8 = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++)
+        u8[i] = s.charCodeAt(i) & 0xFF;
+    return { name: `svgs/${sanitizeName(getPageName(n))}/${sanitizeName(n.name)}.svg`, data: u8 };
 }
 catch (e) {
     return null;
@@ -325,6 +238,9 @@ async function buildLottieBundle(roots) { const allNodes = deepFlatten(roots); c
     }
     catch (e) { }
 } return { fileName: `${sanitizeName(figma.root.name)}_lottie.json`, exportDate: new Date().toISOString(), source: figma.root.name || "Untitled", itemCount: items.length, items }; }
+function sendSVGThrottled(name, data) {
+    downloadBytes(name, data, "image/svg+xml");
+}
 figma.showUI(__html__, { width: 520, height: 680, title: "Extract All" });
 let cancelRequested = false;
 function postSel() { figma.ui.postMessage({ type: "selection-state", count: figma.currentPage.selection.length, pageName: figma.currentPage.name }); }
@@ -333,96 +249,91 @@ figma.on("currentpagechange", postSel);
 postSel();
 figma.ui.onmessage = async (msg) => {
     cancelRequested = false;
-    zipFiles = [];
     const scope = getScope();
     const baseName = figma.root.name || "Untitled";
     if (msg.type === "get-full-extract" && !msg.aeOpts && !msg.aiOpts) {
         const data = buildFullExtractSync((p) => { figma.ui.postMessage({ type: "full-extract-progress", progress: p }); });
-        addToZip(`${baseName}_full-extract.json`, JSON.stringify(data, null, 2));
-        addToZip(`${baseName}_text.txt`, buildPlainText(data.textNodes));
+        if (cancelRequested)
+            return;
+        downloadFile(`${sanitizeName(baseName)}_full-extract.json`, JSON.stringify(data, null, 2), "application/json");
+        downloadFile(`${sanitizeName(baseName)}_text.txt`, buildPlainText(data.textNodes), "text/plain");
         figma.ui.postMessage({ type: "full-extract", data: { textNodes: data.textNodes.length, variables: 0, styles: 0, components: data.components.length, totalNodes: data.nodeCounts.total, scope: data.meta.scopeDescription } });
-        flushZipAndDownload(baseName);
-        fetchAndDownloadVariables();
-        fetchAndDownloadStyles();
+        fetchAndSendVariables();
+        fetchAndSendStyles();
     }
     if (msg.type === "get-full-extract" && msg.aeOpts) {
         const data = buildFullExtractSync((p) => { figma.ui.postMessage({ type: "full-extract-progress", progress: p }); });
         if (cancelRequested)
             return;
-        addToZip(`${baseName}_full-extract.json`, JSON.stringify(data, null, 2));
-        addToZip(`${baseName}_text.txt`, buildPlainText(data.textNodes));
+        downloadFile(`${sanitizeName(baseName)}_full-extract.json`, JSON.stringify(data, null, 2), "application/json");
+        downloadFile(`${sanitizeName(baseName)}_text.txt`, buildPlainText(data.textNodes), "text/plain");
         if (msg.aeOpts.includeSVGs && !cancelRequested) {
             const allNodes = deepFlatten(scope.roots).filter(n => n.type !== "TEXT" && n.type !== "PAGE" && isVisible(n));
             const total = allNodes.length;
-            for (let i = 0; i < allNodes.length; i += 8) {
+            for (let i = 0; i < allNodes.length; i += 4) {
                 if (cancelRequested)
                     break;
-                const batch = allNodes.slice(i, i + 8);
+                const batch = allNodes.slice(i, i + 4);
                 const results = await Promise.all(batch.map(n => exportNodeAsSVGEmbedded(n.id)));
                 for (const r of results) {
                     if (r)
-                        zipFiles.push(r);
+                        sendSVGThrottled(r.name, r.data);
                 }
-                figma.ui.postMessage({ type: "progress", current: Math.min(i + 8, total), total: total, label: "SVGs" });
+                figma.ui.postMessage({ type: "progress", current: Math.min(i + 4, total), total: total, label: "SVGs" });
             }
         }
         if (msg.aeOpts.includeLottie && !cancelRequested) {
             const bundle = await buildLottieBundle(scope.roots);
-            addToZip(bundle.fileName, JSON.stringify(bundle, null, 2));
+            downloadFile(bundle.fileName, JSON.stringify(bundle, null, 2), "application/json");
         }
         figma.ui.postMessage({ type: "full-extract", data: { textNodes: data.textNodes.length, variables: 0, styles: 0, components: data.components.length, totalNodes: data.nodeCounts.total, scope: data.meta.scopeDescription } });
-        flushZipAndDownload(baseName);
-        fetchAndDownloadVariables();
-        fetchAndDownloadStyles();
+        fetchAndSendVariables();
+        fetchAndSendStyles();
     }
     if (msg.type === "get-full-extract" && msg.aiOpts) {
         const data = buildFullExtractSync((p) => { figma.ui.postMessage({ type: "full-extract-progress", progress: p }); });
         if (cancelRequested)
             return;
-        addToZip(`${baseName}_full-extract.json`, JSON.stringify(data, null, 2));
-        addToZip(`${baseName}_text.txt`, buildPlainText(data.textNodes));
+        downloadFile(`${sanitizeName(baseName)}_full-extract.json`, JSON.stringify(data, null, 2), "application/json");
+        downloadFile(`${sanitizeName(baseName)}_text.txt`, buildPlainText(data.textNodes), "text/plain");
         if (msg.aiOpts.includeSVGs && !cancelRequested) {
             const allNodes = deepFlatten(scope.roots).filter(n => n.type !== "TEXT" && n.type !== "PAGE" && isVisible(n));
             const total = allNodes.length;
-            for (let i = 0; i < allNodes.length; i += 8) {
+            for (let i = 0; i < allNodes.length; i += 4) {
                 if (cancelRequested)
                     break;
-                const batch = allNodes.slice(i, i + 8);
+                const batch = allNodes.slice(i, i + 4);
                 const results = await Promise.all(batch.map(n => exportNodeAsSVGEmbedded(n.id)));
                 for (const r of results) {
                     if (r)
-                        zipFiles.push(r);
+                        sendSVGThrottled(r.name, r.data);
                 }
-                figma.ui.postMessage({ type: "progress", current: Math.min(i + 8, total), total: total, label: "SVGs" });
+                figma.ui.postMessage({ type: "progress", current: Math.min(i + 4, total), total: total, label: "SVGs" });
             }
         }
         figma.ui.postMessage({ type: "full-extract", data: { textNodes: data.textNodes.length, variables: 0, styles: 0, components: data.components.length, totalNodes: data.nodeCounts.total, scope: data.meta.scopeDescription } });
-        flushZipAndDownload(baseName);
-        fetchAndDownloadVariables();
-        fetchAndDownloadStyles();
+        fetchAndSendVariables();
+        fetchAndSendStyles();
     }
     if (msg.type === "get-text") {
         const nodes = deepFlatten(scope.roots);
         const tn = nodes.filter(n => n.type === "TEXT").map(n => extractText(n));
-        addToZip(`${baseName}_text.json`, JSON.stringify(tn, null, 2));
-        addToZip(`${baseName}_text.txt`, buildPlainText(tn));
-        flushZipAndDownload(baseName + "_text");
+        downloadFile(`${sanitizeName(baseName)}_text.json`, JSON.stringify(tn, null, 2), "application/json");
+        downloadFile(`${sanitizeName(baseName)}_text.txt`, buildPlainText(tn), "text/plain");
     }
     if (msg.type === "get-variables") {
-        const v = await fetchAndDownloadVariablesInner();
-        figma.ui.postMessage({ type: "download-file", fileName: `${sanitizeName(baseName)}_variables.json`, content: JSON.stringify(v, null, 2), mimeType: "application/json" });
+        fetchAndSendVariables();
     }
     if (msg.type === "get-styles") {
-        const s = await fetchAndDownloadStylesInner();
-        figma.ui.postMessage({ type: "download-file", fileName: `${sanitizeName(baseName)}_styles.json`, content: JSON.stringify(s, null, 2), mimeType: "application/json" });
+        fetchAndSendStyles();
     }
     if (msg.type === "get-components") {
         const c = extractAllComponents();
-        figma.ui.postMessage({ type: "download-file", fileName: `${sanitizeName(baseName)}_components.json`, content: JSON.stringify(c, null, 2), mimeType: "application/json" });
+        downloadFile(`${sanitizeName(baseName)}_components.json`, JSON.stringify(c, null, 2), "application/json");
     }
     if (msg.type === "get-pages") {
         const p = extractPages();
-        figma.ui.postMessage({ type: "download-file", fileName: `${sanitizeName(baseName)}_pages.json`, content: JSON.stringify(p, null, 2), mimeType: "application/json" });
+        downloadFile(`${sanitizeName(baseName)}_pages.json`, JSON.stringify(p, null, 2), "application/json");
     }
     if (msg.type === "export-selected-svg" || msg.type === "export-selected-png" || msg.type === "export-selected-jpg") {
         const sel = figma.currentPage.selection;
@@ -445,12 +356,12 @@ figma.ui.onmessage = async (msg) => {
         for (const node of sel) {
             const s = await node.exportAsync({ format: "SVG_STRING" });
             if (s)
-                figma.ui.postMessage({ type: "download-file", fileName: `${sanitizeName(node.name)}.svg`, content: s, mimeType: "image/svg+xml" });
+                downloadFile(`${sanitizeName(node.name)}.svg`, s, "image/svg+xml");
         }
     }
     if (msg.type === "export-lottie-json") {
         const bundle = await buildLottieBundle(scope.roots);
-        figma.ui.postMessage({ type: "download-file", fileName: bundle.fileName, content: JSON.stringify(bundle, null, 2), mimeType: "application/json" });
+        downloadFile(bundle.fileName, JSON.stringify(bundle, null, 2), "application/json");
     }
     if (msg.type === "import-lottie-json") {
         try {
@@ -476,25 +387,22 @@ figma.ui.onmessage = async (msg) => {
             for (let i = 0; i < ns.length; i += 20) {
                 if (cancelRequested)
                     break;
-                const batch = ns.slice(i, i + 20).map(n => n.id);
+                const batch = ns.slice(i, i + 20).map((n) => n.id);
                 const r = await exportNodes(batch, fmt, sc);
                 for (const x of r) {
                     const ext = fmt.toLowerCase();
                     const fname = pages.length > 1 ? `${sanitizeName(pg.name)}/${x.name}.${ext}` : `${x.name}.${ext}`;
-                    zipFiles.push({ name: fname, data: new Uint8Array(x.bytes) });
+                    downloadBytes(fname, new Uint8Array(x.bytes), fmt === "SVG" ? "image/svg+xml" : "image/png");
                 }
                 pN += batch.length;
                 figma.ui.postMessage({ type: "progress", current: Math.min(pN, tN), total: tN, label: fmt });
             }
         }
-        if (!cancelRequested) {
-            flushZipAndDownload(baseName + "_batch");
+        if (!cancelRequested)
             figma.ui.postMessage({ type: "export-complete" });
-        }
     }
     if (msg.type === "cancel") {
         cancelRequested = true;
-        zipFiles = [];
     }
     if (msg.type === "resize") {
         figma.ui.resize(msg.width, msg.height);
@@ -503,58 +411,3 @@ figma.ui.onmessage = async (msg) => {
         figma.closePlugin();
     }
 };
-async function fetchAndDownloadVariablesInner() { var _a; try {
-    const localVars = await figma.variables.getLocalVariablesAsync();
-    const vars = [];
-    let modeMap = {};
-    try {
-        const cols = await figma.variables.getLocalVariableCollectionsAsync();
-        for (const col of cols || []) {
-            modeMap[col.id] = {};
-            for (const m of col.modes)
-                modeMap[col.id][m.modeId] = m.name;
-        }
-    }
-    catch (e) { }
-    for (const v of localVars || []) {
-        const enriched = {};
-        const raw = v.valuesByMode || {};
-        const colId = v.variableCollectionId || "";
-        for (const [modeId, value] of Object.entries(raw)) {
-            const mn = ((_a = modeMap[colId]) === null || _a === void 0 ? void 0 : _a[modeId]) || modeId;
-            if (value && typeof value === "object" && "r" in value)
-                enriched[mn] = { raw: value, hex: rgbToHex(value.r, value.g, value.b), css: "" };
-            else
-                enriched[mn] = { raw: value };
-        }
-        vars.push({ id: v.id, name: v.name, resolvedType: v.resolvedType, valuesByMode: enriched, scopes: v.scopes || [], description: v.description || "", remote: v.remote || false });
-    }
-    return vars;
-}
-catch (e) {
-    return [];
-} }
-async function fetchAndDownloadStylesInner() { var _a, _b; try {
-    const styles = [];
-    const ps = await figma.getLocalPaintStylesAsync();
-    for (const s of ps || []) {
-        const paints = s.paints && s.paints.length > 0 ? extractFills(s.paints) : undefined;
-        styles.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", paints, remote: s.remote || false });
-    }
-    const ts = await figma.getLocalTextStylesAsync();
-    for (const s of ts || []) {
-        styles.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", fontSize: s.fontSize, fontFamily: ((_a = s.fontName) === null || _a === void 0 ? void 0 : _a.family) || undefined, fontWeight: ((_b = s.fontName) === null || _b === void 0 ? void 0 : _b.style) || undefined, lineHeight: s.lineHeight && typeof s.lineHeight === "object" && "value" in s.lineHeight ? { value: s.lineHeight.value, unit: s.lineHeight.unit || "PIXELS" } : null, remote: s.remote || false });
-    }
-    const es = await figma.getLocalEffectStylesAsync();
-    for (const s of es || []) {
-        styles.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", remote: s.remote || false });
-    }
-    const gs = await figma.getLocalGridStylesAsync();
-    for (const s of gs || []) {
-        styles.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", remote: s.remote || false });
-    }
-    return styles;
-}
-catch (e) {
-    return [];
-} }
