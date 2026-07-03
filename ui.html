@@ -387,6 +387,12 @@
         status("Downloaded " + m.fileName);
         break;
 
+      case "download-file-zip":
+        dlBytes(m.fileName, m.bytes, "zip");
+        status("Downloaded " + m.fileName);
+        if (isExporting && exportCount === 0) { isExporting = false; progEl.classList.remove("show"); hideCancel(); }
+        break;
+
       case "export-results":
         if (m.results && m.results.length > 0) {
           for (var i = 0; i < m.results.length; i++) {
