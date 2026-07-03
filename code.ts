@@ -1,4 +1,4 @@
-// Figma Extract All v10.0.0 — No ZIP, throttled downloads, works
+// Figma Extract All v11.0.0 — Chunked ZIP, no download spam
 interface ExtractedText {
   id:string;name:string;characters:string;pageName:string;parentPath:string;parentFrame:string;
   absoluteX:number;absoluteY:number;width:number;height:number;x:number;y:number;
@@ -20,8 +20,51 @@ interface FullExtract {
 }
 interface FullExtractProgress {step:number;totalSteps:number;label:string;detail:string;}
 interface ExportResultItem {id:string;name:string;format:string;bytes:number[];}
+interface ZipFileEntry {name:string;data:Uint8Array;}
 
-const PLUGIN_VERSION="10.0.0";
+const PLUGIN_VERSION="11.0.0";
+const TE={encode:(s:string)=>{const r=new Uint8Array(s.length);for(let i=0;i<s.length;i++)r[i]=s.charCodeAt(i)&0xFF;return r;}};
+
+// ── ZIP creator ────────────────────────────────
+const CRC_TABLE:Uint32Array=((()=>{const t=new Uint32Array(256);for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[i]=c>>>0;}return t;}))();
+function crc32(d:Uint8Array):number{let c=0xFFFFFFFF;for(let i=0;i<d.length;i++)c=CRC_TABLE[(c^d[i])&0xFF]^(c>>>8);return(c^0xFFFFFFFF)>>>0;}
+
+function makeZip(files:ZipFileEntry[]):Uint8Array{
+  const locals:Uint8Array[]=[],cdirs:Uint8Array[]=[];let off=0;
+  for(const f of files){
+    const nb=TE.encode(f.name);const crc=crc32(f.data);const sz=f.data.length;
+    const lh=new Uint8Array(30+nb.length);
+    new DataView(lh.buffer).setUint32(0,0x04034b50,true);
+    lh[6]=0;lh[7]=0;lh[8]=0;lh[9]=0;
+    new DataView(lh.buffer).setUint32(14,crc,true);
+    new DataView(lh.buffer).setUint32(18,sz,true);
+    new DataView(lh.buffer).setUint32(22,sz,true);
+    new DataView(lh.buffer).setUint16(26,nb.length,true);
+    lh[28]=0;lh[29]=0;lh.set(nb,30);
+    locals.push(lh,f.data);
+    const entryOff=off;off+=30+nb.length+sz;
+    const cd=new Uint8Array(46+nb.length);
+    new DataView(cd.buffer).setUint32(0,0x02014b50,true);
+    cd[6]=0;cd[7]=0;cd[8]=0;cd[9]=0;
+    new DataView(cd.buffer).setUint32(16,crc,true);
+    new DataView(cd.buffer).setUint32(20,sz,true);
+    new DataView(cd.buffer).setUint32(24,sz,true);
+    new DataView(cd.buffer).setUint16(28,nb.length,true);
+    new DataView(cd.buffer).setUint32(42,entryOff,true);
+    cd.set(nb,46);cdirs.push(cd);
+  }
+  const cdOff=off;const cdSz=cdirs.reduce((s,a)=>s+a.length,0);
+  const eocd=new Uint8Array(22);
+  new DataView(eocd.buffer).setUint32(0,0x06054b50,true);
+  new DataView(eocd.buffer).setUint16(8,files.length,true);
+  new DataView(eocd.buffer).setUint16(10,files.length,true);
+  new DataView(eocd.buffer).setUint32(12,cdSz,true);
+  new DataView(eocd.buffer).setUint32(16,cdOff,true);
+  const total=off+cdSz+22;const result=new Uint8Array(total);let pos=0;
+  for(const p of locals){result.set(p,pos);pos+=p.length;}
+  for(const p of cdirs){result.set(p,pos);pos+=p.length;}
+  result.set(eocd,pos);return result;
+}
 
 // ── Helpers ──
 function sanitizeName(n:string):string{return n.replace(/[<>:"\/\\|?*\x00-\x1f]/g,"_").replace(/\.+$/,"").trim()||"unnamed";}
@@ -45,7 +88,7 @@ function extractPages():ExtractedPage[]{const p:ExtractedPage[]=[];for(const pg 
 function buildHierarchy(root:BaseNode):HierarchyNode[]{const n:HierarchyNode[]=[];if("children" in root)for(const c of (root as any).children){const sc=c as SceneNode;const node:HierarchyNode={id:sc.id,name:sc.name,type:sc.type,childCount:"children" in sc?(sc as any).children.length:0,children:[]};if("children" in sc)node.children=buildHierarchy(sc);n.push(node);}return n;}
 function buildPlainText(texts:ExtractedText[]):string{
   const l:string[]=[`════ TEXT — ${figma.root.name||"Untitled"}`,`  ${new Date().toISOString()}`,`════`,` `];
-  for(const t of texts){l.push(`── ${t.name} ──`,`  Page:     ${t.pageName}`,`  Parent:   ${t.parentPath}`,`  Font:     ${t.fontFamily} ${t.fontStyle} ${t.fontSize}px`,`  Color:    ${t.fills.length>0?t.fills[0].hex:"none"}`,`  Position: (${t.absoluteX},${t.absoluteY}) ${t.width}×${t.height}`,`  Text:     ${t.characters.replace(/[\u{1F600}-\u{1F9FF}\u{2600}-\u{27BF}\u{0080}-\u{009F}]/gu,"[icon]")}`,` `);}
+  for(const t of texts){l.push(`── ${t.name} ──`,`  Page: ${t.pageName}`,`  Parent: ${t.parentPath}`,`  Font: ${t.fontFamily} ${t.fontStyle} ${t.fontSize}px`,`  Color: ${t.fills.length>0?t.fills[0].hex:"none"}`,`  Position: (${t.absoluteX},${t.absoluteY}) ${t.width}×${t.height}`,`  Text: ${t.characters.replace(/[\u{1F600}-\u{1F9FF}\u{2600}-\u{27BF}\u{0080}-\u{009F}]/gu,"[icon]")}`,` `);}
   l.push(`── END (${texts.length} texts) ──`);return l.join("\n");
 }
 
@@ -67,25 +110,34 @@ function buildFullExtractSync(onProgress?:(p:FullExtractProgress)=>void):FullExt
   return{meta:{fileName:figma.root.name||"Untitled",extractDate:new Date().toISOString(),pluginVersion:PLUGIN_VERSION,totalPages:figma.root.children.length,extractionScope:"scoped",scopeDescription:scope.desc},pages,textNodes:texts,variables:[],styles:[],components:comps,nodeCounts:{total:totalN,textNodes:texts.length,frames:fc,components:cc,instances:ic,byType},hierarchy};
 }
 
-// ── Download helpers ──
+// ── ZIP accumulator ──
+let zipFiles:ZipFileEntry[]=[];
+function addToZip(name:string,content:string|Uint8Array){if(typeof content==="string")zipFiles.push({name,data:TE.encode(content)});else zipFiles.push({name,data:content});}
+function flushZipChunked(fileNameBase:string){
+  if(zipFiles.length===0)return;
+  const zip=makeZip(zipFiles);
+  zipFiles=[];
+  const CHUNK=400000; // 400KB per chunk — safe for Figma postMessage
+  const total=Math.ceil(zip.length/CHUNK);
+  const zipName=`${sanitizeName(fileNameBase)}_extract.zip`;
+  for(let i=0;i<total;i++){
+    const start=i*CHUNK,end=Math.min(start+CHUNK,zip.length);
+    const chunk=zip.slice(start,end);
+    figma.ui.postMessage({type:"zip-chunk",fileName:zipName,index:i,total:total,bytes:Array.from(chunk)});
+  }
+}
+
+// ── Single file download ──
 function downloadFile(fileName:string,content:string,mime:string){figma.ui.postMessage({type:"download-file",fileName,content,mimeType:mime});}
-function downloadBytes(fileName:string,bytes:Uint8Array,mime:string){figma.ui.postMessage({type:"download-file-zip",fileName,bytes:Array.from(bytes),mimeType:mime});}
 
 // ── Async helpers ──
-async function fetchAndSendVariables(){try{const localVars=await figma.variables.getLocalVariablesAsync();const vars:ExtractedVariable[]=[];let modeMap:{[c:string]:{[m:string]:string}}={};try{const cols=await figma.variables.getLocalVariableCollectionsAsync();for(const col of cols||[]){modeMap[col.id]={};for(const m of col.modes)modeMap[col.id][m.modeId]=m.name;}}catch(e){}for(const v of localVars||[]){const enriched:{[mn:string]:VariableValueInfo}={};const raw:any=v.valuesByMode||{};const colId=(v as any).variableCollectionId||"";for(const [modeId,value] of Object.entries(raw)){const mn=modeMap[colId]?.[modeId]||modeId;if(value&&typeof value==="object"&&"r" in value)enriched[mn]={raw:value,hex:rgbToHex((value as any).r,(value as any).g,(value as any).b),css:""};else enriched[mn]={raw:value};}vars.push({id:v.id,name:v.name,resolvedType:v.resolvedType,valuesByMode:enriched,scopes:v.scopes||[],description:v.description||"",remote:(v as any).remote||false});}downloadFile(`${sanitizeName(figma.root.name)}_variables.json`,JSON.stringify(vars,null,2),"application/json");figma.ui.postMessage({type:"async-data",data:{variables:vars.length}});}catch(e){figma.ui.postMessage({type:"async-data",data:{variables:0,error:true}});}}
-async function fetchAndSendStyles(){try{const styles:ExtractedStyle[]=[];const ps=await figma.getLocalPaintStylesAsync();for(const s of ps||[]){const paints=s.paints&&s.paints.length>0?extractFills(s.paints):undefined;styles.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",paints,remote:(s as any).remote||false});}const ts=await figma.getLocalTextStylesAsync();for(const s of ts||[]){styles.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",fontSize:s.fontSize as number,fontFamily:(s as any).fontName?.family||undefined,fontWeight:(s as any).fontName?.style||undefined,lineHeight:(s as any).lineHeight&&typeof(s as any).lineHeight==="object"&&"value" in (s as any).lineHeight?{value:(s as any).lineHeight.value,unit:(s as any).lineHeight.unit||"PIXELS"}:null,remote:(s as any).remote||false});}const es=await figma.getLocalEffectStylesAsync();for(const s of es||[]){styles.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",remote:(s as any).remote||false});}const gs=await figma.getLocalGridStylesAsync();for(const s of gs||[]){styles.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",remote:(s as any).remote||false});}downloadFile(`${sanitizeName(figma.root.name)}_styles.json`,JSON.stringify(styles,null,2),"application/json");figma.ui.postMessage({type:"async-data",data:{styles:styles.length}});}catch(e){figma.ui.postMessage({type:"async-data",data:{styles:0,error:true}});}}
+async function fetchAndSendVars(){try{const lv=await figma.variables.getLocalVariablesAsync();const vars:ExtractedVariable[]=[];let mm:{[c:string]:{[m:string]:string}}={};try{const c=await figma.variables.getLocalVariableCollectionsAsync();for(const col of c||[]){mm[col.id]={};for(const m of col.modes)mm[col.id][m.modeId]=m.name;}}catch(e){}for(const v of lv||[]){const en:{[mn:string]:VariableValueInfo}={};const raw:any=v.valuesByMode||{};const ci=(v as any).variableCollectionId||"";for(const [mi,val] of Object.entries(raw)){const mn=mm[ci]?.[mi]||mi;if(val&&typeof val==="object"&&"r" in val)en[mn]={raw:val,hex:rgbToHex((val as any).r,(val as any).g,(val as any).b),css:""};else en[mn]={raw:val};}vars.push({id:v.id,name:v.name,resolvedType:v.resolvedType,valuesByMode:en,scopes:v.scopes||[],description:v.description||"",remote:(v as any).remote||false});}addToZip(`${sanitizeName(figma.root.name)}_variables.json`,JSON.stringify(vars,null,2));}catch(e){}}
+async function fetchAndSendStyles(){try{const ss:ExtractedStyle[]=[];const ps=await figma.getLocalPaintStylesAsync();for(const s of ps||[]){ss.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",paints:s.paints&&s.paints.length>0?extractFills(s.paints):undefined,remote:(s as any).remote||false});}const ts=await figma.getLocalTextStylesAsync();for(const s of ts||[]){ss.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",fontSize:s.fontSize as number,fontFamily:(s as any).fontName?.family||undefined,fontWeight:(s as any).fontName?.style||undefined,lineHeight:(s as any).lineHeight&&typeof(s as any).lineHeight==="object"&&"value" in (s as any).lineHeight?{value:(s as any).lineHeight.value,unit:(s as any).lineHeight.unit||"PIXELS"}:null,remote:(s as any).remote||false});}const es=await figma.getLocalEffectStylesAsync();for(const s of es||[]){ss.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",remote:(s as any).remote||false});}const gs=await figma.getLocalGridStylesAsync();for(const s of gs||[]){ss.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",remote:(s as any).remote||false});}addToZip(`${sanitizeName(figma.root.name)}_styles.json`,JSON.stringify(ss,null,2));}catch(e){}}
 
 // ── Export utilities ──
-async function exportNodeAsSVGEmbedded(nodeId:string):Promise<{name:string,data:Uint8Array}|null>{const n=await figma.getNodeByIdAsync(nodeId);if(!n)return null;const sn=n as SceneNode;try{const s=await sn.exportAsync({format:"SVG_STRING"}as ExportSettingsSVGString);if(!s||s.length<10)return null;const u8=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u8[i]=s.charCodeAt(i)&0xFF;return{name:`svgs/${sanitizeName(getPageName(n))}/${sanitizeName(n.name)}.svg`,data:u8};}catch(e){return null;}}
+async function exportNodeSVG(nodeId:string):Promise<ZipFileEntry|null>{const n=await figma.getNodeByIdAsync(nodeId);if(!n)return null;const sn=n as SceneNode;try{const s=await sn.exportAsync({format:"SVG_STRING"}as ExportSettingsSVGString);if(!s||s.length<10)return null;return{name:`svgs/${sanitizeName(getPageName(n))}/${sanitizeName(n.name)}.svg`,data:TE.encode(s)};}catch(e){return null;}}
 async function exportNodes(nodeIds:string[],format:"SVG"|"PNG"|"JPG"|"PDF",scale:number):Promise<ExportResultItem[]>{const r:ExportResultItem[]=[];for(const id of nodeIds){const n=await figma.getNodeByIdAsync(id);if(!n)continue;const sn=n as SceneNode;try{let b:Uint8Array;switch(format){case"SVG":b=await sn.exportAsync({format:"SVG"}as ExportSettingsSVG);break;case"PNG":b=await sn.exportAsync({format:"PNG",constraint:{type:"SCALE",value:scale}}as ExportSettingsImage);break;case"JPG":b=await sn.exportAsync({format:"JPG",constraint:{type:"SCALE",value:scale}}as ExportSettingsImage);break;case"PDF":b=await sn.exportAsync({format:"PDF"}as ExportSettingsPDF);break;default:continue;}r.push({id:n.id,name:sanitizeName(n.name),format:format.toLowerCase(),bytes:Array.from(b)});}catch(e){}}return r;}
 async function buildLottieBundle(roots:BaseNode[]):Promise<any>{const allNodes=deepFlatten(roots);const items:any[]=[];for(const n of allNodes){if((n.type as string)==="PAGE")continue;try{const s=await(n as SceneNode).exportAsync({format:"SVG_STRING"}as ExportSettingsSVGString);if(s&&s.length>10)items.push({id:n.id,name:sanitizeName(n.name),type:n.type,pageName:getPageName(n),width:(n as SceneNode).width,height:(n as SceneNode).height,svg:s});}catch(e){}}return{fileName:`${sanitizeName(figma.root.name)}_lottie.json`,exportDate:new Date().toISOString(),source:figma.root.name||"Untitled",itemCount:items.length,items};}
-
-// ── Throttled SVG download sender ──
-function sendSVGThrottled(name:string,data:Uint8Array){
-  // Send SVGs as binary download — one at a time via postMessage
-  // Figma handles the save dialog; we just queue them
-  downloadBytes(name,data,"image/svg+xml");
-}
 
 // ── Message Handler ──
 figma.showUI(__html__,{width:520,height:680,title:"Extract All"});
@@ -95,81 +147,84 @@ figma.on("selectionchange",postSel);figma.on("currentpagechange",postSel);postSe
 
 figma.ui.onmessage=async(msg:any)=>{
   cancelRequested=false;
+  zipFiles=[];
   const scope=getScope();
   const baseName=figma.root.name||"Untitled";
 
-  // ═══ FULL EXTRACT ═══
+  // ═══ FULL EXTRACT (sync, single files) ═══
   if(msg.type==="get-full-extract"&&!msg.aeOpts&&!msg.aiOpts){
     const data=buildFullExtractSync((p)=>{figma.ui.postMessage({type:"full-extract-progress",progress:p});});
     if(cancelRequested)return;
     downloadFile(`${sanitizeName(baseName)}_full-extract.json`,JSON.stringify(data,null,2),"application/json");
     downloadFile(`${sanitizeName(baseName)}_text.txt`,buildPlainText(data.textNodes),"text/plain");
     figma.ui.postMessage({type:"full-extract",data:{textNodes:data.textNodes.length,variables:0,styles:0,components:data.components.length,totalNodes:data.nodeCounts.total,scope:data.meta.scopeDescription}});
-    fetchAndSendVariables();fetchAndSendStyles();
   }
 
-  // ═══ AE EXTRACT ═══
+  // ═══ AE EXTRACT (ZIP with SVGs + JSON + TXT + Lottie) ═══
   if(msg.type==="get-full-extract"&&msg.aeOpts){
     const data=buildFullExtractSync((p)=>{figma.ui.postMessage({type:"full-extract-progress",progress:p});});
     if(cancelRequested)return;
-    downloadFile(`${sanitizeName(baseName)}_full-extract.json`,JSON.stringify(data,null,2),"application/json");
-    downloadFile(`${sanitizeName(baseName)}_text.txt`,buildPlainText(data.textNodes),"text/plain");
-
+    addToZip(`${sanitizeName(baseName)}_full-extract.json`,JSON.stringify(data,null,2));
+    addToZip(`${sanitizeName(baseName)}_text.txt`,buildPlainText(data.textNodes));
+    fetchAndSendVars();fetchAndSendStyles();
     if(msg.aeOpts.includeSVGs&&!cancelRequested){
       const allNodes=deepFlatten(scope.roots).filter(n=>n.type!=="TEXT"&&(n.type as string)!=="PAGE"&&isVisible(n));
       const total=allNodes.length;
       for(let i=0;i<allNodes.length;i+=4){
         if(cancelRequested)break;
-        const batch=allNodes.slice(i,i+4);
-        const results=await Promise.all(batch.map(n=>exportNodeAsSVGEmbedded(n.id)));
-        for(const r of results){if(r)sendSVGThrottled(r.name,r.data);}
+        const batch=allNodes.slice(i,i+4);const results=await Promise.all(batch.map(n=>exportNodeSVG(n.id)));
+        for(const r of results){if(r)zipFiles.push(r);}
         figma.ui.postMessage({type:"progress",current:Math.min(i+4,total),total:total,label:"SVGs"});
       }
     }
     if(msg.aeOpts.includeLottie&&!cancelRequested){
       const bundle=await buildLottieBundle(scope.roots);
-      downloadFile(bundle.fileName,JSON.stringify(bundle,null,2),"application/json");
+      addToZip(bundle.fileName,JSON.stringify(bundle,null,2));
     }
+    addToZip(`${sanitizeName(baseName)}_variables.json`,"[]");
+    addToZip(`${sanitizeName(baseName)}_styles.json`,"[]");
     figma.ui.postMessage({type:"full-extract",data:{textNodes:data.textNodes.length,variables:0,styles:0,components:data.components.length,totalNodes:data.nodeCounts.total,scope:data.meta.scopeDescription}});
-    fetchAndSendVariables();fetchAndSendStyles();
+    // Send chunked ZIP — ONE download dialog
+    flushZipChunked(baseName);
   }
 
-  // ═══ AI EXTRACT ═══
+  // ═══ AI EXTRACT (ZIP with SVGs + JSON + TXT) ═══
   if(msg.type==="get-full-extract"&&msg.aiOpts){
     const data=buildFullExtractSync((p)=>{figma.ui.postMessage({type:"full-extract-progress",progress:p});});
     if(cancelRequested)return;
-    downloadFile(`${sanitizeName(baseName)}_full-extract.json`,JSON.stringify(data,null,2),"application/json");
-    downloadFile(`${sanitizeName(baseName)}_text.txt`,buildPlainText(data.textNodes),"text/plain");
-
+    addToZip(`${sanitizeName(baseName)}_full-extract.json`,JSON.stringify(data,null,2));
+    addToZip(`${sanitizeName(baseName)}_text.txt`,buildPlainText(data.textNodes));
+    fetchAndSendVars();fetchAndSendStyles();
     if(msg.aiOpts.includeSVGs&&!cancelRequested){
       const allNodes=deepFlatten(scope.roots).filter(n=>n.type!=="TEXT"&&(n.type as string)!=="PAGE"&&isVisible(n));
       const total=allNodes.length;
       for(let i=0;i<allNodes.length;i+=4){
         if(cancelRequested)break;
-        const batch=allNodes.slice(i,i+4);
-        const results=await Promise.all(batch.map(n=>exportNodeAsSVGEmbedded(n.id)));
-        for(const r of results){if(r)sendSVGThrottled(r.name,r.data);}
+        const batch=allNodes.slice(i,i+4);const results=await Promise.all(batch.map(n=>exportNodeSVG(n.id)));
+        for(const r of results){if(r)zipFiles.push(r);}
         figma.ui.postMessage({type:"progress",current:Math.min(i+4,total),total:total,label:"SVGs"});
       }
     }
     figma.ui.postMessage({type:"full-extract",data:{textNodes:data.textNodes.length,variables:0,styles:0,components:data.components.length,totalNodes:data.nodeCounts.total,scope:data.meta.scopeDescription}});
-    fetchAndSendVariables();fetchAndSendStyles();
+    flushZipChunked(baseName);
   }
 
-  // ═══ TEXT ONLY ═══
+  // ═══ TEXT ONLY (single files) ═══
   if(msg.type==="get-text"){const nodes=deepFlatten(scope.roots);const tn=nodes.filter(n=>n.type==="TEXT").map(n=>extractText(n as TextNode));downloadFile(`${sanitizeName(baseName)}_text.json`,JSON.stringify(tn,null,2),"application/json");downloadFile(`${sanitizeName(baseName)}_text.txt`,buildPlainText(tn),"text/plain");}
 
-  // ═══ INDIVIDUAL DOWNLOADS ═══
-  if(msg.type==="get-variables"){fetchAndSendVariables();}
-  if(msg.type==="get-styles"){fetchAndSendStyles();}
-  if(msg.type==="get-components"){const c=extractAllComponents();downloadFile(`${sanitizeName(baseName)}_components.json`,JSON.stringify(c,null,2),"application/json");}
-  if(msg.type==="get-pages"){const p=extractPages();downloadFile(`${sanitizeName(baseName)}_pages.json`,JSON.stringify(p,null,2),"application/json");}
+  // ═══ INDIVIDUAL DOWNLOADS (single files, safe) ═══
+  if(msg.type==="get-variables"){addToZip(`${sanitizeName(baseName)}_variables.json`,"");fetchAndSendVars();flushZipChunked(baseName+"_variables");}
+  if(msg.type==="get-styles"){addToZip(`${sanitizeName(baseName)}_styles.json`,"");fetchAndSendStyles();flushZipChunked(baseName+"_styles");}
+  if(msg.type==="get-components"){addToZip(`${sanitizeName(baseName)}_components.json`,JSON.stringify(extractAllComponents(),null,2));flushZipChunked(baseName+"_components");}
+  if(msg.type==="get-pages"){addToZip(`${sanitizeName(baseName)}_pages.json`,JSON.stringify(extractPages(),null,2));flushZipChunked(baseName+"_pages");}
 
   // ═══ SELECTED NODES ═══
   if(msg.type==="export-selected-svg"||msg.type==="export-selected-png"||msg.type==="export-selected-jpg"){
     const sel=figma.currentPage.selection;if(sel.length===0){figma.ui.postMessage({type:"error",message:"No nodes selected"});return;}
     const fmt=msg.type==="export-selected-svg"?"SVG":msg.type==="export-selected-png"?"PNG":"JPG";const sc=fmt==="SVG"?(msg.scale||1):(msg.scale||2);
-    const results=await exportNodes(sel.map((n:SceneNode)=>n.id),fmt,sc);if(results.length>0)figma.ui.postMessage({type:"export-results",results});
+    const results=await exportNodes(sel.map((n:SceneNode)=>n.id),fmt,sc);
+    if(results.length<=3){if(results.length>0)figma.ui.postMessage({type:"export-results",results});}
+    else{for(const x of results)addToZip(`${x.name}.${x.format.toLowerCase()}`,new Uint8Array(x.bytes));flushZipChunked(baseName+"_selected");}
   }
   if(msg.type==="get-svg-as-text"){const sel=figma.currentPage.selection;if(sel.length===0){figma.ui.postMessage({type:"error",message:"No nodes selected"});return;}for(const node of sel){const s=await(node as SceneNode).exportAsync({format:"SVG_STRING"}as ExportSettingsSVGString);if(s)downloadFile(`${sanitizeName(node.name)}.svg`,s,"image/svg+xml");}}
 
@@ -177,7 +232,7 @@ figma.ui.onmessage=async(msg:any)=>{
   if(msg.type==="export-lottie-json"){const bundle=await buildLottieBundle(scope.roots);downloadFile(bundle.fileName,JSON.stringify(bundle,null,2),"application/json");}
   if(msg.type==="import-lottie-json"){try{const p=JSON.parse(String(msg.content||""));const keys=p&&typeof p==="object"?Object.keys(p):[];const ly=Array.isArray(p?.layers)?p.layers.length:0;figma.ui.postMessage({type:"lottie-import-summary",summary:{fileName:msg.fileName||"lottie.json",valid:true,topLevelKeys:keys,layerCount:ly,warning:ly===0?"No layers":"OK"}});}catch(e){figma.ui.postMessage({type:"lottie-import-summary",summary:{fileName:msg.fileName||"lottie.json",valid:false,topLevelKeys:[],layerCount:0,warning:"Invalid JSON"}});}}
 
-  // ═══ BATCH EXPORT ═══
+  // ═══ BATCH EXPORT (ZIP) ═══
   if(msg.type==="export-all-svg-page"||msg.type==="export-all-png-page"||msg.type==="export-all-svg-all-pages"||msg.type==="export-all-png-all-pages"){
     const fmt=msg.type.includes("svg")?"SVG":"PNG";const sc=fmt==="SVG"?(msg.scale||1):(msg.scale||2);
     const pages=msg.type.includes("all-pages")?[...figma.root.children]:[figma.currentPage];
@@ -186,17 +241,14 @@ figma.ui.onmessage=async(msg:any)=>{
     for(const pg of pages){const ns=deepFlatten([pg]).filter((n:any)=>isVisible(n)&&n.type!=="PAGE");
       for(let i=0;i<ns.length;i+=20){if(cancelRequested)break;
         const batch=ns.slice(i,i+20).map((n:any)=>n.id);const r=await exportNodes(batch,fmt,sc);
-        for(const x of r){
-          const ext=fmt.toLowerCase();const fname=pages.length>1?`${sanitizeName(pg.name)}/${x.name}.${ext}`:`${x.name}.${ext}`;
-          downloadBytes(fname,new Uint8Array(x.bytes),fmt==="SVG"?"image/svg+xml":"image/png");
-        }
+        for(const x of r){const ext=fmt.toLowerCase();const fname=pages.length>1?`${sanitizeName(pg.name)}/${x.name}.${ext}`:`${x.name}.${ext}`;zipFiles.push({name:fname,data:new Uint8Array(x.bytes)});}
         pN+=batch.length;figma.ui.postMessage({type:"progress",current:Math.min(pN,tN),total:tN,label:fmt});
       }
     }
-    if(!cancelRequested)figma.ui.postMessage({type:"export-complete"});
+    if(!cancelRequested){flushZipChunked(baseName+"_batch");figma.ui.postMessage({type:"export-complete"});}
   }
 
-  if(msg.type==="cancel"){cancelRequested=true;}
+  if(msg.type==="cancel"){cancelRequested=true;zipFiles=[];}
   if(msg.type==="resize"){figma.ui.resize(msg.width,msg.height);}
   if(msg.type==="close"){figma.closePlugin();}
 };

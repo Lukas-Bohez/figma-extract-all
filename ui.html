@@ -97,15 +97,13 @@
     </div>
     <button class="theme-btn" id="themeToggle"><span class="theme-dot"></span><span id="themeLabel">Theme</span></button>
   </div>
-
   <div class="selbar">
     <div>
       <b><span id="selCount">0</span> nodes selected</b>
-      <div class="sel-sub"><span id="selPage">—</span></div>
+      <div class="sel-sub"><span id="selPage">-</span></div>
     </div>
     <span class="pill" id="statusPill">Ready</span>
   </div>
-
   <div class="tabs">
     <button class="tab-btn active" data-tab="ae"><span class="tab-emoji">🎬</span>After Effects</button>
     <button class="tab-btn" data-tab="ai"><span class="tab-emoji">🤖</span>AI / Website</button>
@@ -195,9 +193,8 @@
       <button class="danger" id="btnCancel" style="display:none;font-size:10px;padding:5px 10px;min-height:auto;">Cancel</button>
     </div>
   </div>
-
   <div class="log" id="logArea"></div>
-  <div class="ftr">Extract All v5.0.0 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a></div>
+  <div class="ftr">Extract All v11 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a></div>
 </div>
 
 <script>
@@ -208,8 +205,9 @@
   var statusPill = el("statusPill"), selCount = el("selCount"), selPage = el("selPage"), themeLabel = el("themeLabel");
   var cancelBtn = el("btnCancel");
   var exportCount = 0, isExporting = false, currentTheme = "light";
+  var zipChunks = {}, zipExpected = {};
 
-  // ── Theme (class-based, localStorage safe) ──
+  // ── Theme ──
   function applyTheme(t) {
     currentTheme = t;
     document.body.classList.toggle("dark", t === "dark");
@@ -219,9 +217,7 @@
   var saved = null;
   try { saved = localStorage.getItem("ea-theme"); } catch (e) {}
   applyTheme(saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
-  el("themeToggle").addEventListener("click", function () {
-    applyTheme(currentTheme === "dark" ? "light" : "dark");
-  });
+  el("themeToggle").addEventListener("click", function () { applyTheme(currentTheme === "dark" ? "light" : "dark"); });
 
   // ── Tabs ──
   var tabButtons = document.querySelectorAll(".tab-btn");
@@ -251,17 +247,16 @@
   }
   function status(m) { if (statusPill) statusPill.textContent = m; }
 
-  // ── Show/hide cancel button ──
+  // ── Cancel ──
   function showCancel() { if (cancelBtn) cancelBtn.style.display = "inline-flex"; }
   function hideCancel() { if (cancelBtn) cancelBtn.style.display = "none"; }
-
-  // ── Cancel (sends cancel message to plugin) ──
   function doCancel() {
     if (!isExporting) return;
     parent.postMessage({ pluginMessage: { type: "cancel" } }, "*");
     isExporting = false;
     progEl.classList.remove("show");
     hideCancel();
+    zipChunks = {}; zipExpected = {};
     log("Cancelled", "err");
     status("Cancelled");
   }
@@ -269,7 +264,32 @@
 
   // ── Downloads ──
   function dlFile(n, c, m) { var b = new Blob([c], { type: m }), u = URL.createObjectURL(b), a = document.createElement("a"); a.href = u; a.download = n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); log("Downloaded: " + n, "ok"); }
-  function dlBytes(n, bytes, f) { var mm = { svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg" }, m = mm[f] || "application/octet-stream", u8 = new Uint8Array(bytes), b = new Blob([u8], { type: m }), u = URL.createObjectURL(b), a = document.createElement("a"); a.href = u; a.download = n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
+  function dlBytes(n, bytes, f) { var mm = { svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg", zip: "application/zip" }, m = mm[f] || "application/octet-stream", u8 = new Uint8Array(bytes), b = new Blob([u8], { type: m }), u = URL.createObjectURL(b), a = document.createElement("a"); a.href = u; a.download = n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
+
+  // ═══ ZIP CHUNK REASSEMBLER ═══
+  function handleZipChunk(fileName, index, total, bytes) {
+    if (!zipChunks[fileName]) zipChunks[fileName] = [];
+    zipChunks[fileName][index] = new Uint8Array(bytes);
+    var allHere = true;
+    for (var i = 0; i < total; i++) { if (!zipChunks[fileName][i]) { allHere = false; break; } }
+    if (allHere) {
+      var totalLen = 0;
+      for (var i = 0; i < total; i++) totalLen += zipChunks[fileName][i].length;
+      var result = new Uint8Array(totalLen);
+      var pos = 0;
+      for (var i = 0; i < total; i++) { result.set(zipChunks[fileName][i], pos); pos += zipChunks[fileName][i].length; }
+      dlBytes(fileName, Array.from(result), "zip");
+      log("Downloaded: " + fileName + " (" + (result.length / 1024 / 1024).toFixed(1) + " MB)", "ok");
+      status("Downloaded ZIP");
+      delete zipChunks[fileName];
+      if (isExporting) { isExporting = false; progEl.classList.remove("show"); hideCancel(); }
+    } else {
+      var done = 0;
+      for (var i = 0; i < total; i++) if (zipChunks[fileName][i]) done++;
+      progFill.style.width = Math.round((done / total) * 100) + "%";
+      progTxt.textContent = "Receiving ZIP... (" + done + "/" + total + " chunks)";
+    }
+  }
 
   // ── Core actions ──
   function request(type) {
@@ -277,17 +297,15 @@
     log("Requesting " + type, "inf"); status("Working");
     parent.postMessage({ pluginMessage: { type: type } }, "*");
   }
-
   function exportSel(type) {
     if (isExporting) { log("Already exporting", "err"); return; }
     var s = parseFloat(el("scaleSel").value) || 1;
     isExporting = true; exportCount = 0;
     progEl.classList.add("show"); showCancel();
-    progFill.style.width = "0%"; progTxt.textContent = "Exporting selected...";
+    progFill.style.width = "0%"; progTxt.textContent = "Exporting...";
     status("Exporting selected");
     parent.postMessage({ pluginMessage: { type: type, scale: s } }, "*");
   }
-
   function runBatch(fmt) {
     if (isExporting) { log("Already exporting", "err"); return; }
     var s = parseFloat(el("scaleBatch").value) || 1;
@@ -299,37 +317,26 @@
     status(all ? "Exporting all pages" : "Exporting current page");
     parent.postMessage({ pluginMessage: { type: t, scale: s } }, "*");
   }
-
   function runAEExport() {
     if (isExporting) { log("Already exporting", "err"); return; }
     isExporting = true; exportCount = 0;
     progEl.classList.add("show"); showCancel();
-    progFill.style.width = "0%"; progTxt.textContent = "Starting Full Extract...";
+    progFill.style.width = "0%"; progTxt.textContent = "Starting Extract...";
     status("Extracting for AE");
-    var o = {
-      includeSVGs: el("ae-svgs").checked, includeJSON: el("ae-json").checked,
-      includeLottie: el("ae-lottie").checked, includeText: el("ae-text").checked
-    };
+    var o = { includeSVGs: el("ae-svgs").checked, includeJSON: el("ae-json").checked, includeLottie: el("ae-lottie").checked, includeText: el("ae-text").checked };
     parent.postMessage({ pluginMessage: { type: "get-full-extract", aeOpts: o } }, "*");
-    if (o.includeLottie) parent.postMessage({ pluginMessage: { type: "export-lottie-json" } }, "*");
   }
-
   function runAIExtract() {
     if (isExporting) { log("Already exporting", "err"); return; }
     isExporting = true; exportCount = 0;
     progEl.classList.add("show"); showCancel();
-    progFill.style.width = "0%"; progTxt.textContent = "Starting Full Extract...";
+    progFill.style.width = "0%"; progTxt.textContent = "Starting Extract...";
     status("Extracting for AI");
-    var o = {
-      includeSVGs: el("ai-svgs").checked, includeText: el("ai-text").checked,
-      includeVars: el("ai-vars").checked, includeStyles: el("ai-styles").checked,
-      includeComps: el("ai-comps").checked, includeTree: el("ai-tree").checked,
-      includeTXT: el("ai-txtfile").checked
-    };
+    var o = { includeSVGs: el("ai-svgs").checked, includeText: el("ai-text").checked, includeVars: el("ai-vars").checked, includeStyles: el("ai-styles").checked, includeComps: el("ai-comps").checked, includeTree: el("ai-tree").checked, includeTXT: el("ai-txtfile").checked };
     parent.postMessage({ pluginMessage: { type: "get-full-extract", aiOpts: o } }, "*");
   }
 
-  // ── Wire data-action buttons ──
+  // ── Wire buttons ──
   document.querySelectorAll("[data-action]").forEach(function (btn) {
     btn.addEventListener("click", function (e) {
       e.preventDefault();
@@ -353,46 +360,35 @@
   window.addEventListener("message", function (e) {
     var m = e.data.pluginMessage;
     if (!m) return;
-
     switch (m.type) {
       case "selection-state":
         selCount.textContent = String(m.count || 0);
-        selPage.textContent = m.pageName ? "Page: " + m.pageName : "\u2014";
+        selPage.textContent = m.pageName ? "Page: " + m.pageName : "-";
         break;
-
       case "full-extract-progress":
         if (m.progress) {
           var p = m.progress;
-          var pct = Math.round((p.step / p.totalSteps) * 100);
-          progFill.style.width = pct + "%";
+          progFill.style.width = Math.round((p.step / p.totalSteps) * 100) + "%";
           progEl.classList.add("show");
-          progTxt.textContent = "Step " + p.step + "/" + p.totalSteps + " \u2014 " + p.label + ": " + p.detail;
+          progTxt.textContent = "Step " + p.step + "/" + p.totalSteps + " - " + p.label + ": " + p.detail;
           status(p.label);
         }
         break;
-
       case "full-extract":
-        isExporting = false;
-        hideCancel();
+        isExporting = false; hideCancel();
         progFill.style.width = "100%";
-        var scopeInfo = m.data.scope ? " (\u2192 " + m.data.scope + ")" : "";
-        progTxt.textContent = "Done \u2014 " + m.data.textNodes + " texts, " + m.data.variables + " vars, " + m.data.styles + " styles, " + m.data.components + " comps" + scopeInfo;
-        log("Complete: " + m.data.textNodes + " texts, " + m.data.variables + " vars, " + m.data.styles + " styles, " + m.data.components + " comps on " + m.data.totalNodes + " nodes" + scopeInfo, "ok");
-        status("Done");
-        setTimeout(function () { progEl.classList.remove("show"); progFill.style.width = "0%"; }, 3000);
+        progTxt.textContent = "Done - " + m.data.textNodes + " texts, " + m.data.components + " comps";
+        log("Complete: " + m.data.textNodes + " texts, " + m.data.components + " comps on " + m.data.totalNodes + " nodes", "ok");
+        status("Done - ZIP will download");
+        setTimeout(function () { if (!isExporting) { progEl.classList.remove("show"); progFill.style.width = "0%"; } }, 3000);
         break;
-
       case "download-file":
         dlFile(m.fileName, m.content, m.mimeType);
         status("Downloaded " + m.fileName);
         break;
-
-      case "download-file-zip":
-        dlBytes(m.fileName, m.bytes, "zip");
-        status("Downloaded " + m.fileName);
-        if (isExporting && exportCount === 0) { isExporting = false; progEl.classList.remove("show"); hideCancel(); }
+      case "zip-chunk":
+        handleZipChunk(m.fileName, m.index, m.total, m.bytes);
         break;
-
       case "export-results":
         if (m.results && m.results.length > 0) {
           for (var i = 0; i < m.results.length; i++) {
@@ -404,56 +400,38 @@
           status("Exported " + exportCount + " files");
         }
         break;
-
       case "progress":
         if (m.total > 0) {
           progFill.style.width = Math.round((m.current / m.total) * 100) + "%";
-          progTxt.textContent = m.current + " / " + m.total + (m.label ? " \u2014 " + m.label : "");
+          progTxt.textContent = m.current + " / " + m.total + (m.label ? " - " + m.label : "");
         }
         break;
-
       case "export-complete":
-        isExporting = false;
-        hideCancel();
+        isExporting = false; hideCancel();
         progFill.style.width = "100%";
-        progTxt.textContent = "Complete \u2014 " + exportCount + " files";
-        log("Batch complete: " + exportCount + " files", "ok");
-        status("Done");
+        progTxt.textContent = "Complete - ZIP will download";
+        log("Batch complete", "ok"); status("Done");
         setTimeout(function () { progEl.classList.remove("show"); progFill.style.width = "0%"; }, 2500);
         break;
-
       case "lottie-import-summary":
-        isExporting = false;
-        hideCancel();
-        var s = m.summary;
-        var se = el("lottieSummary");
-        se.style.display = "block";
+        isExporting = false; hideCancel();
+        var s = m.summary; var se = el("lottieSummary"); se.style.display = "block";
         se.style.color = s.valid ? "var(--green)" : "var(--red)";
-        se.innerHTML = (s.valid ? "\u2705 " : "\u274c ") + "<b>" + s.fileName + "</b> \u2014 " +
-          (s.valid ? ("Layers: " + s.layerCount + ", Keys: " + (s.topLevelKeys.length > 0 ? s.topLevelKeys.join(", ") : "(none)")) : s.warning);
-        status("Validated");
-        break;
-
+        se.innerHTML = (s.valid ? "[OK] " : "[ERR] ") + "<b>" + s.fileName + "</b> - " + (s.valid ? ("Layers: " + s.layerCount + ", Keys: " + (s.topLevelKeys.length > 0 ? s.topLevelKeys.join(", ") : "(none)")) : s.warning);
+        status("Validated"); break;
       case "error":
-        isExporting = false;
-        hideCancel();
-        log(m.message, "err");
-        status("Error");
-        progEl.classList.remove("show");
-        break;
+        isExporting = false; hideCancel();
+        log(m.message, "err"); status("Error");
+        progEl.classList.remove("show"); break;
     }
   });
 
   // ── Lottie file input ──
   var li = el("lottieFileInput");
   if (li) li.addEventListener("change", function () {
-    var f = this.files && this.files[0];
-    if (!f) return;
+    var f = this.files && this.files[0]; if (!f) return;
     var r = new FileReader();
-    r.onload = function (e) {
-      parent.postMessage({ pluginMessage: { type: "import-lottie-json", fileName: f.name, content: e.target.result } }, "*");
-      log("Validating: " + f.name, "inf");
-    };
+    r.onload = function (e) { parent.postMessage({ pluginMessage: { type: "import-lottie-json", fileName: f.name, content: e.target.result } }, "*"); log("Validating: " + f.name, "inf"); };
     r.readAsText(f);
   });
 
@@ -463,7 +441,7 @@
     if (e.key === "Escape" && isExporting) { e.preventDefault(); doCancel(); }
   });
 
-  log("Ready \u2014 pick a tab", "inf");
+  log("Ready - pick a tab", "inf");
   log("Ctrl+Enter = AE Extract, Esc = cancel", "inf");
   status("Ready");
 })();
