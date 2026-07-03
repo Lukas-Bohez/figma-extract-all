@@ -1,14 +1,8 @@
 {
-  "name": "Extract All – Figma to Anything",
+  "name": "Extract All",
   "id": "figma-extract-all",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
-  "editorType": ["figma"],
-  "capabilities": [],
-  "enableProposedApi": false,
-  "networkAccess": {
-    "allowedDomains": ["none"]
-  },
-  "documentAccess": "dynamic-page"
+  "editorType": ["figma"]
 }
