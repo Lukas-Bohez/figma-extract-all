@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "13.0.0";
+const PLUGIN_VERSION = "14.0.0";
 const TE = { encode: (s) => { const r = new Uint8Array(s.length); for (let i = 0; i < s.length; i++)
         r[i] = s.charCodeAt(i) & 0xFF; return r; } };
 const CRC_TABLE = ((() => { const t = new Uint32Array(256); for (let i = 0; i < 256; i++) {
@@ -70,107 +70,81 @@ function makeZip(files) {
     return result;
 }
 function analyzeLottieFile(fileName, content) {
-    const analysis = {
-        fileName, valid: false, errors: [],
-        meta: { frameRate: 0, inPoint: 0, outPoint: 0, width: 0, height: 0, duration: 0 },
-        stats: { layers: 0, shapes: 0, paths: 0, images: 0, texts: 0, solids: 0, nulls: 0, precomps: 0 },
-        assets: [], expressions: [], markers: [], warnings: [], layerTree: [], layerTreeRaw: [],
-        bodymovinSettings: { includeAssets: false, includeKeyframes: false, includeExpressions: false, hiddenLayers: false, compressedJson: true, settingsOK: false },
-        hasKeyframes: false, hasAssets: false, totalFrames: 0
-    };
+    const a = { fileName, valid: false, errors: [], meta: { frameRate: 0, inPoint: 0, outPoint: 0, width: 0, height: 0, duration: 0 }, stats: { layers: 0, shapes: 0, paths: 0, images: 0, texts: 0, solids: 0, nulls: 0, precomps: 0 }, assets: [], expressions: [], markers: [], warnings: [], layerTree: [], layerTreeRaw: [], bodymovinSettings: { includeAssets: false, includeKeyframes: false, includeExpressions: false, hiddenLayers: false, compressedJson: true, settingsOK: false }, hasKeyframes: false, hasAssets: false, totalFrames: 0 };
     let json;
     try {
         json = JSON.parse(content);
-        analysis.valid = true;
+        a.valid = true;
     }
     catch (e) {
-        analysis.errors.push("Invalid JSON: " + e.message);
-        return analysis;
+        a.errors.push("Invalid JSON: " + e.message);
+        return a;
     }
     if (!json) {
-        analysis.errors.push("Empty file");
-        return analysis;
+        a.errors.push("Empty file");
+        return a;
     }
-    analysis.meta.frameRate = json.fr || 0;
-    analysis.meta.inPoint = json.ip || 0;
-    analysis.meta.outPoint = json.op || 0;
-    analysis.meta.width = json.w || 0;
-    analysis.meta.height = json.h || 0;
-    analysis.meta.duration = analysis.meta.frameRate > 0 ? (analysis.meta.outPoint - analysis.meta.inPoint) / analysis.meta.frameRate : 0;
-    analysis.totalFrames = analysis.meta.outPoint - analysis.meta.inPoint;
-    const bm = analysis.bodymovinSettings;
+    a.meta.frameRate = json.fr || 0;
+    a.meta.inPoint = json.ip || 0;
+    a.meta.outPoint = json.op || 0;
+    a.meta.width = json.w || 0;
+    a.meta.height = json.h || 0;
+    a.meta.duration = a.meta.frameRate > 0 ? (a.meta.outPoint - a.meta.inPoint) / a.meta.frameRate : 0;
+    a.totalFrames = a.meta.outPoint - a.meta.inPoint;
+    const bm = a.bodymovinSettings;
     bm.compressedJson = typeof json.ddd === "undefined" && typeof json.layers !== "undefined";
     if (json.assets) {
         bm.includeAssets = true;
-        analysis.hasAssets = true;
-        for (const a of json.assets) {
-            const asset = { id: a.id || "", type: "image", name: a.nm || a.p || "unnamed", embedded: !!a.e, refId: a.p || a.u || "", width: a.w, height: a.h };
-            if (a.layers)
-                asset.type = "precomp";
-            analysis.assets.push(asset);
-            if (asset.type === "image")
-                analysis.stats.images++;
-            if (asset.type === "precomp")
-                analysis.stats.precomps++;
+        a.hasAssets = true;
+        for (const x of json.assets) {
+            const ai = { id: x.id || "", type: "image", name: x.nm || x.p || "unnamed", embedded: !!x.e, refId: x.p || x.u || "", width: x.w, height: x.h };
+            if (x.layers)
+                ai.type = "precomp";
+            a.assets.push(ai);
+            if (ai.type === "image")
+                a.stats.images++;
+            if (ai.type === "precomp")
+                a.stats.precomps++;
         }
     }
     if (json.layers) {
-        function walkLayers(layers, depth) {
-            const tree = [];
-            for (const l of layers) {
-                analysis.stats.layers++;
-                const ty = l.ty;
-                if (ty === 0)
-                    analysis.stats.precomps++;
-                if (ty === 1)
-                    analysis.stats.solids++;
-                if (ty === 2)
-                    analysis.stats.images++;
-                if (ty === 3)
-                    analysis.stats.nulls++;
-                if (ty === 4)
-                    analysis.stats.shapes++;
-                if (ty === 5)
-                    analysis.stats.texts++;
-                if (l.ks || l.k) {
-                    analysis.hasKeyframes = true;
-                    bm.includeKeyframes = true;
-                }
-                function scanExp(o) { if (!o || typeof o !== "object")
-                    return; if (o.a === 1 && o.k && typeof o.k === "string" && o.k.length > 0) {
-                    analysis.expressions.push(o.k);
-                    bm.includeExpressions = true;
-                } for (const k of Object.keys(o)) {
-                    if (typeof o[k] === "object")
-                        scanExp(o[k]);
-                } }
-                scanExp(l);
-                const node = { name: l.nm || "unnamed", type: ["precomp", "solid", "image", "null", "shape", "text"][ty] || "unknown", visible: !(l.hd), hidden: !!l.hd, children: [], ty: ty, raw: l };
-                if (l.hd)
-                    bm.hiddenLayers = true;
-                if (l.layers)
-                    node.children = walkLayers(l.layers, depth + 1);
-                tree.push(node);
+        function wl(layers, d) { const t = []; for (const l of layers) {
+            a.stats.layers++;
+            const ty = l.ty;
+            if (ty === 0)
+                a.stats.precomps++;
+            if (ty === 1)
+                a.stats.solids++;
+            if (ty === 2)
+                a.stats.images++;
+            if (ty === 3)
+                a.stats.nulls++;
+            if (ty === 4)
+                a.stats.shapes++;
+            if (ty === 5)
+                a.stats.texts++;
+            if (l.ks || l.k) {
+                a.hasKeyframes = true;
+                bm.includeKeyframes = true;
             }
-            return tree;
-        }
-        analysis.layerTreeRaw = json.layers;
-        analysis.layerTree = walkLayers(json.layers, 0);
+            const n = { name: l.nm || "unnamed", type: ["precomp", "solid", "image", "null", "shape", "text"][ty] || "unknown", visible: !(l.hd), hidden: !!l.hd, children: [], ty: ty, raw: l };
+            if (l.hd)
+                bm.hiddenLayers = true;
+            if (l.layers)
+                n.children = wl(l.layers, d + 1);
+            t.push(n);
+        } return t; }
+        a.layerTreeRaw = json.layers;
+        a.layerTree = wl(json.layers, 0);
     }
     bm.settingsOK = bm.includeAssets && bm.includeKeyframes;
     if (!bm.includeAssets)
-        analysis.warnings.push({ type: "assets", message: "No image assets found. Images won't appear in Figma.", fix: "In Bodymovin: enable 'Include in json' > 'Assets'" });
-    if (!bm.includeKeyframes && analysis.stats.layers > 0)
-        analysis.warnings.push({ type: "keyframes", message: "No keyframe data — motion won't be visible.", fix: "In Bodymovin: enable 'Keyframe Data'" });
-    if (!bm.includeExpressions && analysis.expressions.length > 0)
-        analysis.warnings.push({ type: "expressions", message: "Expressions found — Figma doesn't support AE expressions.", fix: "Bake expressions to keyframes in AE first." });
+        a.warnings.push({ type: "assets", message: "No image assets found.", fix: "In Bodymovin: enable 'Include in json' > 'Assets'" });
+    if (!bm.includeKeyframes && a.stats.layers > 0)
+        a.warnings.push({ type: "keyframes", message: "No keyframe data.", fix: "In Bodymovin: enable 'Keyframe Data'" });
     if (bm.hiddenLayers)
-        analysis.warnings.push({ type: "hidden", message: "Hidden layers detected — will not be visible.", fix: "Unhide layers in AE or use 'Visible layers only'." });
-    if (!bm.compressedJson && json.comp)
-        analysis.warnings.push({ type: "compressed", message: "Compressed JSON format — Figma needs uncompressed.", fix: "Uncheck 'Compress JSON' in Bodymovin." });
-    if (!analysis.valid)
-        analysis.errors.push("Not a valid Bodymovin/Lottie JSON export.");
-    return analysis;
+        a.warnings.push({ type: "hidden", message: "Hidden layers detected.", fix: "Unhide layers or use 'Visible layers only'." });
+    return a;
 }
 function sanitizeName(n) { return n.replace(/[<>:"\/\\|?*\x00-\x1f]/g, "_").replace(/\.+$/, "").trim() || "unnamed"; }
 function rgbToHex(r, g, b) { const h = (n) => { const x = Math.round(Math.max(0, Math.min(1, n)) * 255).toString(16); return x.length === 1 ? "0" + x : x; }; return "#" + h(r) + h(g) + h(b); }
@@ -256,71 +230,32 @@ function buildHierarchy(root) { const n = []; if ("children" in root)
             node.children = buildHierarchy(sc);
         n.push(node);
     } return n; }
-function buildPlainText(texts) {
-    const l = [`════ TEXT — ${figma.root.name || "Untitled"}`, `  ${new Date().toISOString()}`, `════`, ` `];
-    for (const t of texts) {
-        l.push(`── ${t.name} ──`, `  Page: ${t.pageName}`, `  Parent: ${t.parentPath}`, `  Font: ${t.fontFamily} ${t.fontStyle} ${t.fontSize}px`, `  Color: ${t.fills.length > 0 ? t.fills[0].hex : "none"}`, `  Position: (${t.absoluteX},${t.absoluteY}) ${t.width}×${t.height}`, `  Text: ${t.characters.replace(/[\u{1F600}-\u{1F9FF}\u{2600}-\u{27BF}\u{0080}-\u{009F}]/gu, "[icon]")}`, ` `);
-    }
-    l.push(`── END (${texts.length} texts) ──`);
-    return l.join("\n");
-}
-function buildFullExtractSync(onProgress) {
-    const scope = getScope();
-    const rpt = (s, l, d) => { if (onProgress)
-        onProgress({ step: s, totalSteps: 3, label: l, detail: d }); };
-    rpt(0, "Starting", "Scanning...");
-    const allDeepNodes = deepFlatten(scope.roots);
-    rpt(1, "Text", `${allDeepNodes.filter(n => n.type === "TEXT").length} texts, ${allDeepNodes.length} nodes`);
-    const texts = [];
-    for (const n of allDeepNodes) {
-        if (n.type === "TEXT")
-            texts.push(extractText(n));
-    }
-    const comps = extractAllComponents();
-    const pages = extractPages();
-    const hierarchy = [];
-    for (const r of scope.roots)
-        hierarchy.push(...buildHierarchy(r));
-    rpt(2, "Components & Pages", `${comps.length} components, ${pages.length} pages`);
-    const byType = {};
-    let totalN = 0, fc = 0, cc = 0, ic = 0;
-    function cn(n) { if ("children" in n)
-        for (const c of n.children) {
-            totalN++;
-            const t = c.type;
-            byType[t] = (byType[t] || 0) + 1;
-            if (t === "FRAME" || t === "SECTION")
-                fc++;
-            if (t === "COMPONENT" || t === "COMPONENT_SET")
-                cc++;
-            if (t === "INSTANCE")
-                ic++;
-            cn(c);
-        } }
-    for (const r of scope.roots)
-        cn(r);
-    rpt(3, "Done", `${texts.length} texts, ${totalN} nodes`);
-    return { meta: { fileName: figma.root.name || "Untitled", extractDate: new Date().toISOString(), pluginVersion: PLUGIN_VERSION, totalPages: figma.root.children.length, extractionScope: "scoped", scopeDescription: scope.desc }, pages, textNodes: texts, variables: [], styles: [], components: comps, nodeCounts: { total: totalN, textNodes: texts.length, frames: fc, components: cc, instances: ic, byType }, hierarchy };
-}
+function buildPlainText(texts) { const l = [`════ TEXT — ${figma.root.name || "Untitled"}`, `  ${new Date().toISOString()}`, `════`, ` `]; for (const t of texts) {
+    l.push(`── ${t.name} ──`, `  Page: ${t.pageName}`, `  Parent: ${t.parentPath}`, `  Font: ${t.fontFamily} ${t.fontStyle} ${t.fontSize}px`, `  Color: ${t.fills.length > 0 ? t.fills[0].hex : "none"}`, `  Position: (${t.absoluteX},${t.absoluteY}) ${t.width}×${t.height}`, `  Text: ${t.characters.replace(/[\u{1F600}-\u{1F9FF}\u{2600}-\u{27BF}\u{0080}-\u{009F}]/gu, "[icon]")}`, ` `);
+} l.push(`── END (${texts.length} texts) ──`); return l.join("\n"); }
+function buildFullExtractSync(onProgress) { const scope = getScope(); const rpt = (s, l, d) => { if (onProgress)
+    onProgress({ step: s, totalSteps: 3, label: l, detail: d }); }; rpt(0, "Starting", "Scanning..."); const allDeepNodes = deepFlatten(scope.roots); rpt(1, "Text", `${allDeepNodes.filter(n => n.type === "TEXT").length} texts`); const texts = []; for (const n of allDeepNodes) {
+    if (n.type === "TEXT")
+        texts.push(extractText(n));
+} const comps = extractAllComponents(); const pages = extractPages(); const hierarchy = []; for (const r of scope.roots)
+    hierarchy.push(...buildHierarchy(r)); rpt(2, "Components & Pages", `${comps.length} comps`); const byType = {}; let tN = 0; function cn(n) { if ("children" in n)
+    for (const c of n.children) {
+        tN++;
+        byType[c.type] = (byType[c.type] || 0) + 1;
+        cn(c);
+    } } for (const r of scope.roots)
+    cn(r); rpt(3, "Done", `${texts.length} texts`); return { meta: { fileName: figma.root.name || "Untitled", extractDate: new Date().toISOString(), pluginVersion: PLUGIN_VERSION, totalPages: figma.root.children.length, extractionScope: "scoped", scopeDescription: scope.desc }, pages, textNodes: texts, variables: [], styles: [], components: comps, nodeCounts: { total: tN, textNodes: texts.length, frames: 0, components: 0, instances: 0, byType }, hierarchy }; }
 let zipFiles = [];
-function addToZip(name, content) { if (typeof content === "string")
-    zipFiles.push({ name, data: TE.encode(content) });
+function addToZip(n, c) { if (typeof c === "string")
+    zipFiles.push({ name: n, data: TE.encode(c) });
 else
-    zipFiles.push({ name, data: content }); }
-function flushZipChunked(fileNameBase) {
-    if (zipFiles.length === 0)
-        return;
-    const zip = makeZip(zipFiles);
-    zipFiles = [];
-    const CHUNK = 400000;
-    const total = Math.ceil(zip.length / CHUNK);
-    const zipName = `${sanitizeName(fileNameBase)}_extract.zip`;
-    for (let i = 0; i < total; i++) {
-        const start = i * CHUNK, end = Math.min(start + CHUNK, zip.length);
-        figma.ui.postMessage({ type: "zip-chunk", fileName: zipName, index: i, total: total, bytes: Array.from(zip.slice(start, end)) });
-    }
-}
-function downloadFile(fileName, content, mime) { figma.ui.postMessage({ type: "download-file", fileName, content, mimeType: mime }); }
+    zipFiles.push({ name: n, data: c }); }
+function flushZipChunked(fb) { if (zipFiles.length === 0)
+    return; const zip = makeZip(zipFiles); zipFiles = []; const CH = 400000; const t = Math.ceil(zip.length / CH); const zn = `${sanitizeName(fb)}_extract.zip`; for (let i = 0; i < t; i++) {
+    const s = i * CH, e = Math.min(s + CH, zip.length);
+    figma.ui.postMessage({ type: "zip-chunk", fileName: zn, index: i, total: t, bytes: Array.from(zip.slice(s, e)) });
+} }
+function downloadFile(fn, ct, m) { figma.ui.postMessage({ type: "download-file", fileName: fn, content: ct, mimeType: m }); }
 async function fetchAndSendVars() { var _a; try {
     const lv = await figma.variables.getLocalVariablesAsync();
     const vars = [];
@@ -419,109 +354,108 @@ async function buildLottieBundle(roots) { const allNodes = deepFlatten(roots); c
 } return { fileName: `${sanitizeName(figma.root.name)}_lottie.json`, exportDate: new Date().toISOString(), source: figma.root.name || "Untitled", itemCount: items.length, items }; }
 function placeAnimationInFigma(analysis) {
     const center = figma.viewport.center;
-    const animW = analysis.meta.width || 500;
-    const animH = analysis.meta.height || 500;
-    const scale = Math.min(600 / animW, 400 / animH, 1);
-    const fw = animW * scale, fh = animH * scale;
-    const fx = center.x - fw / 2, fy = center.y - fh / 2;
+    const animW = analysis.meta.width || 800;
+    const animH = analysis.meta.height || 600;
+    const scale = Math.min(800 / animW, 600 / animH, 1);
+    const fw = Math.round(animW * scale), fh = Math.round(animH * scale);
+    const fx = Math.round(center.x - fw / 2), fy = Math.round(center.y - fh / 2);
     const mainFrame = figma.createFrame();
     mainFrame.name = analysis.fileName.replace(/\.json$/, "") + " (Lottie)";
-    mainFrame.resize(fw, fh);
+    mainFrame.resize(fw, Math.max(fh, 200));
     mainFrame.x = fx;
     mainFrame.y = fy;
-    mainFrame.fills = [{ type: "SOLID", color: { r: 0.97, g: 0.97, b: 0.97 } }];
-    mainFrame.clipsContent = false;
+    mainFrame.cornerRadius = 12;
+    mainFrame.fills = [{ type: "SOLID", color: { r: 0.98, g: 0.98, b: 0.99 } }];
+    mainFrame.strokes = [{ type: "SOLID", color: { r: 0.85, g: 0.85, b: 0.9 } }];
+    mainFrame.strokeWeight = 1;
+    mainFrame.clipsContent = true;
+    mainFrame.layoutMode = "NONE";
     figma.currentPage.appendChild(mainFrame);
-    function lc(c) {
-        if (!c || !Array.isArray(c) || c.length < 3)
-            return { r: 0, g: 0, b: 0, a: 1 };
-        return { r: Math.max(0, Math.min(1, c[0])), g: Math.max(0, Math.min(1, c[1])), b: Math.max(0, Math.min(1, c[2])), a: c.length > 3 ? Math.max(0, Math.min(1, c[3])) : 1 };
-    }
-    function processLayers(layers, parent, depth) {
-        const layerH = Math.max(28, Math.min(64, (fh - 20) / (layers.length || 1)));
-        let yOff = 12;
+    const hdr = figma.createFrame();
+    hdr.resize(fw, 44);
+    hdr.x = 0;
+    hdr.y = 0;
+    hdr.fills = [{ type: "SOLID", color: { r: 0.94, g: 0.94, b: 0.97 } }];
+    hdr.cornerRadius = 12;
+    hdr.bottomLeftRadius = 0;
+    hdr.bottomRightRadius = 0;
+    hdr.name = "Header";
+    hdr.layoutMode = "NONE";
+    mainFrame.appendChild(hdr);
+    const hdrLabel = figma.createText();
+    hdrLabel.fontSize = 13;
+    hdrLabel.fontName = { family: "Inter", style: "Bold" };
+    hdrLabel.characters = `🎬 ${analysis.fileName} · ${analysis.stats.layers} layers · ${analysis.meta.frameRate}fps · ${(analysis.meta.duration || 0).toFixed(1)}s`;
+    hdrLabel.fills = [{ type: "SOLID", color: { r: 0.15, g: 0.15, b: 0.2 } }];
+    hdrLabel.resize(fw - 24, 18);
+    hdrLabel.x = 12;
+    hdrLabel.y = 13;
+    hdr.appendChild(hdrLabel);
+    const PALETTE = {
+        [-1]: { bg: { r: 0.88, g: 0.88, b: 0.9 }, fg: { r: 0.25, g: 0.25, b: 0.3 }, label: "Layer" },
+        0: { bg: { r: 0.72, g: 0.7, b: 0.95 }, fg: { r: 0.2, g: 0.15, b: 0.5 }, label: "Precomp" },
+        1: { bg: { r: 0.65, g: 0.82, b: 1 }, fg: { r: 0.1, g: 0.3, b: 0.6 }, label: "Solid" },
+        2: { bg: { r: 0.62, g: 0.92, b: 0.75 }, fg: { r: 0.1, g: 0.4, b: 0.2 }, label: "Image" },
+        3: { bg: { r: 0.88, g: 0.88, b: 0.9 }, fg: { r: 0.3, g: 0.3, b: 0.35 }, label: "Null" },
+        4: { bg: { r: 0.98, g: 0.88, b: 0.6 }, fg: { r: 0.5, g: 0.3, b: 0.05 }, label: "Shape" },
+        5: { bg: { r: 0.95, g: 0.7, b: 0.7 }, fg: { r: 0.5, g: 0.1, b: 0.1 }, label: "Text" },
+    };
+    const BH = 36;
+    const BP = 4;
+    let cursorY = 52;
+    let layerNum = 0;
+    function placeLayer(layers, parent, indent) {
         for (let i = 0; i < layers.length; i++) {
             const l = layers[i];
             if (l.hd)
                 continue;
-            const nm = l.nm || "Layer " + (i + 1);
+            layerNum++;
             const ty = typeof l.ty === "number" ? l.ty : -1;
-            let kf = "";
-            if (l.ks) {
-                try {
-                    if (l.ks.k && Array.isArray(l.ks.k) && l.ks.k.length > 0)
-                        kf = "🎬 ";
-                }
-                catch (e) { }
-            }
-            let fill = { r: 0.8, g: 0.8, b: 0.8, a: 0.3 };
-            if (ty === 0)
-                fill = { r: 0.5, g: 0.4, b: 0.9, a: 0.35 };
-            else if (ty === 1)
-                fill = { r: 0.2, g: 0.6, b: 1, a: 0.35 };
-            else if (ty === 2)
-                fill = { r: 0.2, g: 0.8, b: 0.4, a: 0.35 };
-            else if (ty === 3)
-                fill = { r: 0.6, g: 0.6, b: 0.6, a: 0.25 };
-            else if (ty === 4) {
-                try {
-                    const s0 = l.shapes && l.shapes[0];
-                    if (s0 && s0.it) {
-                        for (const it of s0.it) {
-                            if (it.ty === "fl" && it.c) {
-                                const c = it.c.k || it.c;
-                                if (Array.isArray(c))
-                                    fill = { r: c[0], g: c[1], b: c[2], a: 0.7 };
-                                break;
-                            }
-                        }
-                    }
-                }
-                catch (e) { }
-            }
-            else if (ty === 5)
-                fill = { r: 0.1, g: 0.1, b: 0.1, a: 0.9 };
-            const tyNames = ["Precomp", "Solid", "Image", "Null", "Shape", "Text"];
-            const label = `${tyNames[ty] || "Layer"} · ${nm}`;
-            const rnode = figma.createFrame();
-            rnode.resize(Math.min(fw - 32, 320), layerH);
-            rnode.cornerRadius = 6;
-            rnode.fills = [{ type: "SOLID", color: fill }];
-            rnode.name = kf + nm;
-            rnode.x = 12;
-            rnode.y = yOff;
-            rnode.opacity = typeof l.op === "number" ? l.op / 100 : 1;
-            if (l.ks && l.ks.o && typeof l.ks.o === "object" && l.ks.o.k != null)
-                rnode.opacity = Number(l.ks.o.k) / 100;
+            const pal = PALETTE[ty] || PALETTE[-1];
+            const nm = l.nm || "Layer " + layerNum;
+            const bar = figma.createFrame();
+            bar.resize(parent.width - 20 - indent * 24, BH);
+            bar.x = 10 + indent * 24;
+            bar.y = cursorY;
+            bar.cornerRadius = 5;
+            bar.fills = [{ type: "SOLID", color: pal.bg }];
+            bar.strokes = [{ type: "SOLID", color: { r: pal.bg.r * 0.7, g: pal.bg.g * 0.7, b: pal.bg.b * 0.7 } }];
+            bar.strokeWeight = 1;
+            bar.name = `${pal.label} · ${nm}`;
+            bar.layoutMode = "NONE";
+            parent.appendChild(bar);
             const lab = figma.createText();
             lab.fontSize = 10;
-            lab.characters = label;
-            lab.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
-            lab.resize(rnode.width - 16, 14);
+            lab.fontName = { family: "Inter", style: "Medium" };
+            lab.characters = `${pal.label} · ${nm}`.substring(0, 50);
+            lab.fills = [{ type: "SOLID", color: pal.fg }];
+            lab.resize(bar.width - 12, 14);
             lab.x = 8;
-            lab.y = (layerH - 14) / 2;
-            rnode.appendChild(lab);
-            parent.appendChild(rnode);
+            lab.y = (BH - 14) / 2;
+            bar.appendChild(lab);
+            cursorY += BH + BP;
             if (l.layers && l.layers.length > 0) {
-                const childGroup = figma.createFrame();
-                childGroup.resize(rnode.width, 60);
-                childGroup.x = 12;
-                childGroup.y = yOff + layerH + 4;
-                childGroup.fills = [];
-                childGroup.name = "Children of " + nm;
-                processLayers(l.layers, childGroup, depth + 1);
-                childGroup.resize(childGroup.width, Math.max(20, childGroup.children.reduce((s, c) => Math.max(s, c.y + c.height), 0) + 8));
-                parent.appendChild(childGroup);
-                yOff = childGroup.y + childGroup.height + 8;
-            }
-            else {
-                yOff += layerH + 6;
+                const subGroup = figma.createFrame();
+                subGroup.resize(parent.width - 20 - indent * 24, 20);
+                subGroup.x = 10 + indent * 24;
+                subGroup.y = cursorY;
+                subGroup.fills = [];
+                subGroup.name = "Children";
+                subGroup.layoutMode = "NONE";
+                parent.appendChild(subGroup);
+                let beforeChildren = cursorY;
+                placeLayer(l.layers, subGroup, indent + 1);
+                if (beforeChildren === cursorY) {
+                    subGroup.resize(0, 0);
+                }
+                else {
+                    subGroup.resize(subGroup.width, cursorY - beforeChildren);
+                }
             }
         }
     }
-    processLayers(analysis.layerTreeRaw, mainFrame, 0);
-    const totalH = mainFrame.children.reduce((s, c) => Math.max(s, c.y + c.height), 0) + 20;
-    mainFrame.resize(mainFrame.width, Math.max(fh, totalH));
+    placeLayer(analysis.layerTreeRaw, mainFrame, 0);
+    mainFrame.resize(fw, Math.max(fh, cursorY + 20));
     figma.viewport.scrollAndZoomIntoView([mainFrame]);
     figma.ui.postMessage({ type: "animation-placed", name: mainFrame.name, x: mainFrame.x, y: mainFrame.y });
 }
@@ -543,14 +477,14 @@ figma.ui.onmessage = async (msg) => {
     }
     if (msg.type === "place-lottie") {
         if (!lastAnalysis || !lastAnalysis.valid) {
-            figma.ui.postMessage({ type: "error", message: "No valid animation to place. Import a Lottie file first." });
+            figma.ui.postMessage({ type: "error", message: "No valid animation." });
             return;
         }
         try {
             placeAnimationInFigma(lastAnalysis);
         }
         catch (e) {
-            figma.ui.postMessage({ type: "error", message: "Failed to place animation: " + e.message });
+            figma.ui.postMessage({ type: "error", message: "Failed: " + e.message });
         }
     }
     if (msg.type === "get-full-extract" && !msg.aeOpts && !msg.aiOpts) {
