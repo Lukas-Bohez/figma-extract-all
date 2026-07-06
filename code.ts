@@ -188,79 +188,88 @@ function placeAnimationInFigma(analysis:LottieAnalysis){
   mainFrame.resize(fw,fh);
   mainFrame.x=fx;mainFrame.y=fy;
   mainFrame.fills=[{type:"SOLID",color:{r:0.97,g:0.97,b:0.97}}];
-  mainFrame.clipsContent=true;
+  mainFrame.clipsContent=false;
   figma.currentPage.appendChild(mainFrame);
 
   // Helper: parse Lottie color
-  function lc(c:any,alpha?:number):{r:number,g:number,b:number,a:number}{
-    if(!c)return{r:0,g:0,b:0,a:1};
-    if(Array.isArray(c)&&c.length>=3)return{r:c[0],g:c[1],b:c[2],a:c.length>3?c[3]:1};
-    return{r:0,g:0,b:0,a:1};
+  function lc(c:any):{r:number,g:number,b:number,a:number}{
+    if(!c||!Array.isArray(c)||c.length<3)return{r:0,g:0,b:0,a:1};
+    return{r:Math.max(0,Math.min(1,c[0])),g:Math.max(0,Math.min(1,c[1])),b:Math.max(0,Math.min(1,c[2])),a:c.length>3?Math.max(0,Math.min(1,c[3])):1};
   }
 
-  // Create nodes for each layer
+  // Create nodes for each layer — use GROUP not auto-layout frames for sub-layers
   function processLayers(layers:any[],parent:FrameNode|GroupNode,depth:number){
-    const layerH=Math.max(24,Math.min(60,(fh-20)/(layers.length||1)));
-    let yOff=8;
+    const layerH=Math.max(28,Math.min(64,(fh-20)/(layers.length||1)));
+    let yOff=12;
     for(let i=0;i<layers.length;i++){
       const l=layers[i];if(l.hd)continue;
-      const nm=l.nm||"Layer "+(i+1);const ty=l.ty;
+      const nm=l.nm||"Layer "+(i+1);const ty=typeof l.ty==="number"?l.ty:-1;
+
       // Check for keyframes
       let kf:string="";
-      if(l.ks&&l.ks.k&&Array.isArray(l.ks.k)&&l.ks.k.length>0)kf="🎬 ";
-      if(l.ks&&l.ks.k&&typeof l.ks.k==="object"&&!Array.isArray(l.ks.k)&&l.ks.k.k&&Array.isArray(l.ks.k.k))kf="🎬 ";
+      if(l.ks){try{if(l.ks.k&&Array.isArray(l.ks.k)&&l.ks.k.length>0)kf="🎬 ";}catch(e){}}
 
-      // Determine color based on type
-      let fill:{r:number,g:number,b:number,a:number}={r:0,g:0,b:0,a:1};
-      if(ty===0)fill={r:0.5,g:0.5,b:0.9,a:0.15}; // precomp - purple
-      else if(ty===1)fill={r:0.3,g:0.7,b:1,a:0.2}; // solid - blue
-      else if(ty===2)fill={r:0.3,g:0.8,b:0.4,a:0.2}; // image - green
-      else if(ty===3)fill={r:0.8,g:0.8,b:0.8,a:0.15}; // null - grey
-      else if(ty===4){
-        if(l.shapes&&l.shapes.length>0){
-          const s0=l.shapes[0];if(s0.it){for(const it of s0.it){if(it.ty==="fl"&&it.c){fill=lc(it.c.k);break;}}}
-        }
+      // Determine color
+      let fill:{r:number,g:number,b:number,a:number}={r:0.8,g:0.8,b:0.8,a:0.3};
+      if(ty===0)fill={r:0.5,g:0.4,b:0.9,a:0.35}; // precomp
+      else if(ty===1)fill={r:0.2,g:0.6,b:1,a:0.35}; // solid
+      else if(ty===2)fill={r:0.2,g:0.8,b:0.4,a:0.35}; // image
+      else if(ty===3)fill={r:0.6,g:0.6,b:0.6,a:0.25}; // null
+      else if(ty===4){ // shape — try to extract color
+        try{
+          const s0=l.shapes&&l.shapes[0];
+          if(s0&&s0.it){for(const it of s0.it){if(it.ty==="fl"&&it.c){const c=it.c.k||it.c;if(Array.isArray(c))fill={r:c[0],g:c[1],b:c[2],a:0.7};break;}}}
+        }catch(e){}
       }
-      else if(ty===5){const t=l.t;if(t&&t.d&&t.d.k&&Array.isArray(t.d.k)&&t.d.k.length>0&&t.d.k[0].s){fill={r:0.1,g:0.1,b:0.1,a:0.8};}}
+      else if(ty===5)fill={r:0.1,g:0.1,b:0.1,a:0.9}; // text
 
-      // Create node
-      let node:SceneNode;
-      const nodeW=Math.min(fw-40,300);
-      if(ty===5&&l.t&&l.t.d&&l.t.d.k&&Array.isArray(l.t.d.k)&&l.t.d.k[0].s){
-        // Text layer
-        const tnode=figma.createText();
-        tnode.fontSize=14;tnode.characters=String(l.t.d.k[0].s).substring(0,60);
-        tnode.fills=[{type:"SOLID",color:fill}];
-        tnode.resize(nodeW,layerH);tnode.name=kf+nm;node=tnode;
+      // Create label
+      const tyNames=["Precomp","Solid","Image","Null","Shape","Text"];
+      const label=`${tyNames[ty]||"Layer"} · ${nm}`;
+
+      // Create frame for this layer
+      const rnode=figma.createFrame();
+      rnode.resize(Math.min(fw-32,320),layerH);
+      rnode.cornerRadius=6;
+      rnode.fills=[{type:"SOLID",color:fill}];
+      rnode.name=kf+nm;
+      rnode.x=12;rnode.y=yOff;
+      rnode.opacity=typeof l.op==="number"?l.op/100:1;
+      if(l.ks&&l.ks.o&&typeof l.ks.o==="object"&&l.ks.o.k!=null)rnode.opacity=Number(l.ks.o.k)/100;
+
+      // Add label text inside
+      const lab=figma.createText();
+      lab.fontSize=10;lab.characters=label;
+      lab.fills=[{type:"SOLID",color:{r:0.2,g:0.2,b:0.2}}];
+      lab.resize(rnode.width-16,14);lab.x=8;lab.y=(layerH-14)/2;
+      rnode.appendChild(lab);
+
+      parent.appendChild(rnode);
+
+      // If this layer has children, create a GROUP (not auto-layout frame) for them
+      if(l.layers&&l.layers.length>0){
+        // Create a group inside the rnode that expands below
+        const childGroup=figma.createFrame();
+        childGroup.resize(rnode.width,60);
+        childGroup.x=12;childGroup.y=yOff+layerH+4;
+        childGroup.fills=[]; // transparent
+        childGroup.name="Children of "+nm;
+        // Do NOT set auto-layout — use absolute positioning
+        processLayers(l.layers,childGroup,depth+1);
+        // Resize group to fit children
+        childGroup.resize(childGroup.width,Math.max(20,childGroup.children.reduce((s:number,c:SceneNode)=>Math.max(s,c.y+c.height),0)+8));
+        parent.appendChild(childGroup);
+        yOff=childGroup.y+childGroup.height+8;
       }else{
-        const rnode=figma.createFrame();
-        rnode.resize(nodeW,layerH);rnode.cornerRadius=4;
-        rnode.fills=[{type:"SOLID",color:fill,opacity:0.6}];
-        rnode.name=kf+nm;
-        // Add label text
-        const lab=figma.createText();lab.fontSize=10;
-        const tyNames=["Precomp","Solid","Image","Null","Shape","Text"];
-        lab.characters=`${tyNames[ty]||"Layer"} · ${nm}`;
-        lab.fills=[{type:"SOLID",color:{r:0.3,g:0.3,b:0.3}}];
-        lab.resize(nodeW-16,14);lab.x=8;lab.y=(layerH-14)/2;
-        rnode.appendChild(lab);
-        node=rnode;
+        yOff+=layerH+6;
       }
-      node.x=16;node.y=yOff;node.opacity=l.op!==undefined?l.op/100:1;
-      if(l.ks&&l.ks.o&&typeof l.ks.o==="object"){if(l.ks.o.k!=null)node.opacity=Number(l.ks.o.k)/100;}
-      parent.appendChild(node);
-      if(l.layers&&l.layers.length>0&&node.type==="FRAME"){
-        const subFrame=node as FrameNode;subFrame.layoutMode="VERTICAL";subFrame.primaryAxisSizingMode="AUTO";subFrame.counterAxisSizingMode="FIXED";
-        processLayers(l.layers,subFrame,depth+1);
-        subFrame.resize(nodeW,Math.max(layerH,subFrame.children.length*layerH+16));
-      }
-      yOff+=layerH+4;
     }
   }
 
   processLayers(analysis.layerTreeRaw,mainFrame,0);
+  const totalH=mainFrame.children.reduce((s:number,c:SceneNode)=>Math.max(s,c.y+c.height),0)+20;
+  mainFrame.resize(mainFrame.width,Math.max(fh,totalH));
   figma.viewport.scrollAndZoomIntoView([mainFrame]);
-  mainFrame.resize(mainFrame.width,Math.max(fh,mainFrame.children.reduce((s:number,c:SceneNode)=>Math.max(s,c.y+c.height),0)+16));
   figma.ui.postMessage({type:"animation-placed",name:mainFrame.name,x:mainFrame.x,y:mainFrame.y});
 }
 
