@@ -1,4 +1,4 @@
-// Figma Extract All v11.0.0 — Chunked ZIP, no download spam
+// Figma Extract All v12.0.0 — Lottie-first deep import analysis
 interface ExtractedText {
   id:string;name:string;characters:string;pageName:string;parentPath:string;parentFrame:string;
   absoluteX:number;absoluteY:number;width:number;height:number;x:number;y:number;
@@ -22,36 +22,51 @@ interface FullExtractProgress {step:number;totalSteps:number;label:string;detail
 interface ExportResultItem {id:string;name:string;format:string;bytes:number[];}
 interface ZipFileEntry {name:string;data:Uint8Array;}
 
-const PLUGIN_VERSION="11.0.0";
+// ── Lottie Analysis Types ──
+interface LottieAnalysis {
+  fileName:string; valid:boolean; errors:string[];
+  meta:{ frameRate:number; inPoint:number; outPoint:number; width:number; height:number; duration:number; };
+  stats:{ layers:number; shapes:number; paths:number; images:number; texts:number; solids:number; nulls:number; precomps:number; };
+  assets:AssetInfo[];
+  expressions:string[];
+  markers:MarkerInfo[];
+  warnings:WarningInfo[];
+  layerTree:any[];
+  bodymovinSettings:BMCheckResult;
+  hasKeyframes:boolean;
+  hasAssets:boolean;
+  totalFrames:number;
+}
+interface AssetInfo {id:string;type:string;name:string;refId?:string;width?:number;height?:number;embedded:boolean;}
+interface MarkerInfo {name:string;time:number;duration:number;}
+interface WarningInfo {type:string;message:string;fix:string;}
+interface BMCheckResult {includeAssets:boolean;includeKeyframes:boolean;includeExpressions:boolean;hiddenLayers:boolean;compressedJson:boolean;settingsOK:boolean;}
+
+const PLUGIN_VERSION="12.0.0";
 const TE={encode:(s:string)=>{const r=new Uint8Array(s.length);for(let i=0;i<s.length;i++)r[i]=s.charCodeAt(i)&0xFF;return r;}};
 
 // ── ZIP creator ────────────────────────────────
 const CRC_TABLE:Uint32Array=((()=>{const t=new Uint32Array(256);for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[i]=c>>>0;}return t;}))();
 function crc32(d:Uint8Array):number{let c=0xFFFFFFFF;for(let i=0;i<d.length;i++)c=CRC_TABLE[(c^d[i])&0xFF]^(c>>>8);return(c^0xFFFFFFFF)>>>0;}
-
 function makeZip(files:ZipFileEntry[]):Uint8Array{
   const locals:Uint8Array[]=[],cdirs:Uint8Array[]=[];let off=0;
   for(const f of files){
     const nb=TE.encode(f.name);const crc=crc32(f.data);const sz=f.data.length;
     const lh=new Uint8Array(30+nb.length);
-    new DataView(lh.buffer).setUint32(0,0x04034b50,true);
-    lh[6]=0;lh[7]=0;lh[8]=0;lh[9]=0;
+    new DataView(lh.buffer).setUint32(0,0x04034b50,true);lh[6]=0;lh[7]=0;lh[8]=0;lh[9]=0;
     new DataView(lh.buffer).setUint32(14,crc,true);
     new DataView(lh.buffer).setUint32(18,sz,true);
     new DataView(lh.buffer).setUint32(22,sz,true);
-    new DataView(lh.buffer).setUint16(26,nb.length,true);
-    lh[28]=0;lh[29]=0;lh.set(nb,30);
+    new DataView(lh.buffer).setUint16(26,nb.length,true);lh[28]=0;lh[29]=0;lh.set(nb,30);
     locals.push(lh,f.data);
     const entryOff=off;off+=30+nb.length+sz;
     const cd=new Uint8Array(46+nb.length);
-    new DataView(cd.buffer).setUint32(0,0x02014b50,true);
-    cd[6]=0;cd[7]=0;cd[8]=0;cd[9]=0;
+    new DataView(cd.buffer).setUint32(0,0x02014b50,true);cd[6]=0;cd[7]=0;cd[8]=0;cd[9]=0;
     new DataView(cd.buffer).setUint32(16,crc,true);
     new DataView(cd.buffer).setUint32(20,sz,true);
     new DataView(cd.buffer).setUint32(24,sz,true);
     new DataView(cd.buffer).setUint16(28,nb.length,true);
-    new DataView(cd.buffer).setUint32(42,entryOff,true);
-    cd.set(nb,46);cdirs.push(cd);
+    new DataView(cd.buffer).setUint32(42,entryOff,true);cd.set(nb,46);cdirs.push(cd);
   }
   const cdOff=off;const cdSz=cdirs.reduce((s,a)=>s+a.length,0);
   const eocd=new Uint8Array(22);
@@ -62,8 +77,93 @@ function makeZip(files:ZipFileEntry[]):Uint8Array{
   new DataView(eocd.buffer).setUint32(16,cdOff,true);
   const total=off+cdSz+22;const result=new Uint8Array(total);let pos=0;
   for(const p of locals){result.set(p,pos);pos+=p.length;}
-  for(const p of cdirs){result.set(p,pos);pos+=p.length;}
-  result.set(eocd,pos);return result;
+  for(const p of cdirs){result.set(p,pos);pos+=p.length;}result.set(eocd,pos);return result;
+}
+
+// ── Deep Lottie Analysis ───────────────────────
+function analyzeLottieFile(fileName:string,content:string):LottieAnalysis{
+  const analysis:LottieAnalysis={
+    fileName,valid:false,errors:[],
+    meta:{frameRate:0,inPoint:0,outPoint:0,width:0,height:0,duration:0},
+    stats:{layers:0,shapes:0,paths:0,images:0,texts:0,solids:0,nulls:0,precomps:0},
+    assets:[],expressions:[],markers:[],warnings:[],
+    layerTree:[],bodymovinSettings:{includeAssets:false,includeKeyframes:false,includeExpressions:false,hiddenLayers:false,compressedJson:true,settingsOK:false},
+    hasKeyframes:false,hasAssets:false,totalFrames:0
+  };
+
+  let json:any;
+  try{json=JSON.parse(content);analysis.valid=true;}catch(e){analysis.errors.push("Invalid JSON: "+(e as Error).message);return analysis;}
+
+  if(!json){analysis.errors.push("Empty file");return analysis;}
+
+  // Meta
+  analysis.meta.frameRate=json.fr||0;
+  analysis.meta.inPoint=json.ip||0;
+  analysis.meta.outPoint=json.op||0;
+  analysis.meta.width=json.w||0;
+  analysis.meta.height=json.h||0;
+  analysis.meta.duration=analysis.meta.frameRate>0?(analysis.meta.outPoint-analysis.meta.inPoint)/analysis.meta.frameRate:0;
+  analysis.totalFrames=analysis.meta.outPoint-analysis.meta.inPoint;
+
+  // Bodymovin settings check
+  const bm=analysis.bodymovinSettings;
+  bm.compressedJson=typeof json.ddd==="undefined"&&typeof json.layers!=="undefined";
+
+  // Assets
+  if(json.assets){
+    bm.includeAssets=true;
+    analysis.hasAssets=true;
+    for(const a of json.assets){
+      const asset:AssetInfo={id:a.id||"",type:"image",name:a.nm||a.p||"unnamed",embedded:!!a.e,refId:a.p||a.u||"",width:a.w,height:a.h};
+      if(a.layers)asset.type="precomp";
+      analysis.assets.push(asset);
+      if(asset.type==="image")analysis.stats.images++;
+      if(asset.type==="precomp")analysis.stats.precomps++;
+    }
+  }
+
+  // Layers
+  if(json.layers){
+    function walkLayers(layers:any[],depth:number):any[]{
+      const tree:any[]=[];
+      for(const l of layers){
+        analysis.stats.layers++;
+        const ty=l.ty; // 0=precomp,1=solid,2=image,3=null,4=shape,5=text
+        if(ty===0)analysis.stats.precomps++;if(ty===1)analysis.stats.solids++;if(ty===2)analysis.stats.images++;
+        if(ty===3)analysis.stats.nulls++;if(ty===4)analysis.stats.shapes++;if(ty===5)analysis.stats.texts++;
+
+        // Check keyframes
+        if(l.ks||l.k){analysis.hasKeyframes=true;bm.includeKeyframes=true;}
+
+        // Check expressions
+        function scanExpressions(obj:any){
+          if(!obj||typeof obj!=="object")return;
+          if(obj.a===1&&obj.k&&typeof obj.k==="string"&&obj.k.length>0){analysis.expressions.push(obj.k);bm.includeExpressions=true;}
+          for(const key of Object.keys(obj)){if(typeof obj[key]==="object")scanExpressions(obj[key]);}
+        }
+        scanExpressions(l);
+
+        const node:any={name:l.nm||"unnamed",type:["precomp","solid","image","null","shape","text"][ty]||"unknown",visible:!(l.hd),hidden:!!l.hd,children:[]};
+        if(l.hd)bm.hiddenLayers=true;
+        if(l.layers)node.children=walkLayers(l.layers,depth+1);
+        tree.push(node);
+      }
+      return tree;
+    }
+    analysis.layerTree=walkLayers(json.layers,0);
+  }
+
+  bm.settingsOK=bm.includeAssets&&bm.includeKeyframes;
+
+  // Warnings
+  if(!bm.includeAssets)analysis.warnings.push({type:"assets",message:"No image assets found in this Lottie file. If your AE project uses images, they won't appear in Figma.",fix:"⚙ In Bodymovin export settings, enable: \"Include in json\" > \"Assets\" to embed images in the Lottie JSON."});
+  if(!bm.includeKeyframes&&analysis.stats.layers>0)analysis.warnings.push({type:"keyframes",message:"No keyframe animation data detected. All layers appear static — motion won't be visible.",fix:"⚙ In Bodymovin export settings, enable: \"Include in json\" > \"Keyframe Data\" to preserve animation."});
+  if(!bm.includeExpressions&&analysis.expressions.length>0)analysis.warnings.push({type:"expressions",message:"Expressions found but may not render in Figma. Figma does not support AE expressions natively.",fix:"⚙ Bake expressions to keyframes in AE before exporting, or accept that complex expressions won't render."});
+  if(bm.hiddenLayers)analysis.warnings.push({type:"hidden",message:"Hidden layers detected — these will not be visible after import.",fix:"⚙ Unhide layers in AE before exporting, or use the \"Visible layers only\" option in Bodymovin."});
+  if(!bm.compressedJson&&json.comp)analysis.warnings.push({type:"compressed",message:"File appears to use compressed JSON format — Figma requires uncompressed.",fix:"⚙ In Bodymovin export settings, uncheck \"Compress JSON\" for smaller file sizes (Figma ignores compression anyway)."});
+  if(!analysis.valid)analysis.errors.push("File could not be parsed — check that the file is a valid Bodymovin/Lottie JSON export.");
+
+  return analysis;
 }
 
 // ── Helpers ──
@@ -115,32 +215,21 @@ let zipFiles:ZipFileEntry[]=[];
 function addToZip(name:string,content:string|Uint8Array){if(typeof content==="string")zipFiles.push({name,data:TE.encode(content)});else zipFiles.push({name,data:content});}
 function flushZipChunked(fileNameBase:string){
   if(zipFiles.length===0)return;
-  const zip=makeZip(zipFiles);
-  zipFiles=[];
-  const CHUNK=400000; // 400KB per chunk — safe for Figma postMessage
-  const total=Math.ceil(zip.length/CHUNK);
+  const zip=makeZip(zipFiles);zipFiles=[];
+  const CHUNK=400000;const total=Math.ceil(zip.length/CHUNK);
   const zipName=`${sanitizeName(fileNameBase)}_extract.zip`;
-  for(let i=0;i<total;i++){
-    const start=i*CHUNK,end=Math.min(start+CHUNK,zip.length);
-    const chunk=zip.slice(start,end);
-    figma.ui.postMessage({type:"zip-chunk",fileName:zipName,index:i,total:total,bytes:Array.from(chunk)});
-  }
+  for(let i=0;i<total;i++){const start=i*CHUNK,end=Math.min(start+CHUNK,zip.length);figma.ui.postMessage({type:"zip-chunk",fileName:zipName,index:i,total:total,bytes:Array.from(zip.slice(start,end))});}
 }
-
-// ── Single file download ──
 function downloadFile(fileName:string,content:string,mime:string){figma.ui.postMessage({type:"download-file",fileName,content,mimeType:mime});}
 
-// ── Async helpers ──
 async function fetchAndSendVars(){try{const lv=await figma.variables.getLocalVariablesAsync();const vars:ExtractedVariable[]=[];let mm:{[c:string]:{[m:string]:string}}={};try{const c=await figma.variables.getLocalVariableCollectionsAsync();for(const col of c||[]){mm[col.id]={};for(const m of col.modes)mm[col.id][m.modeId]=m.name;}}catch(e){}for(const v of lv||[]){const en:{[mn:string]:VariableValueInfo}={};const raw:any=v.valuesByMode||{};const ci=(v as any).variableCollectionId||"";for(const [mi,val] of Object.entries(raw)){const mn=mm[ci]?.[mi]||mi;if(val&&typeof val==="object"&&"r" in val)en[mn]={raw:val,hex:rgbToHex((val as any).r,(val as any).g,(val as any).b),css:""};else en[mn]={raw:val};}vars.push({id:v.id,name:v.name,resolvedType:v.resolvedType,valuesByMode:en,scopes:v.scopes||[],description:v.description||"",remote:(v as any).remote||false});}addToZip(`${sanitizeName(figma.root.name)}_variables.json`,JSON.stringify(vars,null,2));}catch(e){}}
 async function fetchAndSendStyles(){try{const ss:ExtractedStyle[]=[];const ps=await figma.getLocalPaintStylesAsync();for(const s of ps||[]){ss.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",paints:s.paints&&s.paints.length>0?extractFills(s.paints):undefined,remote:(s as any).remote||false});}const ts=await figma.getLocalTextStylesAsync();for(const s of ts||[]){ss.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",fontSize:s.fontSize as number,fontFamily:(s as any).fontName?.family||undefined,fontWeight:(s as any).fontName?.style||undefined,lineHeight:(s as any).lineHeight&&typeof(s as any).lineHeight==="object"&&"value" in (s as any).lineHeight?{value:(s as any).lineHeight.value,unit:(s as any).lineHeight.unit||"PIXELS"}:null,remote:(s as any).remote||false});}const es=await figma.getLocalEffectStylesAsync();for(const s of es||[]){ss.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",remote:(s as any).remote||false});}const gs=await figma.getLocalGridStylesAsync();for(const s of gs||[]){ss.push({id:s.id,name:s.name,key:s.key,styleType:s.type,description:s.description||"",remote:(s as any).remote||false});}addToZip(`${sanitizeName(figma.root.name)}_styles.json`,JSON.stringify(ss,null,2));}catch(e){}}
-
-// ── Export utilities ──
 async function exportNodeSVG(nodeId:string):Promise<ZipFileEntry|null>{const n=await figma.getNodeByIdAsync(nodeId);if(!n)return null;const sn=n as SceneNode;try{const s=await sn.exportAsync({format:"SVG_STRING"}as ExportSettingsSVGString);if(!s||s.length<10)return null;return{name:`svgs/${sanitizeName(getPageName(n))}/${sanitizeName(n.name)}.svg`,data:TE.encode(s)};}catch(e){return null;}}
 async function exportNodes(nodeIds:string[],format:"SVG"|"PNG"|"JPG"|"PDF",scale:number):Promise<ExportResultItem[]>{const r:ExportResultItem[]=[];for(const id of nodeIds){const n=await figma.getNodeByIdAsync(id);if(!n)continue;const sn=n as SceneNode;try{let b:Uint8Array;switch(format){case"SVG":b=await sn.exportAsync({format:"SVG"}as ExportSettingsSVG);break;case"PNG":b=await sn.exportAsync({format:"PNG",constraint:{type:"SCALE",value:scale}}as ExportSettingsImage);break;case"JPG":b=await sn.exportAsync({format:"JPG",constraint:{type:"SCALE",value:scale}}as ExportSettingsImage);break;case"PDF":b=await sn.exportAsync({format:"PDF"}as ExportSettingsPDF);break;default:continue;}r.push({id:n.id,name:sanitizeName(n.name),format:format.toLowerCase(),bytes:Array.from(b)});}catch(e){}}return r;}
 async function buildLottieBundle(roots:BaseNode[]):Promise<any>{const allNodes=deepFlatten(roots);const items:any[]=[];for(const n of allNodes){if((n.type as string)==="PAGE")continue;try{const s=await(n as SceneNode).exportAsync({format:"SVG_STRING"}as ExportSettingsSVGString);if(s&&s.length>10)items.push({id:n.id,name:sanitizeName(n.name),type:n.type,pageName:getPageName(n),width:(n as SceneNode).width,height:(n as SceneNode).height,svg:s});}catch(e){}}return{fileName:`${sanitizeName(figma.root.name)}_lottie.json`,exportDate:new Date().toISOString(),source:figma.root.name||"Untitled",itemCount:items.length,items};}
 
 // ── Message Handler ──
-figma.showUI(__html__,{width:520,height:680,title:"Extract All"});
+figma.showUI(__html__,{width:520,height:700,title:"Extract All — Lottie Import"});
 let cancelRequested=false;
 function postSel(){figma.ui.postMessage({type:"selection-state",count:figma.currentPage.selection.length,pageName:figma.currentPage.name});}
 figma.on("selectionchange",postSel);figma.on("currentpagechange",postSel);postSel();
@@ -151,7 +240,13 @@ figma.ui.onmessage=async(msg:any)=>{
   const scope=getScope();
   const baseName=figma.root.name||"Untitled";
 
-  // ═══ FULL EXTRACT (sync, single files) ═══
+  // ═══ LOTTIE IMPORT (deep analysis) ═══
+  if(msg.type==="import-lottie-json"||msg.type==="analyze-lottie"){
+    const analysis=analyzeLottieFile(msg.fileName||"lottie.json",String(msg.content||""));
+    figma.ui.postMessage({type:"lottie-analysis",analysis});
+  }
+
+  // ═══ FULL EXTRACT ═══
   if(msg.type==="get-full-extract"&&!msg.aeOpts&&!msg.aiOpts){
     const data=buildFullExtractSync((p)=>{figma.ui.postMessage({type:"full-extract-progress",progress:p});});
     if(cancelRequested)return;
@@ -160,7 +255,7 @@ figma.ui.onmessage=async(msg:any)=>{
     figma.ui.postMessage({type:"full-extract",data:{textNodes:data.textNodes.length,variables:0,styles:0,components:data.components.length,totalNodes:data.nodeCounts.total,scope:data.meta.scopeDescription}});
   }
 
-  // ═══ AE EXTRACT (ZIP with SVGs + JSON + TXT + Lottie) ═══
+  // ═══ AE EXTRACT ═══
   if(msg.type==="get-full-extract"&&msg.aeOpts){
     const data=buildFullExtractSync((p)=>{figma.ui.postMessage({type:"full-extract-progress",progress:p});});
     if(cancelRequested)return;
@@ -170,25 +265,15 @@ figma.ui.onmessage=async(msg:any)=>{
     if(msg.aeOpts.includeSVGs&&!cancelRequested){
       const allNodes=deepFlatten(scope.roots).filter(n=>n.type!=="TEXT"&&(n.type as string)!=="PAGE"&&isVisible(n));
       const total=allNodes.length;
-      for(let i=0;i<allNodes.length;i+=4){
-        if(cancelRequested)break;
-        const batch=allNodes.slice(i,i+4);const results=await Promise.all(batch.map(n=>exportNodeSVG(n.id)));
-        for(const r of results){if(r)zipFiles.push(r);}
-        figma.ui.postMessage({type:"progress",current:Math.min(i+4,total),total:total,label:"SVGs"});
-      }
+      for(let i=0;i<allNodes.length;i+=4){if(cancelRequested)break;const batch=allNodes.slice(i,i+4);const results=await Promise.all(batch.map(n=>exportNodeSVG(n.id)));for(const r of results){if(r)zipFiles.push(r);}figma.ui.postMessage({type:"progress",current:Math.min(i+4,total),total:total,label:"SVGs"});}
     }
-    if(msg.aeOpts.includeLottie&&!cancelRequested){
-      const bundle=await buildLottieBundle(scope.roots);
-      addToZip(bundle.fileName,JSON.stringify(bundle,null,2));
-    }
-    addToZip(`${sanitizeName(baseName)}_variables.json`,"[]");
-    addToZip(`${sanitizeName(baseName)}_styles.json`,"[]");
+    if(msg.aeOpts.includeLottie&&!cancelRequested){const bundle=await buildLottieBundle(scope.roots);addToZip(bundle.fileName,JSON.stringify(bundle,null,2));}
+    addToZip(`${sanitizeName(baseName)}_variables.json`,"[]");addToZip(`${sanitizeName(baseName)}_styles.json`,"[]");
     figma.ui.postMessage({type:"full-extract",data:{textNodes:data.textNodes.length,variables:0,styles:0,components:data.components.length,totalNodes:data.nodeCounts.total,scope:data.meta.scopeDescription}});
-    // Send chunked ZIP — ONE download dialog
     flushZipChunked(baseName);
   }
 
-  // ═══ AI EXTRACT (ZIP with SVGs + JSON + TXT) ═══
+  // ═══ AI EXTRACT ═══
   if(msg.type==="get-full-extract"&&msg.aiOpts){
     const data=buildFullExtractSync((p)=>{figma.ui.postMessage({type:"full-extract-progress",progress:p});});
     if(cancelRequested)return;
@@ -198,21 +283,16 @@ figma.ui.onmessage=async(msg:any)=>{
     if(msg.aiOpts.includeSVGs&&!cancelRequested){
       const allNodes=deepFlatten(scope.roots).filter(n=>n.type!=="TEXT"&&(n.type as string)!=="PAGE"&&isVisible(n));
       const total=allNodes.length;
-      for(let i=0;i<allNodes.length;i+=4){
-        if(cancelRequested)break;
-        const batch=allNodes.slice(i,i+4);const results=await Promise.all(batch.map(n=>exportNodeSVG(n.id)));
-        for(const r of results){if(r)zipFiles.push(r);}
-        figma.ui.postMessage({type:"progress",current:Math.min(i+4,total),total:total,label:"SVGs"});
-      }
+      for(let i=0;i<allNodes.length;i+=4){if(cancelRequested)break;const batch=allNodes.slice(i,i+4);const results=await Promise.all(batch.map(n=>exportNodeSVG(n.id)));for(const r of results){if(r)zipFiles.push(r);}figma.ui.postMessage({type:"progress",current:Math.min(i+4,total),total:total,label:"SVGs"});}
     }
     figma.ui.postMessage({type:"full-extract",data:{textNodes:data.textNodes.length,variables:0,styles:0,components:data.components.length,totalNodes:data.nodeCounts.total,scope:data.meta.scopeDescription}});
     flushZipChunked(baseName);
   }
 
-  // ═══ TEXT ONLY (single files) ═══
+  // ═══ TEXT ONLY ═══
   if(msg.type==="get-text"){const nodes=deepFlatten(scope.roots);const tn=nodes.filter(n=>n.type==="TEXT").map(n=>extractText(n as TextNode));downloadFile(`${sanitizeName(baseName)}_text.json`,JSON.stringify(tn,null,2),"application/json");downloadFile(`${sanitizeName(baseName)}_text.txt`,buildPlainText(tn),"text/plain");}
 
-  // ═══ INDIVIDUAL DOWNLOADS (single files, safe) ═══
+  // ═══ INDIVIDUAL DOWNLOADS ═══
   if(msg.type==="get-variables"){addToZip(`${sanitizeName(baseName)}_variables.json`,"");fetchAndSendVars();flushZipChunked(baseName+"_variables");}
   if(msg.type==="get-styles"){addToZip(`${sanitizeName(baseName)}_styles.json`,"");fetchAndSendStyles();flushZipChunked(baseName+"_styles");}
   if(msg.type==="get-components"){addToZip(`${sanitizeName(baseName)}_components.json`,JSON.stringify(extractAllComponents(),null,2));flushZipChunked(baseName+"_components");}
@@ -228,22 +308,18 @@ figma.ui.onmessage=async(msg:any)=>{
   }
   if(msg.type==="get-svg-as-text"){const sel=figma.currentPage.selection;if(sel.length===0){figma.ui.postMessage({type:"error",message:"No nodes selected"});return;}for(const node of sel){const s=await(node as SceneNode).exportAsync({format:"SVG_STRING"}as ExportSettingsSVGString);if(s)downloadFile(`${sanitizeName(node.name)}.svg`,s,"image/svg+xml");}}
 
-  // ═══ LOTTIE ═══
+  // ═══ LOTTIE EXPORT ═══
   if(msg.type==="export-lottie-json"){const bundle=await buildLottieBundle(scope.roots);downloadFile(bundle.fileName,JSON.stringify(bundle,null,2),"application/json");}
-  if(msg.type==="import-lottie-json"){try{const p=JSON.parse(String(msg.content||""));const keys=p&&typeof p==="object"?Object.keys(p):[];const ly=Array.isArray(p?.layers)?p.layers.length:0;figma.ui.postMessage({type:"lottie-import-summary",summary:{fileName:msg.fileName||"lottie.json",valid:true,topLevelKeys:keys,layerCount:ly,warning:ly===0?"No layers":"OK"}});}catch(e){figma.ui.postMessage({type:"lottie-import-summary",summary:{fileName:msg.fileName||"lottie.json",valid:false,topLevelKeys:[],layerCount:0,warning:"Invalid JSON"}});}}
 
-  // ═══ BATCH EXPORT (ZIP) ═══
+  // ═══ BATCH EXPORT ═══
   if(msg.type==="export-all-svg-page"||msg.type==="export-all-png-page"||msg.type==="export-all-svg-all-pages"||msg.type==="export-all-png-all-pages"){
     const fmt=msg.type.includes("svg")?"SVG":"PNG";const sc=fmt==="SVG"?(msg.scale||1):(msg.scale||2);
     const pages=msg.type.includes("all-pages")?[...figma.root.children]:[figma.currentPage];
-    let tN=0;for(const pg of pages)tN+=deepFlatten([pg]).filter((n:any)=>isVisible(n)&&n.type!=="PAGE").length;
-    let pN=0;
+    let tN=0;for(const pg of pages)tN+=deepFlatten([pg]).filter((n:any)=>isVisible(n)&&n.type!=="PAGE").length;let pN=0;
     for(const pg of pages){const ns=deepFlatten([pg]).filter((n:any)=>isVisible(n)&&n.type!=="PAGE");
-      for(let i=0;i<ns.length;i+=20){if(cancelRequested)break;
-        const batch=ns.slice(i,i+20).map((n:any)=>n.id);const r=await exportNodes(batch,fmt,sc);
+      for(let i=0;i<ns.length;i+=20){if(cancelRequested)break;const batch=ns.slice(i,i+20).map((n:any)=>n.id);const r=await exportNodes(batch,fmt,sc);
         for(const x of r){const ext=fmt.toLowerCase();const fname=pages.length>1?`${sanitizeName(pg.name)}/${x.name}.${ext}`:`${x.name}.${ext}`;zipFiles.push({name:fname,data:new Uint8Array(x.bytes)});}
-        pN+=batch.length;figma.ui.postMessage({type:"progress",current:Math.min(pN,tN),total:tN,label:fmt});
-      }
+        pN+=batch.length;figma.ui.postMessage({type:"progress",current:Math.min(pN,tN),total:tN,label:fmt});}
     }
     if(!cancelRequested){flushZipChunked(baseName+"_batch");figma.ui.postMessage({type:"export-complete"});}
   }

@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "11.0.0";
+const PLUGIN_VERSION = "12.0.0";
 const TE = { encode: (s) => { const r = new Uint8Array(s.length); for (let i = 0; i < s.length; i++)
         r[i] = s.charCodeAt(i) & 0xFF; return r; } };
 const CRC_TABLE = ((() => { const t = new Uint32Array(256); for (let i = 0; i < 256; i++) {
@@ -68,6 +68,112 @@ function makeZip(files) {
     }
     result.set(eocd, pos);
     return result;
+}
+function analyzeLottieFile(fileName, content) {
+    const analysis = {
+        fileName, valid: false, errors: [],
+        meta: { frameRate: 0, inPoint: 0, outPoint: 0, width: 0, height: 0, duration: 0 },
+        stats: { layers: 0, shapes: 0, paths: 0, images: 0, texts: 0, solids: 0, nulls: 0, precomps: 0 },
+        assets: [], expressions: [], markers: [], warnings: [],
+        layerTree: [], bodymovinSettings: { includeAssets: false, includeKeyframes: false, includeExpressions: false, hiddenLayers: false, compressedJson: true, settingsOK: false },
+        hasKeyframes: false, hasAssets: false, totalFrames: 0
+    };
+    let json;
+    try {
+        json = JSON.parse(content);
+        analysis.valid = true;
+    }
+    catch (e) {
+        analysis.errors.push("Invalid JSON: " + e.message);
+        return analysis;
+    }
+    if (!json) {
+        analysis.errors.push("Empty file");
+        return analysis;
+    }
+    analysis.meta.frameRate = json.fr || 0;
+    analysis.meta.inPoint = json.ip || 0;
+    analysis.meta.outPoint = json.op || 0;
+    analysis.meta.width = json.w || 0;
+    analysis.meta.height = json.h || 0;
+    analysis.meta.duration = analysis.meta.frameRate > 0 ? (analysis.meta.outPoint - analysis.meta.inPoint) / analysis.meta.frameRate : 0;
+    analysis.totalFrames = analysis.meta.outPoint - analysis.meta.inPoint;
+    const bm = analysis.bodymovinSettings;
+    bm.compressedJson = typeof json.ddd === "undefined" && typeof json.layers !== "undefined";
+    if (json.assets) {
+        bm.includeAssets = true;
+        analysis.hasAssets = true;
+        for (const a of json.assets) {
+            const asset = { id: a.id || "", type: "image", name: a.nm || a.p || "unnamed", embedded: !!a.e, refId: a.p || a.u || "", width: a.w, height: a.h };
+            if (a.layers)
+                asset.type = "precomp";
+            analysis.assets.push(asset);
+            if (asset.type === "image")
+                analysis.stats.images++;
+            if (asset.type === "precomp")
+                analysis.stats.precomps++;
+        }
+    }
+    if (json.layers) {
+        function walkLayers(layers, depth) {
+            const tree = [];
+            for (const l of layers) {
+                analysis.stats.layers++;
+                const ty = l.ty;
+                if (ty === 0)
+                    analysis.stats.precomps++;
+                if (ty === 1)
+                    analysis.stats.solids++;
+                if (ty === 2)
+                    analysis.stats.images++;
+                if (ty === 3)
+                    analysis.stats.nulls++;
+                if (ty === 4)
+                    analysis.stats.shapes++;
+                if (ty === 5)
+                    analysis.stats.texts++;
+                if (l.ks || l.k) {
+                    analysis.hasKeyframes = true;
+                    bm.includeKeyframes = true;
+                }
+                function scanExpressions(obj) {
+                    if (!obj || typeof obj !== "object")
+                        return;
+                    if (obj.a === 1 && obj.k && typeof obj.k === "string" && obj.k.length > 0) {
+                        analysis.expressions.push(obj.k);
+                        bm.includeExpressions = true;
+                    }
+                    for (const key of Object.keys(obj)) {
+                        if (typeof obj[key] === "object")
+                            scanExpressions(obj[key]);
+                    }
+                }
+                scanExpressions(l);
+                const node = { name: l.nm || "unnamed", type: ["precomp", "solid", "image", "null", "shape", "text"][ty] || "unknown", visible: !(l.hd), hidden: !!l.hd, children: [] };
+                if (l.hd)
+                    bm.hiddenLayers = true;
+                if (l.layers)
+                    node.children = walkLayers(l.layers, depth + 1);
+                tree.push(node);
+            }
+            return tree;
+        }
+        analysis.layerTree = walkLayers(json.layers, 0);
+    }
+    bm.settingsOK = bm.includeAssets && bm.includeKeyframes;
+    if (!bm.includeAssets)
+        analysis.warnings.push({ type: "assets", message: "No image assets found in this Lottie file. If your AE project uses images, they won't appear in Figma.", fix: "⚙ In Bodymovin export settings, enable: \"Include in json\" > \"Assets\" to embed images in the Lottie JSON." });
+    if (!bm.includeKeyframes && analysis.stats.layers > 0)
+        analysis.warnings.push({ type: "keyframes", message: "No keyframe animation data detected. All layers appear static — motion won't be visible.", fix: "⚙ In Bodymovin export settings, enable: \"Include in json\" > \"Keyframe Data\" to preserve animation." });
+    if (!bm.includeExpressions && analysis.expressions.length > 0)
+        analysis.warnings.push({ type: "expressions", message: "Expressions found but may not render in Figma. Figma does not support AE expressions natively.", fix: "⚙ Bake expressions to keyframes in AE before exporting, or accept that complex expressions won't render." });
+    if (bm.hiddenLayers)
+        analysis.warnings.push({ type: "hidden", message: "Hidden layers detected — these will not be visible after import.", fix: "⚙ Unhide layers in AE before exporting, or use the \"Visible layers only\" option in Bodymovin." });
+    if (!bm.compressedJson && json.comp)
+        analysis.warnings.push({ type: "compressed", message: "File appears to use compressed JSON format — Figma requires uncompressed.", fix: "⚙ In Bodymovin export settings, uncheck \"Compress JSON\" for smaller file sizes (Figma ignores compression anyway)." });
+    if (!analysis.valid)
+        analysis.errors.push("File could not be parsed — check that the file is a valid Bodymovin/Lottie JSON export.");
+    return analysis;
 }
 function sanitizeName(n) { return n.replace(/[<>:"\/\\|?*\x00-\x1f]/g, "_").replace(/\.+$/, "").trim() || "unnamed"; }
 function rgbToHex(r, g, b) { const h = (n) => { const x = Math.round(Math.max(0, Math.min(1, n)) * 255).toString(16); return x.length === 1 ? "0" + x : x; }; return "#" + h(r) + h(g) + h(b); }
@@ -214,8 +320,7 @@ function flushZipChunked(fileNameBase) {
     const zipName = `${sanitizeName(fileNameBase)}_extract.zip`;
     for (let i = 0; i < total; i++) {
         const start = i * CHUNK, end = Math.min(start + CHUNK, zip.length);
-        const chunk = zip.slice(start, end);
-        figma.ui.postMessage({ type: "zip-chunk", fileName: zipName, index: i, total: total, bytes: Array.from(chunk) });
+        figma.ui.postMessage({ type: "zip-chunk", fileName: zipName, index: i, total: total, bytes: Array.from(zip.slice(start, end)) });
     }
 }
 function downloadFile(fileName, content, mime) { figma.ui.postMessage({ type: "download-file", fileName, content, mimeType: mime }); }
@@ -315,7 +420,7 @@ async function buildLottieBundle(roots) { const allNodes = deepFlatten(roots); c
     }
     catch (e) { }
 } return { fileName: `${sanitizeName(figma.root.name)}_lottie.json`, exportDate: new Date().toISOString(), source: figma.root.name || "Untitled", itemCount: items.length, items }; }
-figma.showUI(__html__, { width: 520, height: 680, title: "Extract All" });
+figma.showUI(__html__, { width: 520, height: 700, title: "Extract All — Lottie Import" });
 let cancelRequested = false;
 function postSel() { figma.ui.postMessage({ type: "selection-state", count: figma.currentPage.selection.length, pageName: figma.currentPage.name }); }
 figma.on("selectionchange", postSel);
@@ -326,6 +431,10 @@ figma.ui.onmessage = async (msg) => {
     zipFiles = [];
     const scope = getScope();
     const baseName = figma.root.name || "Untitled";
+    if (msg.type === "import-lottie-json" || msg.type === "analyze-lottie") {
+        const analysis = analyzeLottieFile(msg.fileName || "lottie.json", String(msg.content || ""));
+        figma.ui.postMessage({ type: "lottie-analysis", analysis });
+    }
     if (msg.type === "get-full-extract" && !msg.aeOpts && !msg.aiOpts) {
         const data = buildFullExtractSync((p) => { figma.ui.postMessage({ type: "full-extract-progress", progress: p }); });
         if (cancelRequested)
@@ -450,17 +559,6 @@ figma.ui.onmessage = async (msg) => {
     if (msg.type === "export-lottie-json") {
         const bundle = await buildLottieBundle(scope.roots);
         downloadFile(bundle.fileName, JSON.stringify(bundle, null, 2), "application/json");
-    }
-    if (msg.type === "import-lottie-json") {
-        try {
-            const p = JSON.parse(String(msg.content || ""));
-            const keys = p && typeof p === "object" ? Object.keys(p) : [];
-            const ly = Array.isArray(p === null || p === void 0 ? void 0 : p.layers) ? p.layers.length : 0;
-            figma.ui.postMessage({ type: "lottie-import-summary", summary: { fileName: msg.fileName || "lottie.json", valid: true, topLevelKeys: keys, layerCount: ly, warning: ly === 0 ? "No layers" : "OK" } });
-        }
-        catch (e) {
-            figma.ui.postMessage({ type: "lottie-import-summary", summary: { fileName: msg.fileName || "lottie.json", valid: false, topLevelKeys: [], layerCount: 0, warning: "Invalid JSON" } });
-        }
     }
     if (msg.type === "export-all-svg-page" || msg.type === "export-all-png-page" || msg.type === "export-all-svg-all-pages" || msg.type === "export-all-png-all-pages") {
         const fmt = msg.type.includes("svg") ? "SVG" : "PNG";
