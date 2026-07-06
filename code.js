@@ -288,79 +288,6 @@ async function buildLottieBundle(roots) { const allNodes = deepFlatten(roots); c
     }
     catch (e) { }
 } return { fileName: `${sanitizeName(figma.root.name)}_lottie.json`, exportDate: new Date().toISOString(), source: figma.root.name || "Untitled", itemCount: items.length, items }; }
-function placeAnimationInFigma(analysis) {
-    const center = figma.viewport.center;
-    const W = Math.max(620, analysis.meta.width || 600);
-    const BH = 24, BP = 1;
-    const layers = analysis.stats.layers || 5;
-    const H = Math.max(180, 40 + layers * (BH + BP));
-    const fx = Math.round(center.x - W / 2), fy = Math.round(center.y - H / 2);
-    const frame = figma.createFrame();
-    frame.name = analysis.fileName.replace(/\.json$/, "") + " (Lottie)";
-    frame.resize(W, H);
-    frame.x = fx;
-    frame.y = fy;
-    frame.cornerRadius = 8;
-    frame.fills = [{ type: "SOLID", color: { r: 0.98, g: 0.98, b: 0.99 } }];
-    frame.strokes = [{ type: "SOLID", color: { r: 0.85, g: 0.85, b: 0.9 } }];
-    frame.strokeWeight = 1;
-    figma.currentPage.appendChild(frame);
-    const PAL = {
-        [-1]: { bg: { r: 0.92, g: 0.92, b: 0.94 }, fg: { r: 0.25, g: 0.25, b: 0.3 } },
-        0: { bg: { r: 0.75, g: 0.7, b: 0.95 }, fg: { r: 0.2, g: 0.12, b: 0.5 } },
-        1: { bg: { r: 0.65, g: 0.82, b: 1 }, fg: { r: 0.08, g: 0.25, b: 0.55 } },
-        2: { bg: { r: 0.62, g: 0.93, b: 0.75 }, fg: { r: 0.08, g: 0.35, b: 0.18 } },
-        3: { bg: { r: 0.88, g: 0.88, b: 0.92 }, fg: { r: 0.28, g: 0.28, b: 0.33 } },
-        4: { bg: { r: 0.98, g: 0.88, b: 0.6 }, fg: { r: 0.45, g: 0.25, b: 0.04 } },
-        5: { bg: { r: 0.96, g: 0.7, b: 0.7 }, fg: { r: 0.45, g: 0.08, b: 0.08 } },
-    };
-    const NAMES = ["Layer", "Precomp", "Solid", "Image", "Null", "Shape", "Text"];
-    let y = 40, lNum = 0;
-    function draw(layers, indent) {
-        for (let i = 0; i < layers.length; i++) {
-            const l = layers[i];
-            if (l.hd)
-                continue;
-            lNum++;
-            const ty = typeof l.ty === "number" ? l.ty : -1;
-            const pal = PAL[ty] || PAL[-1];
-            const nm = l.nm || `Layer ${lNum}`;
-            const xOff = 12 + indent * 16;
-            const bw = Math.max(W - xOff - 20, 40);
-            try {
-                const r = figma.createRectangle();
-                r.resize(bw, BH);
-                r.x = xOff;
-                r.y = y;
-                r.cornerRadius = 2;
-                r.fills = [{ type: "SOLID", color: pal.bg }];
-                r.strokes = [{ type: "SOLID", color: { r: pal.bg.r * 0.75, g: pal.bg.g * 0.75, b: pal.bg.b * 0.75 } }];
-                r.strokeWeight = 1;
-                r.name = `${NAMES[ty + 1] || "Layer"} · ${nm}`;
-                frame.appendChild(r);
-            }
-            catch (e) { }
-            try {
-                const t = figma.createText();
-                t.fontSize = 10;
-                t.characters = `${NAMES[ty + 1] || "Layer"} · ${nm}`.substring(0, 55);
-                t.fills = [{ type: "SOLID", color: pal.fg }];
-                t.resize(bw - 8, 14);
-                t.x = xOff + 6;
-                t.y = y + (BH - 14) / 2;
-                frame.appendChild(t);
-            }
-            catch (e) { }
-            y += BH + BP;
-            if (l.layers && l.layers.length > 0)
-                draw(l.layers, indent + 1);
-        }
-    }
-    draw(analysis.layerTreeRaw, 0);
-    frame.resize(W, Math.max(H, y + 16));
-    figma.viewport.scrollAndZoomIntoView([frame]);
-    figma.ui.postMessage({ type: "animation-placed", name: frame.name, x: frame.x, y: frame.y });
-}
 figma.showUI(__html__, { width: 520, height: 700, title: "Extract All" });
 let cancelRequested = false;
 function postSel() { figma.ui.postMessage({ type: "selection-state", count: figma.currentPage.selection.length, pageName: figma.currentPage.name }); }
@@ -375,18 +302,25 @@ figma.ui.onmessage = async (msg) => {
     const baseName = figma.root.name || "Untitled";
     if (msg.type === "import-lottie-json") {
         lastAnalysis = analyzeLottieFile(msg.fileName || "lottie.json", String(msg.content || ""));
-        figma.ui.postMessage({ type: "lottie-analysis", analysis: lastAnalysis });
+        figma.ui.postMessage({ type: "lottie-analysis", analysis: lastAnalysis, rawJson: String(msg.content || "") });
     }
-    if (msg.type === "place-lottie") {
-        if (!lastAnalysis || !lastAnalysis.valid) {
-            figma.ui.postMessage({ type: "error", message: "No valid animation." });
-            return;
-        }
+    if (msg.type === "lottie-gif-rendered") {
         try {
-            placeAnimationInFigma(lastAnalysis);
+            const bytes = new Uint8Array(msg.bytes);
+            const image = figma.createImage(bytes);
+            const rect = figma.createRectangle();
+            rect.resize(msg.width, msg.height);
+            rect.name = (msg.fileName ? sanitizeName(msg.fileName.replace(/\.json$/, '')) + ' (Lottie GIF)' : 'Lottie Animation');
+            rect.fills = [{ type: 'IMAGE', imageHash: image.hash, scaleMode: 'FILL' }];
+            const center = figma.viewport.center;
+            rect.x = Math.round(center.x - msg.width / 2);
+            rect.y = Math.round(center.y - msg.height / 2);
+            figma.currentPage.appendChild(rect);
+            figma.viewport.scrollAndZoomIntoView([rect]);
+            figma.ui.postMessage({ type: "animation-placed", name: rect.name, x: rect.x, y: rect.y });
         }
         catch (e) {
-            figma.ui.postMessage({ type: "error", message: "Failed: " + e.message });
+            figma.ui.postMessage({ type: "error", message: "Failed to place GIF: " + e.message });
         }
     }
     if (msg.type === "get-full-extract" && !msg.aeOpts && !msg.aiOpts) {

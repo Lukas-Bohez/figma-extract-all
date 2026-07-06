@@ -90,73 +90,8 @@ async function exportNodeSVG(nodeId:string):Promise<ZipFileEntry|null>{const n=a
 async function exportNodes(nodeIds:string[],format:"SVG"|"PNG"|"JPG"|"PDF",scale:number):Promise<ExportResultItem[]>{const r:ExportResultItem[]=[];for(const id of nodeIds){const n=await figma.getNodeByIdAsync(id);if(!n)continue;const sn=n as SceneNode;try{let b:Uint8Array;switch(format){case"SVG":b=await sn.exportAsync({format:"SVG"}as ExportSettingsSVG);break;case"PNG":b=await sn.exportAsync({format:"PNG",constraint:{type:"SCALE",value:scale}}as ExportSettingsImage);break;case"JPG":b=await sn.exportAsync({format:"JPG",constraint:{type:"SCALE",value:scale}}as ExportSettingsImage);break;case"PDF":b=await sn.exportAsync({format:"PDF"}as ExportSettingsPDF);break;default:continue;}r.push({id:n.id,name:sanitizeName(n.name),format:format.toLowerCase(),bytes:Array.from(b)});}catch(e){}}return r;}
 async function buildLottieBundle(roots:BaseNode[]):Promise<any>{const allNodes=deepFlatten(roots);const items:any[]=[];for(const n of allNodes){if((n.type as string)==="PAGE")continue;try{const s=await(n as SceneNode).exportAsync({format:"SVG_STRING"}as ExportSettingsSVGString);if(s&&s.length>10)items.push({id:n.id,name:sanitizeName(n.name),type:n.type,pageName:getPageName(n),width:(n as SceneNode).width,height:(n as SceneNode).height,svg:s});}catch(e){}}return{fileName:`${sanitizeName(figma.root.name)}_lottie.json`,exportDate:new Date().toISOString(),source:figma.root.name||"Untitled",itemCount:items.length,items};}
 
-// ═══════ LOTTIE → FIGMA — rectangles + text, zero fonts, flat ═══════
-function placeAnimationInFigma(analysis:LottieAnalysis){
-  const center=figma.viewport.center;
-  const W=Math.max(620,analysis.meta.width||600);
-  const BH=24,BP=1;
-  const layers=analysis.stats.layers||5;
-  const H=Math.max(180,40+layers*(BH+BP));
-  const fx=Math.round(center.x-W/2),fy=Math.round(center.y-H/2);
-
-  const frame=figma.createFrame();
-  frame.name=analysis.fileName.replace(/\.json$/,"")+" (Lottie)";
-  frame.resize(W,H);frame.x=fx;frame.y=fy;
-  frame.cornerRadius=8;
-  frame.fills=[{type:"SOLID",color:{r:0.98,g:0.98,b:0.99}}];
-  frame.strokes=[{type:"SOLID",color:{r:0.85,g:0.85,b:0.9}}];frame.strokeWeight=1;
-  figma.currentPage.appendChild(frame);
-
-  const PAL:{[ty:number]:{bg:RGB,fg:RGB}}={
-    [-1]:{bg:{r:0.92,g:0.92,b:0.94},fg:{r:0.25,g:0.25,b:0.3}},
-    0:{bg:{r:0.75,g:0.7,b:0.95},fg:{r:0.2,g:0.12,b:0.5}},
-    1:{bg:{r:0.65,g:0.82,b:1},fg:{r:0.08,g:0.25,b:0.55}},
-    2:{bg:{r:0.62,g:0.93,b:0.75},fg:{r:0.08,g:0.35,b:0.18}},
-    3:{bg:{r:0.88,g:0.88,b:0.92},fg:{r:0.28,g:0.28,b:0.33}},
-    4:{bg:{r:0.98,g:0.88,b:0.6},fg:{r:0.45,g:0.25,b:0.04}},
-    5:{bg:{r:0.96,g:0.7,b:0.7},fg:{r:0.45,g:0.08,b:0.08}},
-  };
-  const NAMES=["Layer","Precomp","Solid","Image","Null","Shape","Text"];
-
-  let y=40,lNum=0;
-
-  function draw(layers:any[],indent:number){
-    for(let i=0;i<layers.length;i++){
-      const l=layers[i];if(l.hd)continue;
-      lNum++;const ty=typeof l.ty==="number"?l.ty:-1;
-      const pal=PAL[ty]||PAL[-1];
-      const nm=l.nm||`Layer ${lNum}`;
-      const xOff=12+indent*16;
-      const bw=Math.max(W-xOff-20,40);
-
-      try{
-        const r=figma.createRectangle();
-        r.resize(bw,BH);r.x=xOff;r.y=y;r.cornerRadius=2;
-        r.fills=[{type:"SOLID",color:pal.bg}];
-        r.strokes=[{type:"SOLID",color:{r:pal.bg.r*0.75,g:pal.bg.g*0.75,b:pal.bg.b*0.75}}];r.strokeWeight=1;
-        r.name=`${NAMES[ty+1]||"Layer"} · ${nm}`;
-        frame.appendChild(r);
-      }catch(e){}
-
-      try{
-        const t=figma.createText();
-        t.fontSize=10;
-        t.characters=`${NAMES[ty+1]||"Layer"} · ${nm}`.substring(0,55);
-        t.fills=[{type:"SOLID",color:pal.fg}];
-        t.resize(bw-8,14);t.x=xOff+6;t.y=y+(BH-14)/2;
-        frame.appendChild(t);
-      }catch(e){}
-
-      y+=BH+BP;
-      if(l.layers&&l.layers.length>0)draw(l.layers,indent+1);
-    }
-  }
-
-  draw(analysis.layerTreeRaw,0);
-  frame.resize(W,Math.max(H,y+16));
-  figma.viewport.scrollAndZoomIntoView([frame]);
-  figma.ui.postMessage({type:"animation-placed",name:frame.name,x:frame.x,y:frame.y});
-}
+// ═══════ LOTTIE → FIGMA — animated GIF placement ═══════
+// (Rendering happens in ui.html via lottie-web + canvas + GIF encoder)
 
 // ── Handler ──
 figma.showUI(__html__,{width:520,height:700,title:"Extract All"});
@@ -169,9 +104,23 @@ let lastAnalysis:LottieAnalysis|null=null;
 figma.ui.onmessage=async(msg:any)=>{
   cancelRequested=false;zipFiles=[];const scope=getScope();const baseName=figma.root.name||"Untitled";
 
-  if(msg.type==="import-lottie-json"){lastAnalysis=analyzeLottieFile(msg.fileName||"lottie.json",String(msg.content||""));figma.ui.postMessage({type:"lottie-analysis",analysis:lastAnalysis});}
-  if(msg.type==="place-lottie"){if(!lastAnalysis||!lastAnalysis.valid){figma.ui.postMessage({type:"error",message:"No valid animation."});return;}
-    try{placeAnimationInFigma(lastAnalysis);}catch(e){figma.ui.postMessage({type:"error",message:"Failed: "+(e as Error).message});}}
+  if(msg.type==="import-lottie-json"){lastAnalysis=analyzeLottieFile(msg.fileName||"lottie.json",String(msg.content||""));figma.ui.postMessage({type:"lottie-analysis",analysis:lastAnalysis,rawJson:String(msg.content||"")});}
+  if(msg.type==="lottie-gif-rendered"){
+    try{
+      const bytes=new Uint8Array(msg.bytes);
+      const image=figma.createImage(bytes);
+      const rect=figma.createRectangle();
+      rect.resize(msg.width,msg.height);
+      rect.name=(msg.fileName?sanitizeName(msg.fileName.replace(/\.json$/,''))+' (Lottie GIF)':'Lottie Animation');
+      rect.fills=[{type:'IMAGE',imageHash:image.hash,scaleMode:'FILL'}];
+      const center=figma.viewport.center;
+      rect.x=Math.round(center.x-msg.width/2);
+      rect.y=Math.round(center.y-msg.height/2);
+      figma.currentPage.appendChild(rect);
+      figma.viewport.scrollAndZoomIntoView([rect]);
+      figma.ui.postMessage({type:"animation-placed",name:rect.name,x:rect.x,y:rect.y});
+    }catch(e){figma.ui.postMessage({type:"error",message:"Failed to place GIF: "+(e as Error).message});}
+  }
 
   if(msg.type==="get-full-extract"&&!msg.aeOpts&&!msg.aiOpts){const data=buildFullExtractSync((p)=>{figma.ui.postMessage({type:"full-extract-progress",progress:p});});if(cancelRequested)return;downloadFile(`${sanitizeName(baseName)}_full-extract.json`,JSON.stringify(data,null,2),"application/json");downloadFile(`${sanitizeName(baseName)}_text.txt`,buildPlainText(data.textNodes),"text/plain");figma.ui.postMessage({type:"full-extract",data:{textNodes:data.textNodes.length,variables:0,styles:0,components:data.components.length,totalNodes:data.nodeCounts.total,scope:data.meta.scopeDescription}});}
   if(msg.type==="get-full-extract"&&msg.aeOpts){const data=buildFullExtractSync((p)=>{figma.ui.postMessage({type:"full-extract-progress",progress:p});});if(cancelRequested)return;addToZip(`${sanitizeName(baseName)}_full-extract.json`,JSON.stringify(data,null,2));addToZip(`${sanitizeName(baseName)}_text.txt`,buildPlainText(data.textNodes));fetchAndSendVars();fetchAndSendStyles();if(msg.aeOpts.includeSVGs&&!cancelRequested){const an=deepFlatten(scope.roots).filter(n=>n.type!=="TEXT"&&(n.type as string)!=="PAGE"&&isVisible(n));for(let i=0;i<an.length;i+=4){if(cancelRequested)break;const br=await Promise.all(an.slice(i,i+4).map(n=>exportNodeSVG(n.id)));for(const r of br){if(r)zipFiles.push(r);}figma.ui.postMessage({type:"progress",current:Math.min(i+4,an.length),total:an.length,label:"SVGs"});}}if(msg.aeOpts.includeLottie&&!cancelRequested){const bundle=await buildLottieBundle(scope.roots);addToZip(bundle.fileName,JSON.stringify(bundle,null,2));}addToZip(`${sanitizeName(baseName)}_variables.json`,"[]");addToZip(`${sanitizeName(baseName)}_styles.json`,"[]");figma.ui.postMessage({type:"full-extract",data:{textNodes:data.textNodes.length,variables:0,styles:0,components:data.components.length,totalNodes:data.nodeCounts.total,scope:data.meta.scopeDescription}});flushZipChunked(baseName);}

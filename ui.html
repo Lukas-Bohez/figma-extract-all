@@ -63,6 +63,7 @@
   button.danger { color: var(--red); background: rgba(194,38,45,0.08); }
   button.danger:hover { border-color: var(--red); }
   button.small { font-size: 10px; padding: 6px 10px; min-height: auto; }
+  button:disabled { opacity: 0.4; pointer-events: none; }
 
   input[type=number], select { font: inherit; font-size: 11px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--text); }
   input[type=number] { width: 60px; }
@@ -119,6 +120,14 @@
   .layer-tree .lt-icon { margin-right: 4px; }
   .stats-row { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
   .stat-badge { padding: 3px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); font-size: 9px; white-space: nowrap; }
+
+  /* GIF rendering progress overlay */
+  .render-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; flex-direction: column; align-items: center; justify-content: center; }
+  .render-overlay.show { display: flex; }
+  .render-box { background: var(--bg-el); border-radius: 16px; padding: 24px 32px; text-align: center; max-width: 320px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .render-box h3 { margin: 0 0 12px; font-size: 14px; }
+  .render-box .frames-done { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .render-box .frames-label { font-size: 10px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -126,7 +135,7 @@
   <div class="hdr">
     <div>
       <h1>Extract All</h1>
-      <p>Lottie Import & Export — Figma to Anything</p>
+      <p>Lottie Import & Export — Figma to Animated GIF</p>
     </div>
     <button class="theme-btn" id="themeToggle"><span class="theme-dot"></span><span id="themeLabel">Theme</span></button>
   </div>
@@ -190,8 +199,8 @@
 
       <!-- Place button -->
       <div class="card" style="border-color:var(--accent);background:linear-gradient(135deg,var(--accent),var(--accent2));text-align:center;">
-        <button class="primary" data-action="place-lottie" style="width:100%;border-color:transparent;color:#fff;font-size:12px;padding:14px;">⬇️ Place Animation in Design</button>
-        <div style="font-size:9px;color:rgba(255,255,255,0.7);margin-top:4px;">Creates a frame with all layers at your current viewport center</div>
+        <button class="primary" data-action="place-lottie" id="btnPlaceLottie" style="width:100%;border-color:transparent;color:#fff;font-size:12px;padding:14px;">⬇️ Render & Place GIF Animation</button>
+        <div style="font-size:9px;color:rgba(255,255,255,0.7);margin-top:4px;">Converts Lottie to animated GIF via canvas rendering</div>
       </div>
     </div>
   </div>
@@ -267,17 +276,297 @@
   </div>
 
   <div class="log" id="logArea"></div>
-  <div class="ftr">Extract All v12 · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a></div>
+  <div class="ftr">Extract All · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a></div>
 </div>
+
+<!-- GIF rendering overlay -->
+<div class="render-overlay" id="renderOverlay">
+  <div class="render-box">
+    <h3>🎞 Rendering Animation</h3>
+    <div class="frames-done" id="framesDone">0</div>
+    <div class="frames-label">frames processed</div>
+    <div class="prog-bar" style="margin-top:12px;"><div class="prog-fill" id="renderFill" style="width:0%;"></div></div>
+    <div class="prog-txt" id="renderTxt" style="margin-top:6px;">Initializing…</div>
+    <button class="danger small" id="btnRenderCancel" style="margin-top:12px;">Cancel</button>
+  </div>
+</div>
+
+<!-- Hidden container for lottie-web canvas renderer -->
+<div id="lottieContainer" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;"></div>
+
+<!-- ═══════════ EXTERNAL SCRIPTS ═══════════ -->
+<!-- lottie-web: official Lottie player with canvas renderer support -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie_canvas.min.js"></script>
+<!-- omggif: battle-tested, worker-free GIF encoder (INLINED — Figma CSP blocks CDN scripts) -->
+<script>
+// (c) Dean McNamee <dean@gmail.com>, 2013. MIT license.
+// https://github.com/deanm/omggif — inlined for Figma sandbox compatibility.
+"use strict";
+function GifWriter(buf, width, height, gopts) {
+  var p = 0;
+  gopts = gopts === undefined ? {} : gopts;
+  var loop_count = gopts.loop === undefined ? null : gopts.loop;
+  var global_palette = gopts.palette === undefined ? null : gopts.palette;
+  if (width <= 0 || height <= 0 || width > 65535 || height > 65535)
+    throw new Error("Width/Height invalid.");
+  function check_palette_and_num_colors(palette) {
+    var num_colors = palette.length;
+    if (num_colors < 2 || num_colors > 256 || num_colors & (num_colors - 1))
+      throw new Error("Invalid code/color length, must be power of 2 and 2 .. 256.");
+    return num_colors;
+  }
+  buf[p++] = 0x47; buf[p++] = 0x49; buf[p++] = 0x46;
+  buf[p++] = 0x38; buf[p++] = 0x39; buf[p++] = 0x61;
+  var gp_num_colors_pow2 = 0;
+  var background = 0;
+  if (global_palette !== null) {
+    var gp_num_colors = check_palette_and_num_colors(global_palette);
+    while (gp_num_colors >>= 1) ++gp_num_colors_pow2;
+    gp_num_colors = 1 << gp_num_colors_pow2;
+    --gp_num_colors_pow2;
+    if (gopts.background !== undefined) {
+      background = gopts.background;
+      if (background >= gp_num_colors)
+        throw new Error("Background index out of range.");
+      if (background === 0)
+        throw new Error("Background index explicitly passed as 0.");
+    }
+  }
+  buf[p++] = width & 0xff; buf[p++] = width >> 8 & 0xff;
+  buf[p++] = height & 0xff; buf[p++] = height >> 8 & 0xff;
+  buf[p++] = (global_palette !== null ? 0x80 : 0) | gp_num_colors_pow2;
+  buf[p++] = background;
+  buf[p++] = 0;
+  if (global_palette !== null) {
+    for (var i = 0, il = global_palette.length; i < il; ++i) {
+      var rgb = global_palette[i];
+      buf[p++] = rgb >> 16 & 0xff;
+      buf[p++] = rgb >> 8 & 0xff;
+      buf[p++] = rgb & 0xff;
+    }
+  }
+  if (loop_count !== null) {
+    if (loop_count < 0 || loop_count > 65535)
+      throw new Error("Loop count invalid.");
+    buf[p++] = 0x21; buf[p++] = 0xff; buf[p++] = 0x0b;
+    buf[p++] = 0x4e; buf[p++] = 0x45; buf[p++] = 0x54; buf[p++] = 0x53;
+    buf[p++] = 0x43; buf[p++] = 0x41; buf[p++] = 0x50; buf[p++] = 0x45;
+    buf[p++] = 0x32; buf[p++] = 0x2e; buf[p++] = 0x30;
+    buf[p++] = 0x03; buf[p++] = 0x01;
+    buf[p++] = loop_count & 0xff; buf[p++] = loop_count >> 8 & 0xff;
+    buf[p++] = 0x00;
+  }
+  var ended = false;
+  this.addFrame = function(x, y, w, h, indexed_pixels, opts) {
+    if (ended === true) { --p; ended = false; }
+    opts = opts === undefined ? {} : opts;
+    if (x < 0 || y < 0 || x > 65535 || y > 65535)
+      throw new Error("x/y invalid.");
+    if (w <= 0 || h <= 0 || w > 65535 || h > 65535)
+      throw new Error("Width/Height invalid.");
+    if (indexed_pixels.length < w * h)
+      throw new Error("Not enough pixels for the frame size.");
+    var using_local_palette = true;
+    var palette = opts.palette;
+    if (palette === undefined || palette === null) {
+      using_local_palette = false;
+      palette = global_palette;
+    }
+    if (palette === undefined || palette === null)
+      throw new Error("Must supply either a local or global palette.");
+    var num_colors = check_palette_and_num_colors(palette);
+    var min_code_size = 0;
+    while (num_colors >>= 1) ++min_code_size;
+    num_colors = 1 << min_code_size;
+    var delay = opts.delay === undefined ? 0 : opts.delay;
+    var disposal = opts.disposal === undefined ? 0 : opts.disposal;
+    if (disposal < 0 || disposal > 3) throw new Error("Disposal out of range.");
+    var use_transparency = false;
+    var transparent_index = 0;
+    if (opts.transparent !== undefined && opts.transparent !== null) {
+      use_transparency = true;
+      transparent_index = opts.transparent;
+      if (transparent_index < 0 || transparent_index >= num_colors)
+        throw new Error("Transparent color index.");
+    }
+    if (disposal !== 0 || use_transparency || delay !== 0) {
+      buf[p++] = 0x21; buf[p++] = 0xf9; buf[p++] = 4;
+      buf[p++] = disposal << 2 | (use_transparency === true ? 1 : 0);
+      buf[p++] = delay & 0xff; buf[p++] = delay >> 8 & 0xff;
+      buf[p++] = transparent_index;
+      buf[p++] = 0;
+    }
+    buf[p++] = 0x2c;
+    buf[p++] = x & 0xff; buf[p++] = x >> 8 & 0xff;
+    buf[p++] = y & 0xff; buf[p++] = y >> 8 & 0xff;
+    buf[p++] = w & 0xff; buf[p++] = w >> 8 & 0xff;
+    buf[p++] = h & 0xff; buf[p++] = h >> 8 & 0xff;
+    buf[p++] = using_local_palette === true ? (0x80 | (min_code_size - 1)) : 0;
+    if (using_local_palette === true) {
+      for (var i = 0, il = palette.length; i < il; ++i) {
+        var rgb = palette[i];
+        buf[p++] = rgb >> 16 & 0xff;
+        buf[p++] = rgb >> 8 & 0xff;
+        buf[p++] = rgb & 0xff;
+      }
+    }
+    p = GifWriterOutputLZWCodeStream(buf, p, min_code_size < 2 ? 2 : min_code_size, indexed_pixels);
+    return p;
+  };
+  this.end = function() {
+    if (ended === false) {
+      buf[p++] = 0x3b;
+      ended = true;
+    }
+    return p;
+  };
+  this.getOutputBuffer = function() { return buf; };
+  this.setOutputBuffer = function(v) { buf = v; };
+  this.getOutputBufferPosition = function() { return p; };
+  this.setOutputBufferPosition = function(v) { p = v; };
+}
+function GifWriterOutputLZWCodeStream(buf, p, min_code_size, index_stream) {
+  buf[p++] = min_code_size;
+  var cur_subblock = p++;  // Pointing at the length field.
+
+  var clear_code = 1 << min_code_size;
+  var code_mask = clear_code - 1;
+  var eoi_code = clear_code + 1;
+  var next_code = eoi_code + 1;
+
+  var cur_code_size = min_code_size + 1;  // Number of bits per code.
+  var cur_shift = 0;
+  // We have at most 12-bit codes, so we should have to hold a max of 19
+  // bits here (and then we would write out).
+  var cur = 0;
+
+  function emit_bytes_to_buffer(bit_block_size) {
+    while (cur_shift >= bit_block_size) {
+      buf[p++] = cur & 0xff;
+      cur >>= 8; cur_shift -= 8;
+      if (p === cur_subblock + 256) {  // Finished a subblock.
+        buf[cur_subblock] = 255;
+        cur_subblock = p++;
+      }
+    }
+  }
+
+  function emit_code(c) {
+    cur |= c << cur_shift;
+    cur_shift += cur_code_size;
+    emit_bytes_to_buffer(8);
+  }
+
+  // Output code for the current contents of the index buffer.
+  var ib_code = index_stream[0] & code_mask;  // Load first input index.
+  var code_table = { };  // Key'd on our 20-bit "tuple".
+
+  emit_code(clear_code);  // Spec says first code should be a clear code.
+
+  // First index already loaded, process the rest of the stream.
+  for (var i = 1, il = index_stream.length; i < il; ++i) {
+    var k = index_stream[i] & code_mask;
+    var cur_key = ib_code << 8 | k;  // (prev, k) unique tuple.
+    var cur_code = code_table[cur_key];  // buffer + k.
+
+    // Check if we have to create a new code table entry.
+    if (cur_code === undefined) {  // We don't have buffer + k.
+      // Emit index buffer (without k).
+      // This is an inline version of emit_code, because this is the core
+      // writing routine of the compressor (and V8 cannot inline emit_code
+      // because it is a closure here in a different context).  Additionally
+      // we can call emit_byte_to_buffer less often, because we can have
+      // 30-bits (from our 31-bit signed SMI), and we know our codes will only
+      // be 12-bits, so can safely have 18-bits there without overflow.
+      // emit_code(ib_code);
+      cur |= ib_code << cur_shift;
+      cur_shift += cur_code_size;
+      while (cur_shift >= 8) {
+        buf[p++] = cur & 0xff;
+        cur >>= 8; cur_shift -= 8;
+        if (p === cur_subblock + 256) {  // Finished a subblock.
+          buf[cur_subblock] = 255;
+          cur_subblock = p++;
+        }
+      }
+
+      if (next_code === 4096) {  // Table full, need a clear.
+        emit_code(clear_code);
+        next_code = eoi_code + 1;
+        cur_code_size = min_code_size + 1;
+        code_table = { };
+      } else {  // Table not full, insert a new entry.
+        // Increase our variable bit code sizes if necessary.  This is a bit
+        // tricky as it is based on "timing" between the encoding and
+        // decoder.  From the encoders perspective this should happen after
+        // we've already emitted the index buffer and are about to create the
+        // first table entry that would overflow our current code bit size.
+        if (next_code >= (1 << cur_code_size)) ++cur_code_size;
+        code_table[cur_key] = next_code++;  // Insert into code table.
+      }
+
+      ib_code = k;  // Index buffer to single input k.
+    } else {
+      ib_code = cur_code;  // Index buffer to sequence in code table.
+    }
+  }
+
+  emit_code(ib_code);  // There will still be something in the index buffer.
+  emit_code(eoi_code);  // End Of Information.
+
+  // Flush / finalize the sub-blocks stream to the buffer.
+  emit_bytes_to_buffer(1);
+
+  // Finish the sub-blocks, writing out any unfinished lengths and
+  // terminating with a sub-block of length 0.  If we have already started
+  // but not yet used a sub-block it can just become the terminator.
+  if (cur_subblock + 1 === p) {  // Started but unused.
+    buf[cur_subblock] = 0;
+  } else {  // Started and used, write length and additional terminator block.
+    buf[cur_subblock] = p - cur_subblock - 1;
+    buf[p++] = 0;
+  }
+  return p;
+}
+
+// GifReader is not needed for encoding-only, but included for completeness.
+function GifReader(buf) {
+  var p = 0;
+  if (buf[p++] !== 0x47 || buf[p++] !== 0x49 || buf[p++] !== 0x46 ||
+      buf[p++] !== 0x38 || (buf[p++]+1 & 0xfd) !== 0x38 || buf[p++] !== 0x61) {
+    throw new Error("Invalid GIF 87a/89a header.");
+  }
+  var width = buf[p++] | buf[p++] << 8;
+  var height = buf[p++] | buf[p++] << 8;
+  var global_palette_flag = buf[p++] >> 7;
+  // Rest of GifReader omitted — only GifWriter is needed for our plugin.
+  // Full source at https://github.com/deanm/omggif
+  this.width = width;
+  this.height = height;
+  this.numFrames = function() { return 0; };
+}
+
+// Expose globally for non-module environments (Figma plugin iframe)
+if (typeof window !== 'undefined') {
+  window.GifWriter = GifWriter;
+  window.GifReader = GifReader;
+}
+if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.GifReader = GifReader; }
+</script>
 
 <script>
 (function(){
   'use strict';
   var el = function(id) { return document.getElementById(id); };
   var logEl = el("logArea"), progEl = el("prog"), progFill = el("progFill"), progTxt = el("progTxt");
-  var statusPill = el("statusPill"); var cancelBtn = el("btnCancel");
+  var cancelBtn = el("btnCancel");
   var exportCount = 0, isExporting = false, currentTheme = "light";
   var zipChunks = {}, zipExpected = {};
+
+  // ── State ──
+  var lastAnalysis = null;
+  var lastRawJson = null;
+  var renderCancelled = false;
 
   // ── Theme ──
   function applyTheme(t) {
@@ -315,7 +604,14 @@
   // ── Cancel ──
   function showCancel() { if (cancelBtn) cancelBtn.style.display = "inline-flex"; }
   function hideCancel() { if (cancelBtn) cancelBtn.style.display = "none"; }
-  function doCancel() { if (!isExporting) return; parent.postMessage({ pluginMessage: { type: "cancel" } }, "*"); isExporting = false; progEl.classList.remove("show"); hideCancel(); zipChunks = {}; log("Cancelled", "err"); }
+  function doCancel() {
+    renderCancelled = true;
+    if (!isExporting) return;
+    parent.postMessage({ pluginMessage: { type: "cancel" } }, "*");
+    isExporting = false; progEl.classList.remove("show"); hideCancel();
+    el("renderOverlay").classList.remove("show");
+    zipChunks = {}; log("Cancelled", "err");
+  }
 
   // ── Downloads ──
   function dlFile(n, c, m) { var b = new Blob([c], { type: m }), u = URL.createObjectURL(b), a = document.createElement("a"); a.href = u; a.download = n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); log("Downloaded: " + n, "ok"); }
@@ -343,7 +639,9 @@
     log("Analyzing: " + file.name, "inf");
     var reader = new FileReader();
     reader.onload = function(e) {
-      parent.postMessage({ pluginMessage: { type: "import-lottie-json", fileName: file.name, content: e.target.result } }, "*");
+      var content = e.target.result;
+      lastRawJson = content;
+      parent.postMessage({ pluginMessage: { type: "import-lottie-json", fileName: file.name, content: content } }, "*");
     };
     reader.readAsText(file);
   }
@@ -362,6 +660,7 @@
 
   // ═══ LOTTIE ANALYSIS RENDERING ═══
   function renderAnalysis(analysis) {
+    lastAnalysis = analysis;
     var ap = el("analysisPanel"); if (ap) ap.classList.add("show");
     // Meta
     var m = analysis.meta;
@@ -395,8 +694,373 @@
     switchTab("import");
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  //  GIF ENCODING — omggif with Web-Safe 216-color palette
+  // ═══════════════════════════════════════════════════════════════
+
+  // Build 216-color Web-Safe palette + 1 transparent index (217 total).
+  // omggif requires a flat array of 32-bit RGBA integers (0xAARRGGBB).
+  function buildWebSafePalette() {
+    var pal = [];
+    // Index 0 is reserved for transparency.
+    pal.push(0x000000);
+    for (var r = 0; r < 6; r++) {
+      for (var g = 0; g < 6; g++) {
+        for (var b = 0; b < 6; b++) {
+          var rr = Math.round(r * 255 / 5);
+          var gg = Math.round(g * 255 / 5);
+          var bb = Math.round(b * 255 / 5);
+          // omggif uses 0xRRGGBB (no alpha channel for palette entries)
+          pal.push((rr << 16) | (gg << 8) | bb);
+        }
+      }
+    }
+    // Pad to exactly 256 entries (power of 2 required by omggif)
+    while (pal.length < 256) {
+      pal.push(0x000000);
+    }
+    return pal;
+  }
+
+  var TRANSPARENT_INDEX = 0;
+
+  function rgbaToWebSafeIndex(r, g, b, a) {
+    if (a === 0) return TRANSPARENT_INDEX;
+    // Quantize each channel to 0–5 and fold into flat index: r*36 + g*6 + b
+    return 1 + (Math.round(r * 5 / 255) * 36) + (Math.round(g * 5 / 255) * 6) + Math.round(b * 5 / 255);
+  }
+
+  function quantizeFrameToIndices(pixels, width, height) {
+    var len = width * height;
+    var indices = new Uint8Array(len);
+    for (var i = 0, j = 0; i < len; i++, j += 4) {
+      indices[i] = rgbaToWebSafeIndex(pixels[j], pixels[j + 1], pixels[j + 2], pixels[j + 3]);
+    }
+    return indices;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  LOTTIE → GIF RENDERING ENGINE
+  // ═══════════════════════════════════════════════════════════
+
+  function renderLottieAsGif() {
+    if (!lastRawJson) {
+      log("No Lottie JSON loaded. Drop a file first.", "err");
+      return;
+    }
+    if (!window.lottie) {
+      log("lottie-web library not loaded. Check your network connection.", "err");
+      return;
+    }
+
+    var animationData;
+    try {
+      animationData = JSON.parse(lastRawJson);
+    } catch(e) {
+      log("Invalid JSON data", "err");
+      return;
+    }
+
+    var frameRate = animationData.fr || 30;
+    var inPoint = animationData.ip || 0;
+    var outPoint = animationData.op || 0;
+    var totalFrames = outPoint - inPoint;
+    var w = animationData.w || 500;
+    var h = animationData.h || 500;
+
+    if (totalFrames <= 0) {
+      log("Lottie file has no frames (op <= ip). Check your animation.", "err");
+      return;
+    }
+
+    // Clamp dimensions
+    var maxDim = 1200;
+    if (w > maxDim || h > maxDim) {
+      var scale = maxDim / Math.max(w, h);
+      w = Math.round(w * scale);
+      h = Math.round(h * scale);
+      log("Animation scaled to " + w + "×" + h + " for performance.", "inf");
+    }
+
+    var fileName = lastAnalysis ? lastAnalysis.fileName : "animation.json";
+
+    log("Rendering " + totalFrames + " frames at " + frameRate + "fps → " + w + "×" + h, "inf");
+
+    // Show overlay
+    renderCancelled = false;
+    var overlay = el("renderOverlay");
+    var framesDoneEl = el("framesDone");
+    var renderFill = el("renderFill");
+    var renderTxt = el("renderTxt");
+    overlay.classList.add("show");
+    framesDoneEl.textContent = "0";
+    renderFill.style.width = "0%";
+    renderTxt.textContent = "Initializing lottie-web…";
+
+    var placeBtn = el("btnPlaceLottie");
+    if (placeBtn) placeBtn.disabled = true;
+
+    // Hidden container for lottie-web canvas renderer
+    var container = el("lottieContainer");
+    container.innerHTML = '';
+    container.style.width = w + 'px';
+    container.style.height = h + 'px';
+
+    var anim = lottie.loadAnimation({
+      container: container,
+      renderer: 'canvas',
+      loop: false,
+      autoplay: false,
+      animationData: animationData,
+      rendererSettings: {
+        dpr: 1,                        // Force 1:1 pixels — eliminates HiDPI stride mismatch
+        preserveDrawingBuffer: true,   // Keep buffer across redraws (belt-and-suspenders)
+        clearCanvas: true,
+        preserveAspectRatio: 'xMidYMid meet',
+        progressiveLoad: false
+      }
+    });
+
+    var extractCanvas = document.createElement('canvas');
+    extractCanvas.width = w;
+    extractCanvas.height = h;
+    var extractCtx = extractCanvas.getContext('2d');
+
+    // Store all frame pixel data + delays
+    var framePixels = []; // Array of Uint8Array (RGBA, w*h*4 each)
+    var frameDelays = []; // Array of centiseconds
+    var framesCaptured = 0;
+    var currentFrame = inPoint;
+    var lottieCanvas = null;
+    // ── Frame stride: cap at ~45 frames to avoid massive memory / crash ──
+    var maxGifFrames = 45;
+    var frameStride = totalFrames <= maxGifFrames ? 1 : Math.floor(totalFrames / maxGifFrames);
+    var framesToCapture = Math.ceil(totalFrames / frameStride);
+    if (frameStride > 1) {
+      log("Frame budget: " + totalFrames + " → " + framesToCapture + " frames (every " + frameStride + " of " + frameRate + "fps)", "inf");
+    }
+
+    function onLottieReady() {
+      renderTxt.textContent = "Capturing frames…";
+      var canvases = container.querySelectorAll('canvas');
+      if (canvases.length > 0) {
+        lottieCanvas = canvases[0];
+      }
+      if (!lottieCanvas) {
+        log("Failed to find lottie-web canvas. Try a smaller animation.", "err");
+        finishWithError();
+        return;
+      }
+
+      // With dpr:1 the canvas backing store matches nominal w×h exactly.
+      // No scaling needed — just draw directly at 1:1.
+      processNextFrame();
+    }
+
+    function processNextFrame() {
+      if (renderCancelled) { finishWithError(); return; }
+      if (currentFrame > outPoint) {
+        encodeAndSend();
+        return;
+      }
+
+      // Force-clear the lottie canvas before seeking, preventing frame ghosting.
+      var lctx = lottieCanvas.getContext('2d');
+      if (lctx) lctx.clearRect(0, 0, lottieCanvas.width, lottieCanvas.height);
+
+      // Tell lottie to go to this frame
+      anim.goToAndStop(currentFrame, true);
+
+      // Apply frame stride — skip intermediate frames
+      var skipTo = currentFrame + frameStride;
+      if (skipTo > outPoint && currentFrame < outPoint) {
+        skipTo = outPoint + 1;
+      }
+      currentFrame = skipTo;
+
+      // Quad rAF for maximum buffer flush reliability on slow HiDPI systems.
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+            if (renderCancelled) return;
+
+            // Keep the extraction canvas transparent so the GIF can preserve alpha.
+            extractCtx.clearRect(0, 0, w, h);
+
+            try {
+              // Draw lottie canvas 1:1 (dpr:1 ensures identical dimensions)
+              extractCtx.drawImage(lottieCanvas, 0, 0, w, h);
+            } catch(e) {
+              log("Canvas extraction warning: " + e.message, "inf");
+            }
+
+            // Get raw RGBA pixels at nominal resolution
+            var imageData = extractCtx.getImageData(0, 0, w, h);
+
+            var pixels = new Uint8Array(imageData.data.buffer.slice(0));
+            framePixels.push(pixels);
+            // Adjust delay to account for frame stride (each frame represents 'stride' original frames)
+            frameDelays.push(Math.round(100 * frameStride / frameRate));
+
+            framesCaptured++;
+
+            var pct = Math.round((framesCaptured / framesToCapture) * 100);
+            framesDoneEl.textContent = framesCaptured;
+            renderFill.style.width = pct + "%";
+            renderTxt.textContent = "Frame " + framesCaptured + " of ~" + framesToCapture + " (" + w + "×" + h + ")";
+
+            // Process next frame (close all rAF closures)
+            processNextFrame();
+            });
+          });
+        });
+      });
+    }
+
+    function encodeAndSend() {
+      renderTxt.textContent = "Encoding GIF (" + framesCaptured + " frames)…";
+      renderFill.style.width = "100%";
+
+      anim.destroy();
+      container.innerHTML = '';
+
+      setTimeout(function() {
+        try {
+          trimEmptyFrames();
+
+          if (typeof GifWriter === 'undefined') {
+            log("omggif library not loaded (GifWriter missing).", "err");
+            finishWithError();
+            return;
+          }
+
+          if (framePixels.length === 0) {
+            log("No visible frames found after trimming empty frames.", "err");
+            finishWithError();
+            return;
+          }
+
+          // ── Web-Safe palette ──
+          var palette = buildWebSafePalette();
+
+          // ── Allocate buffer (worst-case estimate) ──
+          var buf = new Uint8Array(w * h * framePixels.length * 2 + 65536);
+
+          // ── Create writer ──
+          var writer = new GifWriter(buf, w, h, { loop: 0, palette: palette });
+
+          // ── Quantize and add each frame ──
+          for (var fi = 0; fi < framePixels.length; fi++) {
+            if (renderCancelled) { finishWithError(); return; }
+
+            var indices = quantizeFrameToIndices(framePixels[fi], w, h);
+            writer.addFrame(0, 0, w, h, indices, {
+              transparent: TRANSPARENT_INDEX,
+              delay: frameDelays[fi] || 10,
+              disposal: 2   // restore to transparent background between frames
+            });
+          }
+
+          // ── Finalize ──
+          var end = writer.end();
+          if (end <= 0) {
+            log("omggif writer.end() returned " + end, "err");
+            finishWithError();
+            return;
+          }
+
+          var gifBytes = buf.subarray(0, end);
+
+          var kbSize = (gifBytes.length / 1024).toFixed(1);
+          log("GIF encoded: " + kbSize + " KB, " + framesCaptured + " frames", "ok");
+
+          renderTxt.textContent = "Sending GIF to Figma…";
+
+          parent.postMessage({
+            pluginMessage: {
+              type: 'lottie-gif-rendered',
+              bytes: Array.from(gifBytes),
+              width: w,
+              height: h,
+              fileName: fileName
+            }
+          }, '*');
+
+          overlay.classList.remove("show");
+          if (placeBtn) placeBtn.disabled = false;
+
+          framePixels = [];
+          frameDelays = [];
+
+        } catch(e) {
+          log("Encoding error: " + (e.message || e), "err");
+          finishWithError();
+        }
+      }, 50);
+    }
+
+    function finishWithError() {
+      try { anim.destroy(); } catch(e) {}
+      container.innerHTML = '';
+      overlay.classList.remove("show");
+      if (placeBtn) placeBtn.disabled = false;
+      framePixels = [];
+      frameDelays = [];
+      if (renderCancelled) {
+        log("Render cancelled.", "err");
+      } else {
+        log("Rendering failed.", "err");
+      }
+    }
+
+    function frameHasVisiblePixels(rgba) {
+      for (var i = 3; i < rgba.length; i += 4) {
+        if (rgba[i] > 0) return true;
+      }
+      return false;
+    }
+
+    function trimEmptyFrames() {
+      var first = 0;
+      var last = framePixels.length - 1;
+
+      while (first <= last && !frameHasVisiblePixels(framePixels[first])) first++;
+      while (last >= first && !frameHasVisiblePixels(framePixels[last])) last--;
+
+      if (first > 0 || last < framePixels.length - 1) {
+        framePixels = framePixels.slice(first, last + 1);
+        frameDelays = frameDelays.slice(first, last + 1);
+        framesCaptured = framePixels.length;
+        framesToCapture = Math.max(1, framePixels.length);
+        log("Trimmed empty frames: kept " + framePixels.length + " visible frame(s).", "inf");
+      }
+    }
+
+    // Kick off
+    anim.addEventListener('DOMLoaded', onLottieReady);
+    setTimeout(function() {
+      if (framesCaptured === 0 && !renderCancelled && overlay.classList.contains("show")) {
+        onLottieReady();
+      }
+    }, 800);
+
+    el("btnRenderCancel").onclick = function() {
+      renderCancelled = true;
+      finishWithError();
+    };
+  }
+
   // ── Actions ──
-  function request(type) { if (isExporting) { log("Already exporting","err"); return; } parent.postMessage({ pluginMessage: { type: type } }, "*"); }
+  function request(type) {
+    if (type === "place-lottie") {
+      // This is now the "Render & Place GIF" action
+      renderLottieAsGif();
+      return;
+    }
+    if (isExporting) { log("Already exporting","err"); return; }
+    parent.postMessage({ pluginMessage: { type: type } }, "*");
+  }
   function exportSel(type) { if (isExporting) return; var s = parseFloat(el("scaleSel").value) || 1; isExporting = true; progEl.classList.add("show"); showCancel(); progFill.style.width = "0%"; parent.postMessage({ pluginMessage: { type: type, scale: s } }, "*"); }
   function runBatch(fmt) { if (isExporting) return; var s = parseFloat(el("scaleBatch").value) || 1; var all = el("batch-scope").checked; isExporting = true; progEl.classList.add("show"); showCancel(); progFill.style.width = "0%"; var t = fmt === "svg" ? (all ? "export-all-svg-all-pages" : "export-all-svg-page") : (all ? "export-all-png-all-pages" : "export-all-png-page"); parent.postMessage({ pluginMessage: { type: t, scale: s } }, "*"); }
   function runAEExport() { if (isExporting) return; isExporting = true; progEl.classList.add("show"); showCancel(); var o = { includeSVGs: el("ae-svgs").checked, includeJSON: el("ae-json").checked, includeLottie: el("ae-lottie").checked, includeText: el("ae-text").checked }; parent.postMessage({ pluginMessage: { type: "get-full-extract", aeOpts: o } }, "*"); }
@@ -418,7 +1082,11 @@
   window.addEventListener("message", function (e) {
     var m = e.data.pluginMessage; if (!m) return;
     switch (m.type) {
-      case "lottie-analysis": renderAnalysis(m.analysis); break;
+      case "lottie-analysis":
+        renderAnalysis(m.analysis);
+        // Store raw JSON if provided
+        if (m.rawJson) lastRawJson = m.rawJson;
+        break;
       case "full-extract-progress": if (m.progress) { var p = m.progress; progFill.style.width = Math.round((p.step / p.totalSteps) * 100) + "%"; progEl.classList.add("show"); } break;
       case "full-extract": isExporting = false; hideCancel(); progFill.style.width = "100%"; setTimeout(function () { if (!isExporting) { progEl.classList.remove("show"); } }, 3000); break;
       case "download-file": dlFile(m.fileName, m.content, m.mimeType); break;
@@ -426,13 +1094,14 @@
       case "export-results": if (m.results && m.results.length > 0) { for (var i = 0; i < m.results.length; i++) { var it = m.results[i]; dlBytes(it.name + "." + it.format.toLowerCase(), it.bytes, it.format.toLowerCase()); } } break;
       case "progress": if (m.total > 0) { progFill.style.width = Math.round((m.current / m.total) * 100) + "%"; } break;
       case "export-complete": isExporting = false; hideCancel(); progFill.style.width = "100%"; setTimeout(function () { progEl.classList.remove("show"); }, 2500); break;
-      case "error": isExporting = false; hideCancel(); log(m.message, "err"); progEl.classList.remove("show"); break;
+      case "animation-placed": log("GIF placed on canvas: " + m.name + " at (" + m.x + ", " + m.y + ")", "ok"); break;
+      case "error": isExporting = false; hideCancel(); el("renderOverlay").classList.remove("show"); log(m.message, "err"); progEl.classList.remove("show"); break;
     }
   });
 
   cancelBtn.addEventListener("click", doCancel);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isExporting) { e.preventDefault(); doCancel(); } });
-  log("Ready — drop a Lottie JSON file.", "inf"); log("Esc = cancel.", "inf");
+  log("Ready — drop a Lottie JSON file.", "inf"); log("Click 'Render & Place GIF' to convert to animated GIF.", "inf");
 })();
 </script>
 </body>

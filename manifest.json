@@ -1,1 +1,1 @@
-{"name":"Extract All","id":"1655550973103544441","api":"1.0.0","main":"code.js","ui":"ui.html","editorType":["figma"],"networkAccess":{"allowedDomains":["none"]},"documentAccess":"dynamic-page"}
+{"name":"Extract All","id":"1655550973103544441","api":"1.0.0","main":"code.js","ui":"ui.html","editorType":["figma"],"networkAccess":{"allowedDomains":["https://cdnjs.cloudflare.com","https://unpkg.com"]},"documentAccess":"dynamic-page"}
