@@ -33,11 +33,6 @@
   .theme-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--text); padding: 6px 10px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 10px; flex-shrink: 0; }
   .theme-dot { width: 8px; height: 8px; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent2)); flex-shrink: 0; }
 
-  .selbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 12px; border: 1px solid rgba(20,99,255,0.2); background: rgba(20,99,255,0.06); margin-bottom: 10px; }
-  .selbar b { font-size: 12px; }
-  .sel-sub { font-size: 10px; color: var(--muted); }
-  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--muted); font-size: 9px; white-space: nowrap; }
-
   .tabs { display: flex; gap: 1px; }
   .tab-btn { flex: 1; padding: 10px 2px; border: 1px solid var(--border); border-bottom: none; border-radius: 12px 12px 0 0; background: var(--bg-el); color: var(--muted); cursor: pointer; font: inherit; font-size: 10px; font-weight: 600; text-align: center; transition: background 120ms, color 120ms; }
   .tab-btn.active { background: var(--bg-solid); color: var(--accent); }
@@ -68,10 +63,8 @@
   input[type=number], select { font: inherit; font-size: 11px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--text); }
   input[type=number] { width: 60px; }
 
-  .row2 { display: flex; gap: 6px; }
-  .row2 > * { flex: 1; }
-  .row3 { display: flex; gap: 4px; }
-  .row3 > * { flex: 1; }
+  .row2 { display: flex; gap: 6px; } .row2 > * { flex: 1; }
+  .row3 { display: flex; gap: 4px; } .row3 > * { flex: 1; }
   .scale-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
   .scale-row label { font-size: 10px; color: var(--muted); white-space: nowrap; }
 
@@ -83,9 +76,7 @@
 
   .log { display: none; margin-top: 8px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.03); max-height: 120px; overflow-y: auto; font: 10px/1.5 ui-monospace, Consolas, monospace; color: var(--muted); }
   .log.show { display: block; }
-  .log .ok { color: var(--green); }
-  .log .err { color: var(--red); }
-  .log .inf { color: var(--accent); }
+  .log .ok { color: var(--green); } .log .err { color: var(--red); } .log .inf { color: var(--accent); }
 
   .ftr { text-align: center; margin-top: 8px; font-size: 9px; color: var(--muted); }
   .ftr a { color: var(--accent); text-decoration: none; }
@@ -121,7 +112,6 @@
   .stats-row { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
   .stat-badge { padding: 3px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); font-size: 9px; white-space: nowrap; }
 
-  /* GIF rendering progress overlay */
   .render-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; flex-direction: column; align-items: center; justify-content: center; }
   .render-overlay.show { display: flex; }
   .render-box { background: var(--bg-el); border-radius: 16px; padding: 24px 32px; text-align: center; max-width: 320px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
@@ -141,71 +131,57 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="import"><span class="tab-emoji">📥</span>Lottie Import</button>
-    <button class="tab-btn" data-tab="ae"><span class="tab-emoji">🎬</span>AE Export</button>
-    <button class="tab-btn" data-tab="ai"><span class="tab-emoji">🤖</span>AI Export</button>
-    <button class="tab-btn" data-tab="assets"><span class="tab-emoji">📦</span>Assets</button>
+    <button class="tab-btn active" data-tab="import"><span class="tab-emoji">&#x1F4E5;</span>Lottie Import</button>
+    <button class="tab-btn" data-tab="ae"><span class="tab-emoji">&#x1F3AC;</span>AE Export</button>
+    <button class="tab-btn" data-tab="ai"><span class="tab-emoji">&#x1F916;</span>AI Export</button>
+    <button class="tab-btn" data-tab="assets"><span class="tab-emoji">&#x1F4E6;</span>Assets</button>
   </div>
 
-  <!-- ═══════════ TAB 1: LOTTIE IMPORT ═══════════ -->
+  <!-- TAB 1: LOTTIE IMPORT -->
   <div class="panel active" id="panel-import">
     <div class="card">
       <h3>Import Lottie / Bodymovin JSON</h3>
       <div class="dropzone" id="dropzone">
         <input type="file" id="lottieFileInput" accept=".json">
-        <div class="dz-text">📂 Drop a Lottie JSON file here</div>
+        <div class="dz-text">&#x1F4C2; Drop a Lottie JSON file here</div>
         <div class="dz-sub">or click to browse. Exported from After Effects via Bodymovin.</div>
       </div>
     </div>
 
-    <!-- Analysis results (hidden until file loaded) -->
     <div class="analysis" id="analysisPanel">
-      <!-- Meta -->
       <div class="card">
         <h3>Animation Info</h3>
         <div class="meta-grid" id="metaGrid"></div>
       </div>
-
-      <!-- Stats -->
       <div class="card">
         <h3>Stats</h3>
         <div id="statsRow" class="stats-row"></div>
       </div>
-
-      <!-- Bodymovin Settings Check -->
       <div class="card">
         <h3>Bodymovin Export Settings</h3>
         <div class="bm-check" id="bmCheck"></div>
         <div style="font-size:9px;color:var(--muted);margin-top:4px;text-align:center;" id="bmOverall"></div>
       </div>
-
-      <!-- Layer Preview -->
       <div class="card">
         <h3>Layer Preview</h3>
         <div class="layer-tree" id="layerTree"></div>
       </div>
-
-      <!-- Warnings -->
       <div class="card" id="warningsCard" style="display:none;">
         <h3>Warnings & Fixes</h3>
         <div class="warning-list" id="warningsList"></div>
       </div>
-
-      <!-- Errors -->
       <div class="card" id="errorsCard" style="display:none;border-color:var(--red);background:rgba(194,38,45,0.04);">
         <h3>Errors</h3>
         <div id="errorsList" style="font-size:10px;color:var(--red);"></div>
       </div>
-
-      <!-- Place button -->
       <div class="card" style="border-color:var(--accent);background:linear-gradient(135deg,var(--accent),var(--accent2));text-align:center;">
-        <button class="primary" data-action="place-lottie" id="btnPlaceLottie" style="width:100%;border-color:transparent;color:#fff;font-size:12px;padding:14px;">⬇️ Render & Place GIF Animation</button>
+        <button class="primary" data-action="place-lottie" id="btnPlaceLottie" style="width:100%;border-color:transparent;color:#fff;font-size:12px;padding:14px;">&#x2B07; Render & Place GIF Animation</button>
         <div style="font-size:9px;color:rgba(255,255,255,0.7);margin-top:4px;">Converts Lottie to animated GIF via canvas rendering</div>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════ TAB 2: AE EXPORT ═══════════ -->
+  <!-- TAB 2: AE EXPORT -->
   <div class="panel" id="panel-ae">
     <p class="desc">Export SVGs + metadata for <strong>Adobe After Effects</strong>.</p>
     <div class="card">
@@ -216,18 +192,18 @@
         <label><input type="checkbox" id="ae-lottie" checked> Lottie JSON Bundle</label>
         <label><input type="checkbox" id="ae-text" checked> Text content</label>
       </div>
-      <button class="primary" data-action="ae-extract">🎬 Extract for After Effects</button>
+      <button class="primary" data-action="ae-extract">&#x1F3AC; Extract for After Effects</button>
     </div>
     <div class="card">
       <h3>Import from After Effects</h3>
       <div class="dropzone" id="dropzone2" style="padding:12px;">
         <input type="file" id="lottieFileInput2" accept=".json">
-        <div class="dz-text" style="font-size:11px;">📂 Drop Lottie JSON here</div>
+        <div class="dz-text" style="font-size:11px;">&#x1F4C2; Drop Lottie JSON here</div>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════ TAB 3: AI EXPORT ═══════════ -->
+  <!-- TAB 3: AI EXPORT -->
   <div class="panel" id="panel-ai">
     <p class="desc">Everything for <strong>AI code generation</strong>.</p>
     <div class="card">
@@ -241,11 +217,11 @@
         <label><input type="checkbox" id="ai-tree" checked> Hierarchy tree</label>
         <label><input type="checkbox" id="ai-txtfile" checked> Text dump</label>
       </div>
-      <button class="primary" data-action="ai-extract">🤖 Extract for AI</button>
+      <button class="primary" data-action="ai-extract">&#x1F916; Extract for AI</button>
     </div>
   </div>
 
-  <!-- ═══════════ TAB 4: ASSETS ═══════════ -->
+  <!-- TAB 4: ASSETS -->
   <div class="panel" id="panel-assets">
     <div class="card">
       <h3>Selected Nodes</h3>
@@ -270,23 +246,22 @@
     </div>
   </div>
 
-  <!-- Progress -->
   <div class="prog" id="prog"><div class="prog-bar"><div class="prog-fill" id="progFill"></div></div><div class="prog-txt" id="progTxt">Ready</div>
     <div style="margin-top:6px;text-align:right;"><button class="danger" id="btnCancel" style="display:none;font-size:10px;padding:5px 10px;">Cancel</button></div>
   </div>
 
   <div class="log" id="logArea"></div>
-  <div class="ftr">Extract All · <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a></div>
+  <div class="ftr">Extract All &middot; <a href="https://github.com/Lukas-Bohez/figma-extract-all" target="_blank" rel="noreferrer">GitHub</a></div>
 </div>
 
 <!-- GIF rendering overlay -->
 <div class="render-overlay" id="renderOverlay">
   <div class="render-box">
-    <h3>🎞 Rendering Animation</h3>
+    <h3>&#x1F39E; Rendering Animation</h3>
     <div class="frames-done" id="framesDone">0</div>
     <div class="frames-label">frames processed</div>
     <div class="prog-bar" style="margin-top:12px;"><div class="prog-fill" id="renderFill" style="width:0%;"></div></div>
-    <div class="prog-txt" id="renderTxt" style="margin-top:6px;">Initializing…</div>
+    <div class="prog-txt" id="renderTxt" style="margin-top:6px;">Initializing...</div>
     <button class="danger small" id="btnRenderCancel" style="margin-top:12px;">Cancel</button>
   </div>
 </div>
@@ -294,25 +269,26 @@
 <!-- Hidden container for lottie-web canvas renderer -->
 <div id="lottieContainer" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;"></div>
 
-<!-- ═══════════ EXTERNAL SCRIPTS ═══════════ -->
-<!-- lottie-web: official Lottie player with canvas renderer support -->
-<script src="./lottie_canvas.min.js"></script>
-<!-- omggif: battle-tested, worker-free GIF encoder (INLINED — Figma CSP blocks CDN scripts) -->
+<!-- lottie-web: loaded from CDN (whitelisted in manifest.json) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie_canvas.min.js"></script>
+
+<!-- omggif: inlined GIF encoder -->
 <script>
 // (c) Dean McNamee <dean@gmail.com>, 2013. MIT license.
-// https://github.com/deanm/omggif — inlined for Figma sandbox compatibility.
+// https://github.com/deanm/omggif
 "use strict";
 function GifWriter(buf, width, height, gopts) {
   var p = 0;
-  gopts = gopts === undefined ? {} : gopts;
+  var gopts = gopts === undefined ? { } : gopts;
   var loop_count = gopts.loop === undefined ? null : gopts.loop;
   var global_palette = gopts.palette === undefined ? null : gopts.palette;
   if (width <= 0 || height <= 0 || width > 65535 || height > 65535)
     throw new Error("Width/Height invalid.");
   function check_palette_and_num_colors(palette) {
     var num_colors = palette.length;
-    if (num_colors < 2 || num_colors > 256 || num_colors & (num_colors - 1))
+    if (num_colors < 2 || num_colors > 256 ||  num_colors & (num_colors-1)) {
       throw new Error("Invalid code/color length, must be power of 2 and 2 .. 256.");
+    }
     return num_colors;
   }
   buf[p++] = 0x47; buf[p++] = 0x49; buf[p++] = 0x46;
@@ -359,7 +335,7 @@ function GifWriter(buf, width, height, gopts) {
   var ended = false;
   this.addFrame = function(x, y, w, h, indexed_pixels, opts) {
     if (ended === true) { --p; ended = false; }
-    opts = opts === undefined ? {} : opts;
+    opts = opts === undefined ? { } : opts;
     if (x < 0 || y < 0 || x > 65535 || y > 65535)
       throw new Error("x/y invalid.");
     if (w <= 0 || h <= 0 || w > 65535 || h > 65535)
@@ -380,7 +356,8 @@ function GifWriter(buf, width, height, gopts) {
     num_colors = 1 << min_code_size;
     var delay = opts.delay === undefined ? 0 : opts.delay;
     var disposal = opts.disposal === undefined ? 0 : opts.disposal;
-    if (disposal < 0 || disposal > 3) throw new Error("Disposal out of range.");
+    if (disposal < 0 || disposal > 3)
+      throw new Error("Disposal out of range.");
     var use_transparency = false;
     var transparent_index = 0;
     if (opts.transparent !== undefined && opts.transparent !== null) {
@@ -401,7 +378,7 @@ function GifWriter(buf, width, height, gopts) {
     buf[p++] = y & 0xff; buf[p++] = y >> 8 & 0xff;
     buf[p++] = w & 0xff; buf[p++] = w >> 8 & 0xff;
     buf[p++] = h & 0xff; buf[p++] = h >> 8 & 0xff;
-    buf[p++] = using_local_palette === true ? (0x80 | (min_code_size - 1)) : 0;
+    buf[p++] = using_local_palette === true ? (0x80 | (min_code_size-1)) : 0;
     if (using_local_palette === true) {
       for (var i = 0, il = palette.length; i < il; ++i) {
         var rgb = palette[i];
@@ -427,131 +404,75 @@ function GifWriter(buf, width, height, gopts) {
 }
 function GifWriterOutputLZWCodeStream(buf, p, min_code_size, index_stream) {
   buf[p++] = min_code_size;
-  var cur_subblock = p++;  // Pointing at the length field.
-
+  var cur_subblock = p++;
   var clear_code = 1 << min_code_size;
   var code_mask = clear_code - 1;
   var eoi_code = clear_code + 1;
   var next_code = eoi_code + 1;
-
-  var cur_code_size = min_code_size + 1;  // Number of bits per code.
+  var cur_code_size = min_code_size + 1;
   var cur_shift = 0;
-  // We have at most 12-bit codes, so we should have to hold a max of 19
-  // bits here (and then we would write out).
   var cur = 0;
-
   function emit_bytes_to_buffer(bit_block_size) {
     while (cur_shift >= bit_block_size) {
       buf[p++] = cur & 0xff;
       cur >>= 8; cur_shift -= 8;
-      if (p === cur_subblock + 256) {  // Finished a subblock.
+      if (p === cur_subblock + 256) {
         buf[cur_subblock] = 255;
         cur_subblock = p++;
       }
     }
   }
-
   function emit_code(c) {
     cur |= c << cur_shift;
     cur_shift += cur_code_size;
     emit_bytes_to_buffer(8);
   }
-
-  // Output code for the current contents of the index buffer.
-  var ib_code = index_stream[0] & code_mask;  // Load first input index.
-  var code_table = { };  // Key'd on our 20-bit "tuple".
-
-  emit_code(clear_code);  // Spec says first code should be a clear code.
-
-  // First index already loaded, process the rest of the stream.
+  var ib_code = index_stream[0] & code_mask;
+  var code_table = { };
+  emit_code(clear_code);
   for (var i = 1, il = index_stream.length; i < il; ++i) {
     var k = index_stream[i] & code_mask;
-    var cur_key = ib_code << 8 | k;  // (prev, k) unique tuple.
-    var cur_code = code_table[cur_key];  // buffer + k.
-
-    // Check if we have to create a new code table entry.
-    if (cur_code === undefined) {  // We don't have buffer + k.
-      // Emit index buffer (without k).
-      // This is an inline version of emit_code, because this is the core
-      // writing routine of the compressor (and V8 cannot inline emit_code
-      // because it is a closure here in a different context).  Additionally
-      // we can call emit_byte_to_buffer less often, because we can have
-      // 30-bits (from our 31-bit signed SMI), and we know our codes will only
-      // be 12-bits, so can safely have 18-bits there without overflow.
-      // emit_code(ib_code);
+    var cur_key = ib_code << 8 | k;
+    var cur_code = code_table[cur_key];
+    if (cur_code === undefined) {
       cur |= ib_code << cur_shift;
       cur_shift += cur_code_size;
       while (cur_shift >= 8) {
         buf[p++] = cur & 0xff;
         cur >>= 8; cur_shift -= 8;
-        if (p === cur_subblock + 256) {  // Finished a subblock.
+        if (p === cur_subblock + 256) {
           buf[cur_subblock] = 255;
           cur_subblock = p++;
         }
       }
-
-      if (next_code === 4096) {  // Table full, need a clear.
+      if (next_code === 4096) {
         emit_code(clear_code);
         next_code = eoi_code + 1;
         cur_code_size = min_code_size + 1;
         code_table = { };
-      } else {  // Table not full, insert a new entry.
-        // Increase our variable bit code sizes if necessary.  This is a bit
-        // tricky as it is based on "timing" between the encoding and
-        // decoder.  From the encoders perspective this should happen after
-        // we've already emitted the index buffer and are about to create the
-        // first table entry that would overflow our current code bit size.
+      } else {
         if (next_code >= (1 << cur_code_size)) ++cur_code_size;
-        code_table[cur_key] = next_code++;  // Insert into code table.
+        code_table[cur_key] = next_code++;
       }
-
-      ib_code = k;  // Index buffer to single input k.
+      ib_code = k;
     } else {
-      ib_code = cur_code;  // Index buffer to sequence in code table.
+      ib_code = cur_code;
     }
   }
-
-  emit_code(ib_code);  // There will still be something in the index buffer.
-  emit_code(eoi_code);  // End Of Information.
-
-  // Flush / finalize the sub-blocks stream to the buffer.
+  emit_code(ib_code);
+  emit_code(eoi_code);
   emit_bytes_to_buffer(1);
-
-  // Finish the sub-blocks, writing out any unfinished lengths and
-  // terminating with a sub-block of length 0.  If we have already started
-  // but not yet used a sub-block it can just become the terminator.
-  if (cur_subblock + 1 === p) {  // Started but unused.
+  if (cur_subblock + 1 === p) {
     buf[cur_subblock] = 0;
-  } else {  // Started and used, write length and additional terminator block.
+  } else {
     buf[cur_subblock] = p - cur_subblock - 1;
     buf[p++] = 0;
   }
   return p;
 }
-
-// GifReader is not needed for encoding-only, but included for completeness.
-function GifReader(buf) {
-  var p = 0;
-  if (buf[p++] !== 0x47 || buf[p++] !== 0x49 || buf[p++] !== 0x46 ||
-      buf[p++] !== 0x38 || (buf[p++]+1 & 0xfd) !== 0x38 || buf[p++] !== 0x61) {
-    throw new Error("Invalid GIF 87a/89a header.");
-  }
-  var width = buf[p++] | buf[p++] << 8;
-  var height = buf[p++] | buf[p++] << 8;
-  var global_palette_flag = buf[p++] >> 7;
-  // Rest of GifReader omitted — only GifWriter is needed for our plugin.
-  // Full source at https://github.com/deanm/omggif
-  this.width = width;
-  this.height = height;
-  this.numFrames = function() { return 0; };
-}
-
-// Expose globally for non-module environments (Figma plugin iframe)
-if (typeof window !== 'undefined') {
-  window.GifWriter = GifWriter;
-  window.GifReader = GifReader;
-}
-if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.GifReader = GifReader; }
+// Expose globally for non-module environments
+if (typeof window !== 'undefined') { window.GifWriter = GifWriter; }
+if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
 </script>
 
 <script>
@@ -560,10 +481,9 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
   var el = function(id) { return document.getElementById(id); };
   var logEl = el("logArea"), progEl = el("prog"), progFill = el("progFill"), progTxt = el("progTxt");
   var cancelBtn = el("btnCancel");
-  var exportCount = 0, isExporting = false, currentTheme = "light";
-  var zipChunks = {}, zipExpected = {};
+  var isExporting = false, currentTheme = "light";
+  var zipChunks = {};
 
-  // ── State ──
   var lastAnalysis = null;
   var lastRawJson = null;
   var renderCancelled = false;
@@ -662,72 +582,58 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
   function renderAnalysis(analysis) {
     lastAnalysis = analysis;
     var ap = el("analysisPanel"); if (ap) ap.classList.add("show");
-    // Meta
     var m = analysis.meta;
-    var mg = el("metaGrid"); if (mg) mg.innerHTML = '<div class="meta-item"><div class="val">'+m.frameRate+'</div><div class="lbl">Frame Rate (fps)</div></div><div class="meta-item"><div class="val">'+m.width+'×'+m.height+'</div><div class="lbl">Dimensions</div></div><div class="meta-item"><div class="val">'+(m.duration||0).toFixed(1)+'s</div><div class="lbl">Duration</div></div><div class="meta-item"><div class="val">'+analysis.totalFrames+'</div><div class="lbl">Total Frames</div></div>';
-    // Stats
+    var mg = el("metaGrid"); if (mg) mg.innerHTML = '<div class="meta-item"><div class="val">'+m.frameRate+'</div><div class="lbl">Frame Rate (fps)</div></div><div class="meta-item"><div class="val">'+m.width+'&times;'+m.height+'</div><div class="lbl">Dimensions</div></div><div class="meta-item"><div class="val">'+(m.duration||0).toFixed(1)+'s</div><div class="lbl">Duration</div></div><div class="meta-item"><div class="val">'+analysis.totalFrames+'</div><div class="lbl">Total Frames</div></div>';
     var st = analysis.stats;
-    var sr = el("statsRow"); if (sr) sr.innerHTML = '<span class="stat-badge">🎬 '+st.layers+' layers</span><span class="stat-badge">🔷 '+st.shapes+' shapes</span><span class="stat-badge">🟦 '+st.solids+' solids</span><span class="stat-badge">📝 '+st.texts+' texts</span><span class="stat-badge">🖼 '+st.images+' images</span><span class="stat-badge">🔗 '+st.nulls+' nulls</span><span class="stat-badge">📦 '+st.precomps+' precomps</span>';
-    // BM Check
+    var sr = el("statsRow"); if (sr) sr.innerHTML = '<span class="stat-badge">&#x1F3AC; '+st.layers+' layers</span><span class="stat-badge">&#x1F537; '+st.shapes+' shapes</span><span class="stat-badge">&#x1F7E6; '+st.solids+' solids</span><span class="stat-badge">&#x1F4DD; '+st.texts+' texts</span><span class="stat-badge">&#x1F5BC; '+st.images+' images</span><span class="stat-badge">&#x1F517; '+st.nulls+' nulls</span><span class="stat-badge">&#x1F4E6; '+st.precomps+' precomps</span>';
     var bm = analysis.bodymovinSettings;
     var items = [
-      {label:"Assets embedded", ok:bm.includeAssets, key:"assets"},
-      {label:"Keyframe data", ok:bm.includeKeyframes, key:"keyframes"},
-      {label:"Expressions preserved", ok:bm.includeExpressions, key:"expressions"},
-      {label:"No hidden layers", ok:!bm.hiddenLayers, key:"hidden"},
-      {label:"Uncompressed JSON", ok:bm.compressedJson, key:"compressed"},
+      {label:"Assets embedded", ok:bm.includeAssets},
+      {label:"Keyframe data", ok:bm.includeKeyframes},
+      {label:"Expressions preserved", ok:bm.includeExpressions},
+      {label:"No hidden layers", ok:!bm.hiddenLayers},
+      {label:"Uncompressed JSON", ok:bm.compressedJson},
     ];
-    var bc = el("bmCheck"); if (bc) { var bhtml = ''; for (var i=0;i<items.length;i++) bhtml+='<div class="bm-item"><span class="icon">'+(items[i].ok?'✅':'❌')+'</span>'+items[i].label+'</div>'; bc.innerHTML = bhtml; }
-    var bo = el("bmOverall"); if (bo) bo.textContent = bm.settingsOK ? "✅ All critical Bodymovin settings are correct." : "⚠ Some Bodymovin settings need attention — see warnings below.";
-    // Layer tree
-    var lt = el("layerTree"); if (lt) { var ltOut = ''; walkTree(analysis.layerTree,0); function walkTree(nodes,d){ for(var i=0;i<nodes.length;i++){ var n=nodes[i],indent='&nbsp;'.repeat(d*3); var icons={precomp:'📦',solid:'🟦',image:'🖼',null:'🔗',shape:'🔷',text:'📝',unknown:'❓'}; var cls=n.hidden?' lt-hidden':''; ltOut+='<div class="lt-node'+cls+'">'+indent+'<span class="lt-icon">'+(icons[n.type]||'❓')+'</span>'+(n.visible?'':'👁‍🗨 ')+n.name+'</div>'; if(n.children)walkTree(n.children,d+1); } } lt.innerHTML = ltOut; }
-    // Warnings
+    var bc = el("bmCheck"); if (bc) { var bhtml = ''; for (var i=0;i<items.length;i++) bhtml+='<div class="bm-item"><span class="icon">'+(items[i].ok?'&#x2705;':'&#x274C;')+'</span>'+items[i].label+'</div>'; bc.innerHTML = bhtml; }
+    var bo = el("bmOverall"); if (bo) bo.textContent = bm.settingsOK ? "&#x2705; All critical Bodymovin settings are correct." : "&#x26A0; Some Bodymovin settings need attention.";
+    var lt = el("layerTree"); if (lt) { var ltOut = ''; walkTree(analysis.layerTree,0); function walkTree(nodes,d){ for(var i=0;i<nodes.length;i++){ var n=nodes[i],indent='&nbsp;'.repeat(d*3); var icons={precomp:'&#x1F4E6;',solid:'&#x1F7E6;',image:'&#x1F5BC;',null:'&#x1F517;',shape:'&#x1F537;',text:'&#x1F4DD;',unknown:'&#x2753;'}; var cls=n.hidden?' lt-hidden':''; ltOut+='<div class="lt-node'+cls+'">'+indent+'<span class="lt-icon">'+(icons[n.type]||'&#x2753;')+'</span>'+n.name+'</div>'; if(n.children)walkTree(n.children,d+1); } } lt.innerHTML = ltOut; }
     var wc = el("warningsCard"); var wl = el("warningsList");
     if (wc && wl) {
-      if (analysis.warnings.length > 0) { wc.style.display = 'block'; var wh = ''; for (var i=0;i<analysis.warnings.length;i++){ var w=analysis.warnings[i]; wh+='<div class="warning-card"><div class="warn-msg">⚠ '+w.message+'</div><div class="warn-fix">'+w.fix+'</div></div>'; } wl.innerHTML = wh; }
+      if (analysis.warnings.length > 0) { wc.style.display = 'block'; var wh = ''; for (var i=0;i<analysis.warnings.length;i++){ var w=analysis.warnings[i]; wh+='<div class="warning-card"><div class="warn-msg">&#x26A0; '+w.message+'</div><div class="warn-fix">'+w.fix+'</div></div>'; } wl.innerHTML = wh; }
       else { wc.style.display = 'none'; }
     }
-    // Errors
     var ec = el("errorsCard"); var eli = el("errorsList");
     if (ec && eli) { if (analysis.errors.length > 0) { ec.style.display = 'block'; eli.innerHTML = analysis.errors.join('<br>'); } else { ec.style.display = 'none'; } }
-    log("Analysis complete: "+analysis.stats.layers+" layers, "+analysis.warnings.length+" warnings"+(analysis.errors.length>0?", "+analysis.errors.length+" errors":""), analysis.warnings.length>0?"err":"ok");
+    log("Analysis complete: "+analysis.stats.layers+" layers", analysis.warnings.length>0?"err":"ok");
     switchTab("import");
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  //  GIF ENCODING — omggif with Web-Safe 216-color palette
-  // ═══════════════════════════════════════════════════════════════
+  // ════════════════════════════════════
+  //  GIF ENCODING — Web-Safe 256 palette
+  // ════════════════════════════════════
 
-  // Build 216-color Web-Safe palette + 1 transparent index (217 total).
-  // omggif requires a flat array of 32-bit RGBA integers (0xAARRGGBB).
+  var TRANSPARENT_INDEX = 216;
+
   function buildWebSafePalette() {
     var pal = [];
-    // Index 0 is reserved for transparency.
-    pal.push(0x000000);
     for (var r = 0; r < 6; r++) {
       for (var g = 0; g < 6; g++) {
         for (var b = 0; b < 6; b++) {
           var rr = Math.round(r * 255 / 5);
           var gg = Math.round(g * 255 / 5);
           var bb = Math.round(b * 255 / 5);
-          // omggif uses 0xRRGGBB (no alpha channel for palette entries)
           pal.push((rr << 16) | (gg << 8) | bb);
         }
       }
     }
-    // Pad to exactly 256 entries (power of 2 required by omggif)
-    while (pal.length < 256) {
-      pal.push(0x000000);
-    }
+    pal.push(0x000000); // index 216: transparent placeholder
+    while (pal.length < 256) pal.push(0x000000);
     return pal;
   }
 
-  var TRANSPARENT_INDEX = 0;
-
   function rgbaToWebSafeIndex(r, g, b, a) {
-    if (a === 0) return TRANSPARENT_INDEX;
-    // Quantize each channel to 0–5 and fold into flat index: r*36 + g*6 + b
-    return 1 + (Math.round(r * 5 / 255) * 36) + (Math.round(g * 5 / 255) * 6) + Math.round(b * 5 / 255);
+    if (a < 128) return TRANSPARENT_INDEX;
+    return (Math.round(r * 5 / 255) * 36) + (Math.round(g * 5 / 255) * 6) + Math.round(b * 5 / 255);
   }
 
   function quantizeFrameToIndices(pixels, width, height) {
@@ -739,27 +645,17 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
     return indices;
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // ════════════════════════════════════
   //  LOTTIE → GIF RENDERING ENGINE
-  // ═══════════════════════════════════════════════════════════
+  // ════════════════════════════════════
 
   function renderLottieAsGif() {
-    if (!lastRawJson) {
-      log("No Lottie JSON loaded. Drop a file first.", "err");
-      return;
-    }
-    if (!window.lottie) {
-      log("lottie-web library not loaded. Check your network connection.", "err");
-      return;
-    }
+    if (!lastRawJson) { log("No Lottie JSON loaded.", "err"); return; }
+    if (!window.lottie) { log("lottie-web library not loaded.", "err"); return; }
+    if (typeof GifWriter === 'undefined') { log("omggif library not loaded.", "err"); return; }
 
     var animationData;
-    try {
-      animationData = JSON.parse(lastRawJson);
-    } catch(e) {
-      log("Invalid JSON data", "err");
-      return;
-    }
+    try { animationData = JSON.parse(lastRawJson); } catch(e) { log("Invalid JSON data", "err"); return; }
 
     var frameRate = animationData.fr || 30;
     var inPoint = animationData.ip || 0;
@@ -768,25 +664,18 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
     var w = animationData.w || 500;
     var h = animationData.h || 500;
 
-    if (totalFrames <= 0) {
-      log("Lottie file has no frames (op <= ip). Check your animation.", "err");
-      return;
-    }
+    if (totalFrames <= 0) { log("Lottie file has no frames.", "err"); return; }
 
-    // Clamp dimensions
     var maxDim = 1200;
     if (w > maxDim || h > maxDim) {
       var scale = maxDim / Math.max(w, h);
-      w = Math.round(w * scale);
-      h = Math.round(h * scale);
-      log("Animation scaled to " + w + "×" + h + " for performance.", "inf");
+      w = Math.round(w * scale); h = Math.round(h * scale);
+      log("Animation scaled to " + w + "x" + h, "inf");
     }
 
     var fileName = lastAnalysis ? lastAnalysis.fileName : "animation.json";
+    log("Rendering " + totalFrames + " frames at " + frameRate + "fps -> " + w + "x" + h, "inf");
 
-    log("Rendering " + totalFrames + " frames at " + frameRate + "fps → " + w + "×" + h, "inf");
-
-    // Show overlay
     renderCancelled = false;
     var overlay = el("renderOverlay");
     var framesDoneEl = el("framesDone");
@@ -795,12 +684,11 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
     overlay.classList.add("show");
     framesDoneEl.textContent = "0";
     renderFill.style.width = "0%";
-    renderTxt.textContent = "Initializing lottie-web…";
+    renderTxt.textContent = "Initializing lottie-web...";
 
     var placeBtn = el("btnPlaceLottie");
     if (placeBtn) placeBtn.disabled = true;
 
-    // Hidden container for lottie-web canvas renderer
     var container = el("lottieContainer");
     container.innerHTML = '';
     container.style.width = w + 'px';
@@ -813,8 +701,8 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
       autoplay: false,
       animationData: animationData,
       rendererSettings: {
-        dpr: 1,                        // Force 1:1 pixels — eliminates HiDPI stride mismatch
-        preserveDrawingBuffer: true,   // Keep buffer across redraws (belt-and-suspenders)
+        dpr: 1,
+        preserveDrawingBuffer: true,
         clearCanvas: true,
         preserveAspectRatio: 'xMidYMid meet',
         progressiveLoad: false
@@ -826,91 +714,62 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
     extractCanvas.height = h;
     var extractCtx = extractCanvas.getContext('2d');
 
-    // Store all frame pixel data + delays
-    var framePixels = []; // Array of Uint8Array (RGBA, w*h*4 each)
-    var frameDelays = []; // Array of centiseconds
+    var framePixels = [];
+    var frameDelays = [];
     var framesCaptured = 0;
     var currentFrame = inPoint;
     var lottieCanvas = null;
-    // ── Frame stride: cap at ~45 frames to avoid massive memory / crash ──
+
     var maxGifFrames = 45;
     var frameStride = totalFrames <= maxGifFrames ? 1 : Math.floor(totalFrames / maxGifFrames);
     var framesToCapture = Math.ceil(totalFrames / frameStride);
-    if (frameStride > 1) {
-      log("Frame budget: " + totalFrames + " → " + framesToCapture + " frames (every " + frameStride + " of " + frameRate + "fps)", "inf");
-    }
+    if (frameStride > 1) log("Frame budget: " + totalFrames + " -> " + framesToCapture + " frames", "inf");
 
     function onLottieReady() {
-      renderTxt.textContent = "Capturing frames…";
+      renderTxt.textContent = "Capturing frames...";
       var canvases = container.querySelectorAll('canvas');
-      if (canvases.length > 0) {
-        lottieCanvas = canvases[0];
-      }
-      if (!lottieCanvas) {
-        log("Failed to find lottie-web canvas. Try a smaller animation.", "err");
-        finishWithError();
-        return;
-      }
-
-      // With dpr:1 the canvas backing store matches nominal w×h exactly.
-      // No scaling needed — just draw directly at 1:1.
+      if (canvases.length > 0) lottieCanvas = canvases[0];
+      if (!lottieCanvas) { log("Failed to find lottie-web canvas.", "err"); finishWithError(); return; }
       processNextFrame();
     }
 
     function processNextFrame() {
       if (renderCancelled) { finishWithError(); return; }
-      if (currentFrame > outPoint) {
-        encodeAndSend();
-        return;
-      }
+      if (currentFrame > outPoint) { encodeAndSend(); return; }
 
-      // Force-clear the lottie canvas before seeking, preventing frame ghosting.
+      // Force-clear lottie canvas to prevent frame ghosting
       var lctx = lottieCanvas.getContext('2d');
       if (lctx) lctx.clearRect(0, 0, lottieCanvas.width, lottieCanvas.height);
 
-      // Tell lottie to go to this frame
       anim.goToAndStop(currentFrame, true);
 
-      // Apply frame stride — skip intermediate frames
       var skipTo = currentFrame + frameStride;
-      if (skipTo > outPoint && currentFrame < outPoint) {
-        skipTo = outPoint + 1;
-      }
+      if (skipTo > outPoint && currentFrame < outPoint) skipTo = outPoint + 1;
       currentFrame = skipTo;
 
-      // Quad rAF for maximum buffer flush reliability on slow HiDPI systems.
+      // Quad rAF for reliable buffer flush
       requestAnimationFrame(function() {
         requestAnimationFrame(function() {
           requestAnimationFrame(function() {
             requestAnimationFrame(function() {
             if (renderCancelled) return;
 
-            // Keep the extraction canvas transparent so the GIF can preserve alpha.
+            // Preserve transparency from lottie canvas
             extractCtx.clearRect(0, 0, w, h);
 
-            try {
-              // Draw lottie canvas 1:1 (dpr:1 ensures identical dimensions)
-              extractCtx.drawImage(lottieCanvas, 0, 0, w, h);
-            } catch(e) {
-              log("Canvas extraction warning: " + e.message, "inf");
-            }
+            try { extractCtx.drawImage(lottieCanvas, 0, 0, w, h); } catch(e) {}
 
-            // Get raw RGBA pixels at nominal resolution
             var imageData = extractCtx.getImageData(0, 0, w, h);
-
             var pixels = new Uint8Array(imageData.data.buffer.slice(0));
             framePixels.push(pixels);
-            // Adjust delay to account for frame stride (each frame represents 'stride' original frames)
             frameDelays.push(Math.round(100 * frameStride / frameRate));
 
             framesCaptured++;
-
             var pct = Math.round((framesCaptured / framesToCapture) * 100);
             framesDoneEl.textContent = framesCaptured;
             renderFill.style.width = pct + "%";
-            renderTxt.textContent = "Frame " + framesCaptured + " of ~" + framesToCapture + " (" + w + "×" + h + ")";
+            renderTxt.textContent = "Frame " + framesCaptured + " of ~" + framesToCapture + " (" + w + "x" + h + ")";
 
-            // Process next frame (close all rAF closures)
             processNextFrame();
             });
           });
@@ -919,63 +778,33 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
     }
 
     function encodeAndSend() {
-      renderTxt.textContent = "Encoding GIF (" + framesCaptured + " frames)…";
+      renderTxt.textContent = "Encoding GIF (" + framesCaptured + " frames)...";
       renderFill.style.width = "100%";
-
       anim.destroy();
       container.innerHTML = '';
 
       setTimeout(function() {
         try {
-          trimEmptyFrames();
-
-          if (typeof GifWriter === 'undefined') {
-            log("omggif library not loaded (GifWriter missing).", "err");
-            finishWithError();
-            return;
-          }
-
-          if (framePixels.length === 0) {
-            log("No visible frames found after trimming empty frames.", "err");
-            finishWithError();
-            return;
-          }
-
-          // ── Web-Safe palette ──
           var palette = buildWebSafePalette();
-
-          // ── Allocate buffer (worst-case estimate) ──
           var buf = new Uint8Array(w * h * framePixels.length * 2 + 65536);
-
-          // ── Create writer ──
           var writer = new GifWriter(buf, w, h, { loop: 0, palette: palette });
 
-          // ── Quantize and add each frame ──
           for (var fi = 0; fi < framePixels.length; fi++) {
             if (renderCancelled) { finishWithError(); return; }
-
             var indices = quantizeFrameToIndices(framePixels[fi], w, h);
             writer.addFrame(0, 0, w, h, indices, {
               transparent: TRANSPARENT_INDEX,
               delay: frameDelays[fi] || 10,
-              disposal: 2   // restore to transparent background between frames
+              disposal: 2
             });
           }
 
-          // ── Finalize ──
           var end = writer.end();
-          if (end <= 0) {
-            log("omggif writer.end() returned " + end, "err");
-            finishWithError();
-            return;
-          }
+          if (end <= 0) { log("omggif writer.end() returned " + end, "err"); finishWithError(); return; }
 
           var gifBytes = buf.subarray(0, end);
-
-          var kbSize = (gifBytes.length / 1024).toFixed(1);
-          log("GIF encoded: " + kbSize + " KB, " + framesCaptured + " frames", "ok");
-
-          renderTxt.textContent = "Sending GIF to Figma…";
+          log("GIF encoded: " + (gifBytes.length / 1024).toFixed(1) + " KB, " + framesCaptured + " frames", "ok");
+          renderTxt.textContent = "Sending GIF to Figma...";
 
           parent.postMessage({
             pluginMessage: {
@@ -989,14 +818,10 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
 
           overlay.classList.remove("show");
           if (placeBtn) placeBtn.disabled = false;
-
           framePixels = [];
           frameDelays = [];
 
-        } catch(e) {
-          log("Encoding error: " + (e.message || e), "err");
-          finishWithError();
-        }
+        } catch(e) { log("Encoding error: " + (e.message || e), "err"); finishWithError(); }
       }, 50);
     }
 
@@ -1005,59 +830,21 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
       container.innerHTML = '';
       overlay.classList.remove("show");
       if (placeBtn) placeBtn.disabled = false;
-      framePixels = [];
-      frameDelays = [];
-      if (renderCancelled) {
-        log("Render cancelled.", "err");
-      } else {
-        log("Rendering failed.", "err");
-      }
+      framePixels = []; frameDelays = [];
+      if (renderCancelled) log("Render cancelled.", "err"); else log("Rendering failed.", "err");
     }
 
-    function frameHasVisiblePixels(rgba) {
-      for (var i = 3; i < rgba.length; i += 4) {
-        if (rgba[i] > 0) return true;
-      }
-      return false;
-    }
-
-    function trimEmptyFrames() {
-      var first = 0;
-      var last = framePixels.length - 1;
-
-      while (first <= last && !frameHasVisiblePixels(framePixels[first])) first++;
-      while (last >= first && !frameHasVisiblePixels(framePixels[last])) last--;
-
-      if (first > 0 || last < framePixels.length - 1) {
-        framePixels = framePixels.slice(first, last + 1);
-        frameDelays = frameDelays.slice(first, last + 1);
-        framesCaptured = framePixels.length;
-        framesToCapture = Math.max(1, framePixels.length);
-        log("Trimmed empty frames: kept " + framePixels.length + " visible frame(s).", "inf");
-      }
-    }
-
-    // Kick off
     anim.addEventListener('DOMLoaded', onLottieReady);
     setTimeout(function() {
-      if (framesCaptured === 0 && !renderCancelled && overlay.classList.contains("show")) {
-        onLottieReady();
-      }
+      if (framesCaptured === 0 && !renderCancelled && overlay.classList.contains("show")) onLottieReady();
     }, 800);
 
-    el("btnRenderCancel").onclick = function() {
-      renderCancelled = true;
-      finishWithError();
-    };
+    el("btnRenderCancel").onclick = function() { renderCancelled = true; finishWithError(); };
   }
 
   // ── Actions ──
   function request(type) {
-    if (type === "place-lottie") {
-      // This is now the "Render & Place GIF" action
-      renderLottieAsGif();
-      return;
-    }
+    if (type === "place-lottie") { renderLottieAsGif(); return; }
     if (isExporting) { log("Already exporting","err"); return; }
     parent.postMessage({ pluginMessage: { type: type } }, "*");
   }
@@ -1084,7 +871,6 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
     switch (m.type) {
       case "lottie-analysis":
         renderAnalysis(m.analysis);
-        // Store raw JSON if provided
         if (m.rawJson) lastRawJson = m.rawJson;
         break;
       case "full-extract-progress": if (m.progress) { var p = m.progress; progFill.style.width = Math.round((p.step / p.totalSteps) * 100) + "%"; progEl.classList.add("show"); } break;
@@ -1101,7 +887,8 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; exports.Gif
 
   cancelBtn.addEventListener("click", doCancel);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isExporting) { e.preventDefault(); doCancel(); } });
-  log("Ready — drop a Lottie JSON file.", "inf"); log("Click 'Render & Place GIF' to convert to animated GIF.", "inf");
+  log("Ready — drop a Lottie JSON file.", "inf");
+  log("Click 'Render & Place GIF' to convert to animated GIF.", "inf");
 })();
 </script>
 </body>
