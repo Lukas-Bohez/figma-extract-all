@@ -63,6 +63,31 @@ Then in Figma: **Plugins → Development → Import plugin from manifest** → s
 
 If you already cloned the repo into another folder, make sure you run `npm install` and `npm run build` from the folder that actually contains `package.json`.
 
+### How This Plugin Works
+
+The plugin runs in two parts:
+
+1. **Main plugin code (`code.ts` → `code.js`)** reads the current page or selection, walks the Figma document tree, and extracts text, pages, components, variables, styles, and exportable nodes.
+2. **UI code (`ui.html`)** handles the buttons, file downloads, progress display, Lottie import/export, and the final ZIP or file assembly.
+
+When you choose an export, the plugin:
+
+- Reads the current page or selected nodes from the open Figma document
+- Uses Figma’s local APIs to collect metadata, text content, variables, styles, and component information
+- Uses Figma’s export APIs to render SVG, PNG, JPG, or PDF assets
+- Sends the generated data back to the UI, which packages it into downloads or ZIP chunks
+- Stays local to the plugin runtime unless a specific UI dependency needs to be loaded from a whitelisted external site
+
+For Lottie work, the UI can also import Bodymovin JSON, analyze it, render it to canvas, and place the rendered animation back into the canvas as an image-filled rectangle.
+
+### Permissions & Network Access
+
+This plugin requests `documentAccess: "dynamic-page"` because it needs to read the active Figma document, inspect the current page and selection, and export data from the nodes you choose. In practice, that means it can access the current page tree, local styles, local variables, components, and node export output inside the file you have open.
+
+The only declared network access is `https://cdnjs.cloudflare.com`, which is used to load `lottie_canvas.min.js` in the plugin UI. That library powers the Lottie-to-GIF rendering flow in the import/export tab. The plugin does not send your Figma document contents to that CDN or to any other remote service.
+
+The GitHub link shown in the UI is just a normal external link for convenience; it is not used by the plugin to process or transmit design data.
+
 ### 2. Use the Plugin
 
 Open any Figma file, run the plugin, and choose your action:
