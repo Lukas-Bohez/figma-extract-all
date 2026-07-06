@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "12.0.0";
+const PLUGIN_VERSION = "13.0.0";
 const TE = { encode: (s) => { const r = new Uint8Array(s.length); for (let i = 0; i < s.length; i++)
         r[i] = s.charCodeAt(i) & 0xFF; return r; } };
 const CRC_TABLE = ((() => { const t = new Uint32Array(256); for (let i = 0; i < 256; i++) {
@@ -74,8 +74,8 @@ function analyzeLottieFile(fileName, content) {
         fileName, valid: false, errors: [],
         meta: { frameRate: 0, inPoint: 0, outPoint: 0, width: 0, height: 0, duration: 0 },
         stats: { layers: 0, shapes: 0, paths: 0, images: 0, texts: 0, solids: 0, nulls: 0, precomps: 0 },
-        assets: [], expressions: [], markers: [], warnings: [],
-        layerTree: [], bodymovinSettings: { includeAssets: false, includeKeyframes: false, includeExpressions: false, hiddenLayers: false, compressedJson: true, settingsOK: false },
+        assets: [], expressions: [], markers: [], warnings: [], layerTree: [], layerTreeRaw: [],
+        bodymovinSettings: { includeAssets: false, includeKeyframes: false, includeExpressions: false, hiddenLayers: false, compressedJson: true, settingsOK: false },
         hasKeyframes: false, hasAssets: false, totalFrames: 0
     };
     let json;
@@ -136,20 +136,16 @@ function analyzeLottieFile(fileName, content) {
                     analysis.hasKeyframes = true;
                     bm.includeKeyframes = true;
                 }
-                function scanExpressions(obj) {
-                    if (!obj || typeof obj !== "object")
-                        return;
-                    if (obj.a === 1 && obj.k && typeof obj.k === "string" && obj.k.length > 0) {
-                        analysis.expressions.push(obj.k);
-                        bm.includeExpressions = true;
-                    }
-                    for (const key of Object.keys(obj)) {
-                        if (typeof obj[key] === "object")
-                            scanExpressions(obj[key]);
-                    }
-                }
-                scanExpressions(l);
-                const node = { name: l.nm || "unnamed", type: ["precomp", "solid", "image", "null", "shape", "text"][ty] || "unknown", visible: !(l.hd), hidden: !!l.hd, children: [] };
+                function scanExp(o) { if (!o || typeof o !== "object")
+                    return; if (o.a === 1 && o.k && typeof o.k === "string" && o.k.length > 0) {
+                    analysis.expressions.push(o.k);
+                    bm.includeExpressions = true;
+                } for (const k of Object.keys(o)) {
+                    if (typeof o[k] === "object")
+                        scanExp(o[k]);
+                } }
+                scanExp(l);
+                const node = { name: l.nm || "unnamed", type: ["precomp", "solid", "image", "null", "shape", "text"][ty] || "unknown", visible: !(l.hd), hidden: !!l.hd, children: [], ty: ty, raw: l };
                 if (l.hd)
                     bm.hiddenLayers = true;
                 if (l.layers)
@@ -158,21 +154,22 @@ function analyzeLottieFile(fileName, content) {
             }
             return tree;
         }
+        analysis.layerTreeRaw = json.layers;
         analysis.layerTree = walkLayers(json.layers, 0);
     }
     bm.settingsOK = bm.includeAssets && bm.includeKeyframes;
     if (!bm.includeAssets)
-        analysis.warnings.push({ type: "assets", message: "No image assets found in this Lottie file. If your AE project uses images, they won't appear in Figma.", fix: "⚙ In Bodymovin export settings, enable: \"Include in json\" > \"Assets\" to embed images in the Lottie JSON." });
+        analysis.warnings.push({ type: "assets", message: "No image assets found. Images won't appear in Figma.", fix: "In Bodymovin: enable 'Include in json' > 'Assets'" });
     if (!bm.includeKeyframes && analysis.stats.layers > 0)
-        analysis.warnings.push({ type: "keyframes", message: "No keyframe animation data detected. All layers appear static — motion won't be visible.", fix: "⚙ In Bodymovin export settings, enable: \"Include in json\" > \"Keyframe Data\" to preserve animation." });
+        analysis.warnings.push({ type: "keyframes", message: "No keyframe data — motion won't be visible.", fix: "In Bodymovin: enable 'Keyframe Data'" });
     if (!bm.includeExpressions && analysis.expressions.length > 0)
-        analysis.warnings.push({ type: "expressions", message: "Expressions found but may not render in Figma. Figma does not support AE expressions natively.", fix: "⚙ Bake expressions to keyframes in AE before exporting, or accept that complex expressions won't render." });
+        analysis.warnings.push({ type: "expressions", message: "Expressions found — Figma doesn't support AE expressions.", fix: "Bake expressions to keyframes in AE first." });
     if (bm.hiddenLayers)
-        analysis.warnings.push({ type: "hidden", message: "Hidden layers detected — these will not be visible after import.", fix: "⚙ Unhide layers in AE before exporting, or use the \"Visible layers only\" option in Bodymovin." });
+        analysis.warnings.push({ type: "hidden", message: "Hidden layers detected — will not be visible.", fix: "Unhide layers in AE or use 'Visible layers only'." });
     if (!bm.compressedJson && json.comp)
-        analysis.warnings.push({ type: "compressed", message: "File appears to use compressed JSON format — Figma requires uncompressed.", fix: "⚙ In Bodymovin export settings, uncheck \"Compress JSON\" for smaller file sizes (Figma ignores compression anyway)." });
+        analysis.warnings.push({ type: "compressed", message: "Compressed JSON format — Figma needs uncompressed.", fix: "Uncheck 'Compress JSON' in Bodymovin." });
     if (!analysis.valid)
-        analysis.errors.push("File could not be parsed — check that the file is a valid Bodymovin/Lottie JSON export.");
+        analysis.errors.push("Not a valid Bodymovin/Lottie JSON export.");
     return analysis;
 }
 function sanitizeName(n) { return n.replace(/[<>:"\/\\|?*\x00-\x1f]/g, "_").replace(/\.+$/, "").trim() || "unnamed"; }
@@ -420,20 +417,149 @@ async function buildLottieBundle(roots) { const allNodes = deepFlatten(roots); c
     }
     catch (e) { }
 } return { fileName: `${sanitizeName(figma.root.name)}_lottie.json`, exportDate: new Date().toISOString(), source: figma.root.name || "Untitled", itemCount: items.length, items }; }
+function placeAnimationInFigma(analysis) {
+    const center = figma.viewport.center;
+    const animW = analysis.meta.width || 500;
+    const animH = analysis.meta.height || 500;
+    const scale = Math.min(600 / animW, 400 / animH, 1);
+    const fw = animW * scale, fh = animH * scale;
+    const fx = center.x - fw / 2, fy = center.y - fh / 2;
+    const mainFrame = figma.createFrame();
+    mainFrame.name = analysis.fileName.replace(/\.json$/, "") + " (Lottie)";
+    mainFrame.resize(fw, fh);
+    mainFrame.x = fx;
+    mainFrame.y = fy;
+    mainFrame.fills = [{ type: "SOLID", color: { r: 0.97, g: 0.97, b: 0.97 } }];
+    mainFrame.clipsContent = true;
+    figma.currentPage.appendChild(mainFrame);
+    function lc(c, alpha) {
+        if (!c)
+            return { r: 0, g: 0, b: 0, a: 1 };
+        if (Array.isArray(c) && c.length >= 3)
+            return { r: c[0], g: c[1], b: c[2], a: c.length > 3 ? c[3] : 1 };
+        return { r: 0, g: 0, b: 0, a: 1 };
+    }
+    function processLayers(layers, parent, depth) {
+        const layerH = Math.max(24, Math.min(60, (fh - 20) / (layers.length || 1)));
+        let yOff = 8;
+        for (let i = 0; i < layers.length; i++) {
+            const l = layers[i];
+            if (l.hd)
+                continue;
+            const nm = l.nm || "Layer " + (i + 1);
+            const ty = l.ty;
+            let kf = "";
+            if (l.ks && l.ks.k && Array.isArray(l.ks.k) && l.ks.k.length > 0)
+                kf = "🎬 ";
+            if (l.ks && l.ks.k && typeof l.ks.k === "object" && !Array.isArray(l.ks.k) && l.ks.k.k && Array.isArray(l.ks.k.k))
+                kf = "🎬 ";
+            let fill = { r: 0, g: 0, b: 0, a: 1 };
+            if (ty === 0)
+                fill = { r: 0.5, g: 0.5, b: 0.9, a: 0.15 };
+            else if (ty === 1)
+                fill = { r: 0.3, g: 0.7, b: 1, a: 0.2 };
+            else if (ty === 2)
+                fill = { r: 0.3, g: 0.8, b: 0.4, a: 0.2 };
+            else if (ty === 3)
+                fill = { r: 0.8, g: 0.8, b: 0.8, a: 0.15 };
+            else if (ty === 4) {
+                if (l.shapes && l.shapes.length > 0) {
+                    const s0 = l.shapes[0];
+                    if (s0.it) {
+                        for (const it of s0.it) {
+                            if (it.ty === "fl" && it.c) {
+                                fill = lc(it.c.k);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else if (ty === 5) {
+                const t = l.t;
+                if (t && t.d && t.d.k && Array.isArray(t.d.k) && t.d.k.length > 0 && t.d.k[0].s) {
+                    fill = { r: 0.1, g: 0.1, b: 0.1, a: 0.8 };
+                }
+            }
+            let node;
+            const nodeW = Math.min(fw - 40, 300);
+            if (ty === 5 && l.t && l.t.d && l.t.d.k && Array.isArray(l.t.d.k) && l.t.d.k[0].s) {
+                const tnode = figma.createText();
+                tnode.fontSize = 14;
+                tnode.characters = String(l.t.d.k[0].s).substring(0, 60);
+                tnode.fills = [{ type: "SOLID", color: fill }];
+                tnode.resize(nodeW, layerH);
+                tnode.name = kf + nm;
+                node = tnode;
+            }
+            else {
+                const rnode = figma.createFrame();
+                rnode.resize(nodeW, layerH);
+                rnode.cornerRadius = 4;
+                rnode.fills = [{ type: "SOLID", color: fill, opacity: 0.6 }];
+                rnode.name = kf + nm;
+                const lab = figma.createText();
+                lab.fontSize = 10;
+                const tyNames = ["Precomp", "Solid", "Image", "Null", "Shape", "Text"];
+                lab.characters = `${tyNames[ty] || "Layer"} · ${nm}`;
+                lab.fills = [{ type: "SOLID", color: { r: 0.3, g: 0.3, b: 0.3 } }];
+                lab.resize(nodeW - 16, 14);
+                lab.x = 8;
+                lab.y = (layerH - 14) / 2;
+                rnode.appendChild(lab);
+                node = rnode;
+            }
+            node.x = 16;
+            node.y = yOff;
+            node.opacity = l.op !== undefined ? l.op / 100 : 1;
+            if (l.ks && l.ks.o && typeof l.ks.o === "object") {
+                if (l.ks.o.k != null)
+                    node.opacity = Number(l.ks.o.k) / 100;
+            }
+            parent.appendChild(node);
+            if (l.layers && l.layers.length > 0 && node.type === "FRAME") {
+                const subFrame = node;
+                subFrame.layoutMode = "VERTICAL";
+                subFrame.primaryAxisSizingMode = "AUTO";
+                subFrame.counterAxisSizingMode = "FIXED";
+                processLayers(l.layers, subFrame, depth + 1);
+                subFrame.resize(nodeW, Math.max(layerH, subFrame.children.length * layerH + 16));
+            }
+            yOff += layerH + 4;
+        }
+    }
+    processLayers(analysis.layerTreeRaw, mainFrame, 0);
+    figma.viewport.scrollAndZoomIntoView([mainFrame]);
+    mainFrame.resize(mainFrame.width, Math.max(fh, mainFrame.children.reduce((s, c) => Math.max(s, c.y + c.height), 0) + 16));
+    figma.ui.postMessage({ type: "animation-placed", name: mainFrame.name, x: mainFrame.x, y: mainFrame.y });
+}
 figma.showUI(__html__, { width: 520, height: 700, title: "Extract All — Lottie Import" });
 let cancelRequested = false;
 function postSel() { figma.ui.postMessage({ type: "selection-state", count: figma.currentPage.selection.length, pageName: figma.currentPage.name }); }
 figma.on("selectionchange", postSel);
 figma.on("currentpagechange", postSel);
 postSel();
+let lastAnalysis = null;
 figma.ui.onmessage = async (msg) => {
     cancelRequested = false;
     zipFiles = [];
     const scope = getScope();
     const baseName = figma.root.name || "Untitled";
     if (msg.type === "import-lottie-json" || msg.type === "analyze-lottie") {
-        const analysis = analyzeLottieFile(msg.fileName || "lottie.json", String(msg.content || ""));
-        figma.ui.postMessage({ type: "lottie-analysis", analysis });
+        lastAnalysis = analyzeLottieFile(msg.fileName || "lottie.json", String(msg.content || ""));
+        figma.ui.postMessage({ type: "lottie-analysis", analysis: lastAnalysis });
+    }
+    if (msg.type === "place-lottie") {
+        if (!lastAnalysis || !lastAnalysis.valid) {
+            figma.ui.postMessage({ type: "error", message: "No valid animation to place. Import a Lottie file first." });
+            return;
+        }
+        try {
+            placeAnimationInFigma(lastAnalysis);
+        }
+        catch (e) {
+            figma.ui.postMessage({ type: "error", message: "Failed to place animation: " + e.message });
+        }
     }
     if (msg.type === "get-full-extract" && !msg.aeOpts && !msg.aiOpts) {
         const data = buildFullExtractSync((p) => { figma.ui.postMessage({ type: "full-extract-progress", progress: p }); });
@@ -452,18 +578,16 @@ figma.ui.onmessage = async (msg) => {
         fetchAndSendVars();
         fetchAndSendStyles();
         if (msg.aeOpts.includeSVGs && !cancelRequested) {
-            const allNodes = deepFlatten(scope.roots).filter(n => n.type !== "TEXT" && n.type !== "PAGE" && isVisible(n));
-            const total = allNodes.length;
-            for (let i = 0; i < allNodes.length; i += 4) {
+            const an = deepFlatten(scope.roots).filter(n => n.type !== "TEXT" && n.type !== "PAGE" && isVisible(n));
+            for (let i = 0; i < an.length; i += 4) {
                 if (cancelRequested)
                     break;
-                const batch = allNodes.slice(i, i + 4);
-                const results = await Promise.all(batch.map(n => exportNodeSVG(n.id)));
-                for (const r of results) {
+                const br = await Promise.all(an.slice(i, i + 4).map(n => exportNodeSVG(n.id)));
+                for (const r of br) {
                     if (r)
                         zipFiles.push(r);
                 }
-                figma.ui.postMessage({ type: "progress", current: Math.min(i + 4, total), total: total, label: "SVGs" });
+                figma.ui.postMessage({ type: "progress", current: Math.min(i + 4, an.length), total: an.length, label: "SVGs" });
             }
         }
         if (msg.aeOpts.includeLottie && !cancelRequested) {
@@ -484,18 +608,16 @@ figma.ui.onmessage = async (msg) => {
         fetchAndSendVars();
         fetchAndSendStyles();
         if (msg.aiOpts.includeSVGs && !cancelRequested) {
-            const allNodes = deepFlatten(scope.roots).filter(n => n.type !== "TEXT" && n.type !== "PAGE" && isVisible(n));
-            const total = allNodes.length;
-            for (let i = 0; i < allNodes.length; i += 4) {
+            const an = deepFlatten(scope.roots).filter(n => n.type !== "TEXT" && n.type !== "PAGE" && isVisible(n));
+            for (let i = 0; i < an.length; i += 4) {
                 if (cancelRequested)
                     break;
-                const batch = allNodes.slice(i, i + 4);
-                const results = await Promise.all(batch.map(n => exportNodeSVG(n.id)));
-                for (const r of results) {
+                const br = await Promise.all(an.slice(i, i + 4).map(n => exportNodeSVG(n.id)));
+                for (const r of br) {
                     if (r)
                         zipFiles.push(r);
                 }
-                figma.ui.postMessage({ type: "progress", current: Math.min(i + 4, total), total: total, label: "SVGs" });
+                figma.ui.postMessage({ type: "progress", current: Math.min(i + 4, an.length), total: an.length, label: "SVGs" });
             }
         }
         figma.ui.postMessage({ type: "full-extract", data: { textNodes: data.textNodes.length, variables: 0, styles: 0, components: data.components.length, totalNodes: data.nodeCounts.total, scope: data.meta.scopeDescription } });
