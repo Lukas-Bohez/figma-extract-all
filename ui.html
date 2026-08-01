@@ -867,6 +867,32 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
     });
   });
 
+  // ── Progress tracking ──
+  var currentPhase = '';
+  var phaseEnd = 0;
+  function updateProgress(msg) {
+    if (!progEl) return;
+    if (msg.type === 'full-extract-progress' && msg.progress) {
+      var p = msg.progress;
+      currentPhase = p.label;
+      phaseEnd = p.totalSteps;
+      // Phase 0-3 is the initial sync scan (33% of total work)
+      var phasePct = Math.min(33, Math.round((p.step / p.totalSteps) * 33));
+      if (p.totalSteps >= 6) { phasePct = Math.round((p.step / p.totalSteps) * 100); }
+      progFill.style.width = phasePct + "%";
+      progTxt.textContent = p.label + ': ' + p.detail;
+      progEl.classList.add("show");
+    } else if (msg.type === 'progress') {
+      if (msg.total > 0) {
+        // SVG export phase: 33% to 100%
+        var pct = 33 + Math.round((msg.current / msg.total) * 67);
+        progFill.style.width = pct + "%";
+        progTxt.textContent = (msg.label || 'Exporting') + ': ' + msg.current + ' / ' + msg.total;
+        progEl.classList.add("show");
+      }
+    }
+  }
+
   // ── Message handler ──
   window.addEventListener("message", function (e) {
     var m = e.data.pluginMessage; if (!m) return;
@@ -875,13 +901,13 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
         renderAnalysis(m.analysis);
         if (m.rawJson) lastRawJson = m.rawJson;
         break;
-      case "full-extract-progress": if (m.progress) { var p = m.progress; progFill.style.width = Math.round((p.step / p.totalSteps) * 100) + "%"; progEl.classList.add("show"); } break;
-      case "full-extract": isExporting = false; hideCancel(); progFill.style.width = "100%"; setTimeout(function () { if (!isExporting) { progEl.classList.remove("show"); } }, 3000); break;
+      case "full-extract-progress": updateProgress(m); break;
+      case "full-extract": isExporting = false; hideCancel(); progFill.style.width = "100%"; progTxt.textContent = "Complete: " + (m.data && m.data.textNodes ? m.data.textNodes : 0) + " text nodes extracted"; setTimeout(function () { if (!isExporting) { progEl.classList.remove("show"); } }, 4000); log("Extract complete — " + (m.data ? m.data.textNodes + " texts, " + m.data.components + " components" : ""), "ok"); break;
       case "download-file": dlFile(m.fileName, m.content, m.mimeType); break;
       case "zip-chunk": handleZipChunk(m.fileName, m.index, m.total, m.bytes); break;
       case "export-results": if (m.results && m.results.length > 0) { for (var i = 0; i < m.results.length; i++) { var it = m.results[i]; dlBytes(it.name + "." + it.format.toLowerCase(), it.bytes, it.format.toLowerCase()); } } break;
-      case "progress": if (m.total > 0) { progFill.style.width = Math.round((m.current / m.total) * 100) + "%"; } break;
-      case "export-complete": isExporting = false; hideCancel(); progFill.style.width = "100%"; setTimeout(function () { progEl.classList.remove("show"); }, 2500); break;
+      case "progress": updateProgress(m); break;
+      case "export-complete": isExporting = false; hideCancel(); progFill.style.width = "100%"; progTxt.textContent = "Export complete"; setTimeout(function () { if (!isExporting) { progEl.classList.remove("show"); } }, 3000); log("Batch export complete", "ok"); break;
       case "animation-placed": log("GIF placed on canvas: " + m.name + " at (" + m.x + ", " + m.y + ")", "ok"); break;
       case "error": isExporting = false; hideCancel(); el("renderOverlay").classList.remove("show"); log(m.message, "err"); progEl.classList.remove("show"); break;
     }
