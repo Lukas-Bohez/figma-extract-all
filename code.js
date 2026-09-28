@@ -1,57 +1,424 @@
 "use strict";
-const PLUGIN_VERSION = "18.1.1";
-const TE = { encode: (s) => { const r = new Uint8Array(s.length); for (let i = 0; i < s.length; i++)
-        r[i] = s.charCodeAt(i) & 0xFF; return r; } };
-const CRC_TABLE = ((() => { const t = new Uint32Array(256); for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++)
-        c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
-    t[i] = c >>> 0;
-} return t; }))();
-function crc32(d) { let c = 0xFFFFFFFF; for (let i = 0; i < d.length; i++)
-    c = CRC_TABLE[(c ^ d[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
-function makeZip(files) { const locals = [], cdirs = []; let off = 0; for (const f of files) {
-    const nb = TE.encode(f.name);
-    const crc = crc32(f.data);
-    const sz = f.data.length;
-    const lh = new Uint8Array(30 + nb.length);
-    new DataView(lh.buffer).setUint32(0, 0x04034b50, true);
-    lh[6] = 0;
-    lh[7] = 0;
-    lh[8] = 0;
-    lh[9] = 0;
-    new DataView(lh.buffer).setUint32(14, crc, true);
-    new DataView(lh.buffer).setUint32(18, sz, true);
-    new DataView(lh.buffer).setUint32(22, sz, true);
-    new DataView(lh.buffer).setUint16(26, nb.length, true);
-    lh[28] = 0;
-    lh[29] = 0;
-    lh.set(nb, 30);
-    locals.push(lh, f.data);
-    const entryOff = off;
-    off += 30 + nb.length + sz;
-    const cd = new Uint8Array(46 + nb.length);
-    new DataView(cd.buffer).setUint32(0, 0x02014b50, true);
-    cd[6] = 0;
-    cd[7] = 0;
-    cd[8] = 0;
-    cd[9] = 0;
-    new DataView(cd.buffer).setUint32(16, crc, true);
-    new DataView(cd.buffer).setUint32(20, sz, true);
-    new DataView(cd.buffer).setUint32(24, sz, true);
-    new DataView(cd.buffer).setUint16(28, nb.length, true);
-    new DataView(cd.buffer).setUint32(42, entryOff, true);
-    cd.set(nb, 46);
-    cdirs.push(cd);
-} const cdOff = off; const cdSz = cdirs.reduce((s, a) => s + a.length, 0); const eocd = new Uint8Array(22); new DataView(eocd.buffer).setUint32(0, 0x06054b50, true); new DataView(eocd.buffer).setUint16(8, files.length, true); new DataView(eocd.buffer).setUint16(10, files.length, true); new DataView(eocd.buffer).setUint32(12, cdSz, true); new DataView(eocd.buffer).setUint32(16, cdOff, true); const total = off + cdSz + 22; const result = new Uint8Array(total); let pos = 0; for (const p of locals) {
-    result.set(p, pos);
-    pos += p.length;
-} for (const p of cdirs) {
-    result.set(p, pos);
-    pos += p.length;
-} result.set(eocd, pos); return result; }
+const PLUGIN_VERSION = "18.3.0";
+const TE = {
+    encode: (s) => {
+        const r = new Uint8Array(s.length);
+        for (let i = 0; i < s.length; i++)
+            r[i] = s.charCodeAt(i) & 0xff;
+        return r;
+    },
+};
+const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let j = 0; j < 8; j++)
+            c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        t[i] = c >>> 0;
+    }
+    return t;
+})();
+function crc32(d) {
+    let c = 0xffffffff;
+    for (let i = 0; i < d.length; i++)
+        c = CRC_TABLE[(c ^ d[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+}
+function makeZip(files) {
+    const locals = [];
+    const cdirs = [];
+    let off = 0;
+    for (const f of files) {
+        const nb = TE.encode(f.name);
+        const crc = crc32(f.data);
+        const sz = f.data.length;
+        const lh = new Uint8Array(30 + nb.length);
+        new DataView(lh.buffer).setUint32(0, 0x04034b50, true);
+        lh[6] = 0;
+        lh[7] = 0;
+        lh[8] = 0;
+        lh[9] = 0;
+        new DataView(lh.buffer).setUint32(14, crc, true);
+        new DataView(lh.buffer).setUint32(18, sz, true);
+        new DataView(lh.buffer).setUint32(22, sz, true);
+        new DataView(lh.buffer).setUint16(26, nb.length, true);
+        lh[28] = 0;
+        lh[29] = 0;
+        lh.set(nb, 30);
+        locals.push(lh, f.data);
+        const entryOff = off;
+        off += 30 + nb.length + sz;
+        const cd = new Uint8Array(46 + nb.length);
+        new DataView(cd.buffer).setUint32(0, 0x02014b50, true);
+        cd[6] = 0;
+        cd[7] = 0;
+        cd[8] = 0;
+        cd[9] = 0;
+        new DataView(cd.buffer).setUint32(16, crc, true);
+        new DataView(cd.buffer).setUint32(20, sz, true);
+        new DataView(cd.buffer).setUint32(24, sz, true);
+        new DataView(cd.buffer).setUint16(28, nb.length, true);
+        new DataView(cd.buffer).setUint32(42, entryOff, true);
+        cd.set(nb, 46);
+        cdirs.push(cd);
+    }
+    const cdOff = off;
+    const cdSz = cdirs.reduce((s, a) => s + a.length, 0);
+    const eocd = new Uint8Array(22);
+    new DataView(eocd.buffer).setUint32(0, 0x06054b50, true);
+    new DataView(eocd.buffer).setUint16(8, files.length, true);
+    new DataView(eocd.buffer).setUint16(10, files.length, true);
+    new DataView(eocd.buffer).setUint32(12, cdSz, true);
+    new DataView(eocd.buffer).setUint32(16, cdOff, true);
+    const total = off + cdSz + 22;
+    const result = new Uint8Array(total);
+    let pos = 0;
+    for (const p of locals) {
+        result.set(p, pos);
+        pos += p.length;
+    }
+    for (const p of cdirs) {
+        result.set(p, pos);
+        pos += p.length;
+    }
+    result.set(eocd, pos);
+    return result;
+}
+function rgbToHex(r, g, b) {
+    const toHex = (v) => {
+        const x = Math.round(Math.max(0, Math.min(1, v)) * 255);
+        return x.toString(16).padStart(2, "0");
+    };
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+function sanitizeName(n) {
+    return n.replace(/[<>:"\/\\|?*\x00-\x1f]/g, "_").replace(/\.+$/, "").trim() || "unnamed";
+}
+function extractFills(f) {
+    var _a, _b, _c, _d, _e;
+    if (f === figma.mixed)
+        return [];
+    const r = [];
+    for (const fi of f || []) {
+        if (fi.type === "SOLID" && fi.color) {
+            const opacity = (_a = fi.opacity) !== null && _a !== void 0 ? _a : 1;
+            r.push({
+                type: "SOLID",
+                hex: rgbToHex(fi.color.r, fi.color.g, fi.color.b),
+                rgba: { r: fi.color.r, g: fi.color.g, b: fi.color.b, a: opacity },
+                opacity,
+                visible: (_b = fi.visible) !== null && _b !== void 0 ? _b : true,
+                blendMode: (_c = fi.blendMode) !== null && _c !== void 0 ? _c : "NORMAL",
+                boundVariableId: ((_e = (_d = fi.boundVariables) === null || _d === void 0 ? void 0 : _d.color) === null || _e === void 0 ? void 0 : _e.id) || null,
+            });
+        }
+    }
+    return r;
+}
+function parseLineHeight(lh) {
+    if (!lh || lh === figma.mixed)
+        return null;
+    if (typeof lh === "number")
+        return { value: lh, unit: "PIXELS" };
+    if (typeof lh === "object") {
+        if ("value" in lh && typeof lh.value === "number")
+            return { value: lh.value, unit: lh.unit || "PIXELS" };
+        if ("fontSize" in lh && typeof lh.fontSize === "number")
+            return { value: lh.fontSize, unit: "PERCENT" };
+    }
+    return null;
+}
+function parseLetterSpacing(ls) {
+    if (!ls || ls === figma.mixed)
+        return null;
+    if (typeof ls === "number")
+        return { value: ls, unit: "PIXELS" };
+    if (typeof ls === "object" && "value" in ls && typeof ls.value === "number")
+        return { value: ls.value, unit: ls.unit || "PIXELS" };
+    return null;
+}
+function getNodeContext(node) {
+    let pageName = "(unknown)";
+    let parentFrame = "";
+    let parentPath = "";
+    let absoluteX = 0;
+    let absoluteY = 0;
+    try {
+        const pathParts = [];
+        let cur = node.parent || null;
+        while (cur) {
+            if (cur.type === "PAGE") {
+                pageName = cur.name;
+                pathParts.unshift(cur.name);
+                break;
+            }
+            pathParts.unshift(cur.name || "(unnamed)");
+            if (!parentFrame && (cur.type === "FRAME" || cur.type === "COMPONENT" || cur.type === "INSTANCE" || cur.type === "GROUP")) {
+                parentFrame = cur.name;
+            }
+            cur = cur.parent || null;
+        }
+        parentPath = pathParts.join(" > ");
+        cur = node;
+        while (cur && cur.type !== "PAGE") {
+            if ("x" in cur && "y" in cur) {
+                absoluteX += cur.x;
+                absoluteY += cur.y;
+            }
+            cur = cur.parent || null;
+        }
+    }
+    catch (e) {
+    }
+    return {
+        pageName,
+        parentPath,
+        parentFrame,
+        absoluteX: Math.round(absoluteX * 100) / 100,
+        absoluteY: Math.round(absoluteY * 100) / 100,
+    };
+}
+function extractText(node) {
+    var _a, _b;
+    const ctx = getNodeContext(node);
+    const fontName = node.fontName !== figma.mixed && typeof node.fontName === "object" ? node.fontName : null;
+    return {
+        id: node.id,
+        name: node.name,
+        characters: node.characters,
+        pageName: ctx.pageName,
+        parentPath: ctx.parentPath,
+        parentFrame: ctx.parentFrame,
+        absoluteX: ctx.absoluteX,
+        absoluteY: ctx.absoluteY,
+        width: Math.round(node.width * 100) / 100,
+        height: Math.round(node.height * 100) / 100,
+        x: Math.round(node.x * 100) / 100,
+        y: Math.round(node.y * 100) / 100,
+        fontFamily: (_a = fontName === null || fontName === void 0 ? void 0 : fontName.family) !== null && _a !== void 0 ? _a : "unknown",
+        fontStyle: (_b = fontName === null || fontName === void 0 ? void 0 : fontName.style) !== null && _b !== void 0 ? _b : "Regular",
+        fontSize: typeof node.fontSize === "number" ? node.fontSize : 0,
+        fontWeight: typeof node.fontWeight === "number" ? node.fontWeight : 400,
+        lineHeight: parseLineHeight(node.lineHeight),
+        letterSpacing: parseLetterSpacing(node.letterSpacing),
+        textAlignHorizontal: node.textAlignHorizontal,
+        textAlignVertical: node.textAlignVertical,
+        fills: extractFills(node.fills),
+        opacity: Math.round(node.opacity * 100) / 100,
+    };
+}
+function buildPlainText(texts) {
+    const l = [`═══ TEXT — ${figma.root.name || "Untitled"}`, `  ${new Date().toISOString()}`, `═══`, ` `];
+    for (const t of texts) {
+        const fills = t.fills.map((f) => f.hex).join(", ") || "none";
+        l.push(`── ${t.name} ──`, `  Page: ${t.pageName} | Frame: ${t.parentFrame || "(none)"}`, `  Font: ${t.fontFamily} ${t.fontStyle} ${t.fontSize}px`, `  Position: ${t.absoluteX}, ${t.absoluteY} | Size: ${t.width}×${t.height}`, `  Fills: ${fills}`, `  Text: ${t.characters.split("\n").join("↵")}`, ` `);
+    }
+    l.push(`── END (${texts.length} texts) ──`);
+    return l.join("\n");
+}
+let zipFiles = [];
+function addToZip(n, c) {
+    if (typeof c === "string")
+        zipFiles.push({ name: n, data: TE.encode(c) });
+    else
+        zipFiles.push({ name: n, data: c });
+}
+const B64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function b64Encode(u8) {
+    const out = [];
+    const len = u8.length;
+    for (let i = 0; i < len; i += 3) {
+        const a = u8[i];
+        const hasB = i + 1 < len;
+        const hasC = i + 2 < len;
+        const b = hasB ? u8[i + 1] : 0;
+        const c = hasC ? u8[i + 2] : 0;
+        const t = (a << 16) | (b << 8) | c;
+        out.push(B64_CHARS[(t >> 18) & 63], B64_CHARS[(t >> 12) & 63], hasB ? B64_CHARS[(t >> 6) & 63] : "=", hasC ? B64_CHARS[t & 63] : "=");
+    }
+    return out.join("");
+}
+function flushZipChunked(fb) {
+    if (zipFiles.length === 0)
+        return;
+    const zip = makeZip(zipFiles);
+    zipFiles.length = 0;
+    const CH = 300000;
+    const t = Math.ceil(zip.length / CH);
+    const zn = `${sanitizeName(fb)}_extract.zip`;
+    for (let i = 0; i < t; i++) {
+        const s = i * CH;
+        const e = Math.min(s + CH, zip.length);
+        figma.ui.postMessage({ type: "zip-chunk", fileName: zn, index: i, total: t, b64: b64Encode(zip.subarray(s, e)) });
+    }
+}
+function flushZipPart(fb, part) {
+    if (zipFiles.length === 0)
+        return;
+    flushZipChunked(`${fb}_${part}`);
+}
+function downloadFile(fn, ct, m) {
+    figma.ui.postMessage({ type: "download-file", fileName: fn, content: ct, mimeType: m });
+}
+async function fetchVars(baseName) {
+    var _a, _b;
+    try {
+        const vars = [];
+        const mm = {};
+        const [lv, c] = await Promise.all([
+            figma.variables.getLocalVariablesAsync().catch(() => null),
+            figma.variables.getLocalVariableCollectionsAsync().catch(() => null),
+        ]);
+        if (c) {
+            for (const col of c || []) {
+                mm[col.id] = {};
+                for (const m of col.modes)
+                    mm[col.id][m.modeId] = m.name;
+            }
+        }
+        if (lv) {
+            for (const v of lv || []) {
+                const en = {};
+                const raw = v.valuesByMode || {};
+                const ci = v.variableCollectionId || "";
+                for (const [mi, val] of Object.entries(raw)) {
+                    const mn = ((_a = mm[ci]) === null || _a === void 0 ? void 0 : _a[mi]) || mi;
+                    const info = { raw: val };
+                    if (v.resolvedType === "COLOR" && val && typeof val === "object" && "r" in val) {
+                        const cval = val;
+                        info.hex = rgbToHex(cval.r, cval.g, cval.b);
+                        info.css = `rgba(${Math.round(cval.r * 255)}, ${Math.round(cval.g * 255)}, ${Math.round(cval.b * 255)}, ${(_b = cval.a) !== null && _b !== void 0 ? _b : 1})`;
+                    }
+                    en[mn] = info;
+                }
+                vars.push({
+                    id: v.id,
+                    name: v.name,
+                    resolvedType: v.resolvedType,
+                    valuesByMode: en,
+                    scopes: v.scopes || [],
+                    description: v.description || "",
+                    remote: v.remote || false,
+                });
+            }
+        }
+        addToZip(`${baseName}_variables.json`, JSON.stringify(vars));
+    }
+    catch (e) {
+        addToZip(`${baseName}_variables.json`, "[]");
+    }
+}
+async function fetchStyles(baseName) {
+    try {
+        const ss = [];
+        const [ps, ts, es, gs] = await Promise.all([
+            figma.getLocalPaintStylesAsync().catch(() => []),
+            figma.getLocalTextStylesAsync().catch(() => []),
+            figma.getLocalEffectStylesAsync().catch(() => []),
+            figma.getLocalGridStylesAsync().catch(() => []),
+        ]);
+        for (const s of ps || []) {
+            ss.push({
+                id: s.id,
+                name: s.name,
+                key: s.key,
+                styleType: s.type,
+                description: s.description || "",
+                paints: s.paints && s.paints.length > 0 ? extractFills(s.paints) : undefined,
+                remote: s.remote || false,
+            });
+        }
+        for (const s of ts || []) {
+            const fontName = s.fontName;
+            ss.push({
+                id: s.id,
+                name: s.name,
+                key: s.key,
+                styleType: s.type,
+                description: s.description || "",
+                fontSize: s.fontSize,
+                fontFamily: fontName === null || fontName === void 0 ? void 0 : fontName.family,
+                fontWeight: fontName === null || fontName === void 0 ? void 0 : fontName.style,
+                lineHeight: parseLineHeight(s.lineHeight),
+                remote: s.remote || false,
+            });
+        }
+        for (const s of es || []) {
+            ss.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", remote: s.remote || false });
+        }
+        for (const s of gs || []) {
+            ss.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", remote: s.remote || false });
+        }
+        addToZip(`${baseName}_styles.json`, JSON.stringify(ss));
+    }
+    catch (e) {
+        addToZip(`${baseName}_styles.json`, "[]");
+    }
+}
+async function svgExport(nid, pageName) {
+    try {
+        const n = await figma.getNodeByIdAsync(nid);
+        if (!n)
+            return null;
+        const s = await n.exportAsync({ format: "SVG_STRING" });
+        if (!s || s.length < 10)
+            return null;
+        return { name: `svgs/${sanitizeName(pageName)}/${sanitizeName(n.name)}.svg`, data: TE.encode(s) };
+    }
+    catch (e) {
+        return null;
+    }
+}
+async function exportNodes(nodeIds, format, scale) {
+    const r = [];
+    for (const id of nodeIds) {
+        const n = await figma.getNodeByIdAsync(id);
+        if (!n)
+            continue;
+        try {
+            let b;
+            switch (format) {
+                case "SVG":
+                    b = await n.exportAsync({ format: "SVG" });
+                    break;
+                case "PNG":
+                    b = await n.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
+                    break;
+                case "JPG":
+                    b = await n.exportAsync({ format: "JPG", constraint: { type: "SCALE", value: scale } });
+                    break;
+                case "PDF":
+                    b = await n.exportAsync({ format: "PDF" });
+                    break;
+                default:
+                    continue;
+            }
+            r.push({ id: n.id, name: sanitizeName(n.name), format: format.toLowerCase(), bytes: Array.from(b) });
+        }
+        catch (e) {
+        }
+    }
+    return r;
+}
 function analyzeLottieFile(fileName, content) {
-    const a = { fileName, valid: false, errors: [], meta: { frameRate: 0, inPoint: 0, outPoint: 0, width: 0, height: 0, duration: 0 }, stats: { layers: 0, shapes: 0, paths: 0, images: 0, texts: 0, solids: 0, nulls: 0, precomps: 0 }, assets: [], expressions: [], markers: [], warnings: [], layerTree: [], layerTreeRaw: [], bodymovinSettings: { includeAssets: false, includeKeyframes: false, includeExpressions: false, hiddenLayers: false, compressedJson: true, settingsOK: false }, hasKeyframes: false, hasAssets: false, totalFrames: 0 };
+    var _a, _b, _c, _d, _e, _f;
+    const a = {
+        fileName,
+        valid: false,
+        errors: [],
+        meta: { frameRate: 0, inPoint: 0, outPoint: 0, width: 0, height: 0, duration: 0 },
+        stats: { layers: 0, shapes: 0, paths: 0, images: 0, texts: 0, solids: 0, nulls: 0, precomps: 0 },
+        assets: [],
+        expressions: [],
+        markers: [],
+        warnings: [],
+        layerTree: [],
+        layerTreeRaw: [],
+        bodymovinSettings: { includeAssets: false, includeKeyframes: false, includeExpressions: false, hiddenLayers: false, compressedJson: true, settingsOK: false },
+        hasKeyframes: false,
+        hasAssets: false,
+        totalFrames: 0,
+    };
     let json;
     try {
         json = JSON.parse(content);
@@ -61,143 +428,164 @@ function analyzeLottieFile(fileName, content) {
         a.errors.push("Invalid JSON");
         return a;
     }
-    if (!json) {
+    if (!json || typeof json !== "object") {
         a.errors.push("Empty file");
         return a;
     }
-    a.meta.frameRate = json.fr || 0;
-    a.meta.inPoint = json.ip || 0;
-    a.meta.outPoint = json.op || 0;
-    a.meta.width = json.w || 0;
-    a.meta.height = json.h || 0;
-    a.meta.duration = a.meta.frameRate > 0 ? (a.meta.outPoint - a.meta.inPoint) / a.meta.frameRate : 0;
+    a.meta.frameRate = typeof json.fr === "number" ? json.fr : 0;
+    a.meta.inPoint = typeof json.ip === "number" ? json.ip : 0;
+    a.meta.outPoint = typeof json.op === "number" ? json.op : 0;
+    a.meta.width = typeof json.w === "number" ? json.w : 0;
+    a.meta.height = typeof json.h === "number" ? json.h : 0;
     a.totalFrames = a.meta.outPoint - a.meta.inPoint;
+    a.meta.duration = a.meta.frameRate > 0 ? a.totalFrames / a.meta.frameRate : 0;
+    if (a.meta.frameRate <= 0)
+        a.warnings.push({ type: "metadata", message: "Frame rate missing or invalid", fix: "Re-export with Bodymovin using a valid composition frame rate." });
+    if (a.meta.width <= 0 || a.meta.height <= 0)
+        a.warnings.push({ type: "metadata", message: "Animation dimensions missing", fix: "Verify the Bodymovin export includes width and height." });
+    const assets = Array.isArray(json.assets) ? json.assets : [];
+    a.hasAssets = assets.length > 0;
+    for (const asset of assets) {
+        if (!asset || typeof asset !== "object")
+            continue;
+        const type = asset.layers ? "precomp" : asset.p ? "image" : "data";
+        if (type === "precomp")
+            a.stats.precomps++;
+        if (type === "image")
+            a.stats.images++;
+        a.assets.push({
+            id: String((_a = asset.id) !== null && _a !== void 0 ? _a : ""),
+            type,
+            name: String((_c = (_b = asset.nm) !== null && _b !== void 0 ? _b : asset.id) !== null && _c !== void 0 ? _c : ""),
+            refId: asset.refId,
+            width: asset.w,
+            height: asset.h,
+            embedded: type === "image" ? !asset.u && !asset.p : true,
+        });
+    }
+    if (Array.isArray(json.markers)) {
+        for (const m of json.markers) {
+            if (m && typeof m === "object") {
+                a.markers.push({ name: String((_d = m.cm) !== null && _d !== void 0 ? _d : ""), time: ((_e = m.tm) !== null && _e !== void 0 ? _e : 0) / (a.meta.frameRate || 1), duration: ((_f = m.dr) !== null && _f !== void 0 ? _f : 0) / (a.meta.frameRate || 1) });
+            }
+        }
+    }
+    const layers = Array.isArray(json.layers) ? json.layers : [];
+    a.stats.layers = layers.length;
+    a.layerTreeRaw = layers;
+    const ICONS = { 0: "precomp", 1: "solid", 2: "image", 3: "null", 4: "shape", 5: "text" };
+    function inspectLayer(layer, depth, parentList) {
+        var _a;
+        if (!layer || typeof layer !== "object")
+            return;
+        const ty = layer.ty;
+        const hidden = layer.hd === true;
+        const node = {
+            type: ICONS[ty] || "unknown",
+            name: String((_a = layer.nm) !== null && _a !== void 0 ? _a : "(unnamed)"),
+            hidden,
+            children: [],
+        };
+        parentList.push(node);
+        if (hidden)
+            a.bodymovinSettings.hiddenLayers = true;
+        switch (ty) {
+            case 0:
+                a.stats.precomps++;
+                break;
+            case 1:
+                a.stats.solids++;
+                break;
+            case 2:
+                a.stats.images++;
+                break;
+            case 3:
+                a.stats.nulls++;
+                break;
+            case 4:
+                a.stats.shapes++;
+                break;
+            case 5:
+                a.stats.texts++;
+                break;
+        }
+        if (ty === 4 && Array.isArray(layer.shapes)) {
+            for (const shape of layer.shapes)
+                inspectShape(shape);
+        }
+        scanProperties(layer.ks);
+        if (layer.ao)
+            scanProperties(layer.ao);
+        if (Array.isArray(layer.ef)) {
+            for (const eff of layer.ef)
+                scanProperties(eff);
+        }
+    }
+    function inspectShape(shape) {
+        if (!shape || typeof shape !== "object")
+            return;
+        const ty = shape.ty;
+        if (ty === "gr" && Array.isArray(shape.it)) {
+            for (const child of shape.it)
+                inspectShape(child);
+        }
+        else if (ty === "sh") {
+            a.stats.paths++;
+        }
+        else if (ty === "rc" || ty === "el" || ty === "sr") {
+            a.stats.shapes++;
+        }
+        scanProperties(shape);
+    }
+    function scanProperties(obj) {
+        if (!obj || typeof obj !== "object")
+            return;
+        if (Array.isArray(obj)) {
+            for (const item of obj)
+                scanProperties(item);
+            return;
+        }
+        for (const key of Object.keys(obj)) {
+            const val = obj[key];
+            if (key === "x" && typeof val === "string" && val.length > 0) {
+                a.expressions.push(val);
+            }
+            if (key === "k" && Array.isArray(val) && val.length > 1) {
+                a.hasKeyframes = true;
+                a.bodymovinSettings.includeKeyframes = true;
+            }
+            if (typeof val === "object" && val !== null) {
+                scanProperties(val);
+            }
+        }
+    }
+    for (const layer of layers) {
+        inspectLayer(layer, 0, a.layerTree);
+    }
+    a.bodymovinSettings.includeAssets = a.hasAssets;
+    a.bodymovinSettings.includeKeyframes = a.hasKeyframes;
+    a.bodymovinSettings.includeExpressions = a.expressions.length > 0;
+    a.bodymovinSettings.compressedJson = false;
+    a.bodymovinSettings.settingsOK = a.meta.frameRate > 0 && a.meta.width > 0 && a.meta.height > 0;
+    if (a.stats.images > 0 && !a.assets.some((x) => x.type === "image" && x.embedded)) {
+        a.warnings.push({ type: "assets", message: "External image assets are referenced but not embedded", fix: "In Bodymovin, enable 'Assets > Include in json' or supply assets separately." });
+    }
+    if (a.expressions.length > 0) {
+        a.warnings.push({ type: "expressions", message: "Expressions are used; not all players support them", fix: "Test on your target Lottie player or bake expressions to keyframes." });
+    }
+    if (a.bodymovinSettings.hiddenLayers) {
+        a.warnings.push({ type: "layers", message: "Hidden layers are included", fix: "Enable 'Hidden' export in Bodymovin only if needed, or clean hidden layers." });
+    }
+    if (a.stats.texts > 0) {
+        a.warnings.push({ type: "text", message: "Text layers detected", fix: "Convert text to shapes or ensure fonts are available on the target platform." });
+    }
     return a;
 }
-function sanitizeName(n) { return n.replace(/[<>:"\/\\|?*\x00-\x1f]/g, "_").replace(/\.+$/, "").trim() || "unnamed"; }
-function getPageName(node) { let c = node.parent || null; while (c) {
-    if (c.type === "PAGE")
-        return c.name;
-    c = c.parent || null;
-} return "(unknown)"; }
-function extractFills(f) { var _a, _b, _c, _d, _e, _f; if (f === figma.mixed)
-    return []; const r = []; for (const fi of f || []) {
-    if (fi.type === "SOLID" && fi.color)
-        r.push({ type: "SOLID", hex: "#000", rgba: { r: fi.color.r, g: fi.color.g, b: fi.color.b, a: (_a = fi.opacity) !== null && _a !== void 0 ? _a : 1 }, opacity: (_b = fi.opacity) !== null && _b !== void 0 ? _b : 1, visible: (_c = fi.visible) !== null && _c !== void 0 ? _c : true, blendMode: (_d = fi.blendMode) !== null && _d !== void 0 ? _d : "NORMAL", boundVariableId: ((_f = (_e = fi.boundVariables) === null || _e === void 0 ? void 0 : _e.color) === null || _f === void 0 ? void 0 : _f.id) || null });
-} return r; }
-function extractText(node) {
-    return { id: node.id, name: node.name, characters: node.characters,
-        pageName: "(page)", parentPath: "(path)", parentFrame: "(frame)",
-        absoluteX: 0, absoluteY: 0, width: Math.round(node.width * 100) / 100, height: Math.round(node.height * 100) / 100,
-        x: Math.round(node.x * 100) / 100, y: Math.round(node.y * 100) / 100,
-        fontFamily: node.fontName !== figma.mixed && typeof node.fontName === "object" ? node.fontName.family : "unknown",
-        fontStyle: node.fontName !== figma.mixed && typeof node.fontName === "object" ? node.fontName.style : "Regular",
-        fontSize: typeof node.fontSize === "number" ? node.fontSize : 0,
-        fontWeight: typeof node.fontWeight === "number" ? node.fontWeight : 400,
-        lineHeight: null, letterSpacing: null,
-        textAlignHorizontal: node.textAlignHorizontal, textAlignVertical: node.textAlignVertical,
-        fills: [], opacity: Math.round(node.opacity * 100) / 100 };
-}
-function buildPlainText(texts) { const l = [`═══ TEXT — ${figma.root.name || "Untitled"}`, `  ${new Date().toISOString()}`, `═══`, ` `]; for (const t of texts) {
-    l.push(`── ${t.name} ──`, `  Font: ${t.fontFamily} ${t.fontStyle} ${t.fontSize}px`, `  Text: ${t.characters.split('\n').join('↵')}`, ` `);
-} l.push(`── END (${texts.length} texts) ──`); return l.join("\n"); }
-let zipFiles = [];
-function addToZip(n, c) { if (typeof c === "string")
-    zipFiles.push({ name: n, data: TE.encode(c) });
-else
-    zipFiles.push({ name: n, data: c }); }
-function flushZipChunked(fb) { if (zipFiles.length === 0)
-    return; const zip = makeZip(zipFiles); zipFiles = []; const CH = 400000; const t = Math.ceil(zip.length / CH); const zn = `${sanitizeName(fb)}_extract.zip`; for (let i = 0; i < t; i++) {
-    const s = i * CH, e = Math.min(s + CH, zip.length);
-    figma.ui.postMessage({ type: "zip-chunk", fileName: zn, index: i, total: t, bytes: Array.from(zip.slice(s, e)) });
-} }
-function downloadFile(fn, ct, m) { figma.ui.postMessage({ type: "download-file", fileName: fn, content: ct, mimeType: m }); }
-async function fetchVars(baseName) { var _a; try {
-    const vars = [];
-    let mm = {};
-    const [lv, c] = await Promise.all([figma.variables.getLocalVariablesAsync().catch(() => null), figma.variables.getLocalVariableCollectionsAsync().catch(() => null)]);
-    if (c)
-        for (const col of c || []) {
-            mm[col.id] = {};
-            for (const m of col.modes)
-                mm[col.id][m.modeId] = m.name;
-        }
-    if (lv)
-        for (const v of lv || []) {
-            const en = {};
-            const raw = v.valuesByMode || {};
-            const ci = v.variableCollectionId || "";
-            for (const [mi, val] of Object.entries(raw)) {
-                const mn = ((_a = mm[ci]) === null || _a === void 0 ? void 0 : _a[mi]) || mi;
-                en[mn] = { raw: val };
-            }
-            vars.push({ id: v.id, name: v.name, resolvedType: v.resolvedType, valuesByMode: en, scopes: v.scopes || [], description: v.description || "", remote: v.remote || false });
-        }
-    addToZip(`${baseName}_variables.json`, JSON.stringify(vars));
-}
-catch (e) {
-    addToZip(`${baseName}_variables.json`, "[]");
-} }
-async function fetchStyles(baseName) { var _a, _b; try {
-    const ss = [];
-    const [ps, ts, es, gs] = await Promise.all([figma.getLocalPaintStylesAsync().catch(() => []), figma.getLocalTextStylesAsync().catch(() => []), figma.getLocalEffectStylesAsync().catch(() => []), figma.getLocalGridStylesAsync().catch(() => [])]);
-    for (const s of ps || []) {
-        ss.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", paints: s.paints && s.paints.length > 0 ? extractFills(s.paints) : undefined, remote: s.remote || false });
-    }
-    for (const s of ts || []) {
-        ss.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", fontSize: s.fontSize, fontFamily: ((_a = s.fontName) === null || _a === void 0 ? void 0 : _a.family) || undefined, fontWeight: ((_b = s.fontName) === null || _b === void 0 ? void 0 : _b.style) || undefined, lineHeight: s.lineHeight && typeof s.lineHeight === "object" && "value" in s.lineHeight ? { value: s.lineHeight.value, unit: s.lineHeight.unit || "PIXELS" } : null, remote: s.remote || false });
-    }
-    for (const s of es || []) {
-        ss.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", remote: s.remote || false });
-    }
-    for (const s of gs || []) {
-        ss.push({ id: s.id, name: s.name, key: s.key, styleType: s.type, description: s.description || "", remote: s.remote || false });
-    }
-    addToZip(`${baseName}_styles.json`, JSON.stringify(ss));
-}
-catch (e) {
-    addToZip(`${baseName}_styles.json`, "[]");
-} }
-async function svgExport(nid, pageName) { try {
-    const n = await figma.getNodeByIdAsync(nid);
-    if (!n)
-        return null;
-    const s = await n.exportAsync({ format: "SVG_STRING" });
-    if (!s || s.length < 10)
-        return null;
-    return { name: `svgs/${sanitizeName(pageName)}/${sanitizeName(n.name)}.svg`, data: TE.encode(s) };
-}
-catch (e) {
-    return null;
-} }
-async function exportNodes(nodeIds, format, scale) { const r = []; for (const id of nodeIds) {
-    const n = await figma.getNodeByIdAsync(id);
-    if (!n)
-        continue;
-    try {
-        let b;
-        switch (format) {
-            case "SVG":
-                b = await n.exportAsync({ format: "SVG" });
-                break;
-            case "PNG":
-                b = await n.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
-                break;
-            case "JPG":
-                b = await n.exportAsync({ format: "JPG", constraint: { type: "SCALE", value: scale } });
-                break;
-            case "PDF":
-                b = await n.exportAsync({ format: "PDF" });
-                break;
-            default: continue;
-        }
-        r.push({ id: n.id, name: sanitizeName(n.name), format: format.toLowerCase(), bytes: Array.from(b) });
-    }
-    catch (e) { }
-} return r; }
 figma.showUI(__html__, { width: 520, height: 700, title: "Extract All" });
 let cancelRequested = false;
-function postSel() { figma.ui.postMessage({ type: "selection-state", count: figma.currentPage.selection.length, pageName: figma.currentPage.name }); }
+function postSel() {
+    figma.ui.postMessage({ type: "selection-state", count: figma.currentPage.selection.length, pageName: figma.currentPage.name });
+}
 figma.on("selectionchange", postSel);
 figma.on("currentpagechange", postSel);
 postSel();
@@ -205,7 +593,7 @@ let lastAnalysis = null;
 let runningExtract = false;
 figma.ui.onmessage = async (msg) => {
     cancelRequested = false;
-    zipFiles = [];
+    zipFiles.length = 0;
     const baseName = sanitizeName(figma.root.name || "Untitled");
     if (msg.type === "import-lottie-json") {
         lastAnalysis = analyzeLottieFile(msg.fileName || "lottie.json", String(msg.content || ""));
@@ -218,8 +606,8 @@ figma.ui.onmessage = async (msg) => {
             const image = figma.createImage(bytes);
             const rect = figma.createRectangle();
             rect.resize(msg.width, msg.height);
-            rect.name = (msg.fileName ? sanitizeName(msg.fileName.replace(/\.json$/, '')) + ' (Lottie GIF)' : 'Lottie Animation');
-            rect.fills = [{ type: 'IMAGE', imageHash: image.hash, scaleMode: 'FILL' }];
+            rect.name = msg.fileName ? sanitizeName(msg.fileName.replace(/\.json$/, "")) + " (Lottie GIF)" : "Lottie Animation";
+            rect.fills = [{ type: "IMAGE", imageHash: image.hash, scaleMode: "FILL" }];
             const center = figma.viewport.center;
             rect.x = Math.round(center.x - msg.width / 2);
             rect.y = Math.round(center.y - msg.height / 2);
@@ -235,7 +623,7 @@ figma.ui.onmessage = async (msg) => {
     if (msg.type === "cancel") {
         cancelRequested = true;
         runningExtract = false;
-        zipFiles = [];
+        zipFiles.length = 0;
         return;
     }
     if (msg.type === "resize") {
@@ -252,22 +640,45 @@ figma.ui.onmessage = async (msg) => {
             return;
         }
         runningExtract = true;
-        const opts = msg.aeOpts || msg.aiOpts;
+        let watchdog = null;
+        const armWatchdog = () => {
+            if (watchdog)
+                clearTimeout(watchdog);
+            watchdog = setTimeout(() => {
+                if (runningExtract) {
+                    figma.ui.postMessage({ type: "error", message: "Extraction timed out. Please try again or reduce scope." });
+                    runningExtract = false;
+                }
+            }, 120000);
+        };
+        armWatchdog();
         try {
             await figma.loadAllPagesAsync();
         }
         catch (e) {
             figma.ui.postMessage({ type: "error", message: "Page load failed: " + e.message });
             runningExtract = false;
+            if (watchdog)
+                clearTimeout(watchdog);
             return;
         }
         const sel = figma.currentPage.selection;
         const isScoped = sel.length > 0;
         const pgName = figma.currentPage.name;
+        const aeOpts = msg.aeOpts;
+        const aiOpts = msg.aiOpts;
+        const opts = aeOpts || aiOpts;
         figma.ui.postMessage({ type: "full-extract-progress", progress: { step: 0, totalSteps: 3, label: "Scan", detail: "Collecting nodes…" } });
         let workingNodes;
         if (isScoped) {
             workingNodes = [];
+            function walk(n, r) {
+                if (n.type !== "PAGE")
+                    r.push(n);
+                if (n.children)
+                    for (const c of n.children)
+                        walk(c, r);
+            }
             for (const s of sel)
                 walk(s, workingNodes);
         }
@@ -275,6 +686,7 @@ figma.ui.onmessage = async (msg) => {
             workingNodes = figma.currentPage.findAll(() => true);
         }
         if (cancelRequested) {
+            workingNodes.length = 0;
             runningExtract = false;
             return;
         }
@@ -284,11 +696,8 @@ figma.ui.onmessage = async (msg) => {
         const byType = {};
         let cursor = 0;
         const BATCH = 200;
-        function walk(n, r) { if (n.type !== "PAGE")
-            r.push(n); if (n.children)
-            for (const c of n.children)
-                walk(c, r); }
         function processBatch() {
+            armWatchdog();
             if (cancelRequested || cursor >= total) {
                 return finishExtract();
             }
@@ -301,11 +710,11 @@ figma.ui.onmessage = async (msg) => {
                     try {
                         texts.push(extractText(n));
                     }
-                    catch (e) { }
+                    catch (e) {
+                    }
                 }
                 else if (t === "COMPONENT" || t === "COMPONENT_SET") {
                     try {
-                        const sc = n;
                         let vp = null;
                         if (t === "COMPONENT_SET") {
                             const rp = n.variantGroupProperties || n.variantProperties;
@@ -315,13 +724,29 @@ figma.ui.onmessage = async (msg) => {
                                     vp[k] = rp[k];
                             }
                         }
-                        comps.push({ id: n.id, name: n.name, key: n.key || "", description: n.description || "", type: t, pageName: isScoped ? getPageName(n) : pgName, hasVariants: t === "COMPONENT_SET", variantProperties: vp, width: Math.round(n.width * 100) / 100, height: Math.round(n.height * 100) / 100, childCount: n.children ? (n.children.length) : 0 });
+                        comps.push({
+                            id: n.id,
+                            name: n.name,
+                            key: n.key || "",
+                            description: n.description || "",
+                            type: t,
+                            pageName: isScoped ? getNodeContext(n).pageName : pgName,
+                            hasVariants: t === "COMPONENT_SET",
+                            variantProperties: vp,
+                            width: Math.round(n.width * 100) / 100,
+                            height: Math.round(n.height * 100) / 100,
+                            childCount: n.children ? n.children.length : 0,
+                        });
                     }
-                    catch (e) { }
+                    catch (e) {
+                    }
                 }
             }
             cursor = end;
-            figma.ui.postMessage({ type: "full-extract-progress", progress: { step: 1, totalSteps: 3, label: "Extract", detail: `${cursor}/${total} (${texts.length} texts)` } });
+            figma.ui.postMessage({
+                type: "full-extract-progress",
+                progress: { step: 1, totalSteps: 3, label: "Extract", detail: `${cursor}/${total} (${texts.length} texts)` },
+            });
             setTimeout(processBatch, 0);
         }
         function finishExtract() {
@@ -329,10 +754,45 @@ figma.ui.onmessage = async (msg) => {
             const pages = [];
             for (const pg of figma.root.children) {
                 const pgd = pg;
-                const topFrames = (pgd.children || []).map((c) => ({ id: c.id, name: c.name || "", width: Math.round(c.width * 100) / 100, height: Math.round(c.height * 100) / 100, childCount: c.children ? c.children.length : 0 }));
-                pages.push({ id: pg.id, name: pgd.name || "", nodeCount: 0, background: pgd.backgrounds && pgd.backgrounds.length > 0 ? JSON.parse(JSON.stringify(pgd.backgrounds[0])) : null, topLevelFrames: topFrames });
+                const topFrames = (pgd.children || []).map((c) => ({
+                    id: c.id,
+                    name: c.name || "",
+                    width: Math.round(c.width * 100) / 100,
+                    height: Math.round(c.height * 100) / 100,
+                    childCount: c.children ? c.children.length : 0,
+                }));
+                pages.push({
+                    id: pg.id,
+                    name: pgd.name || "",
+                    nodeCount: 0,
+                    background: pgd.backgrounds && pgd.backgrounds.length > 0 ? JSON.parse(JSON.stringify(pgd.backgrounds[0])) : null,
+                    topLevelFrames: topFrames,
+                });
             }
-            const data = { meta: { fileName: figma.root.name || "Untitled", extractDate: new Date().toISOString(), pluginVersion: PLUGIN_VERSION, totalPages: figma.root.children.length, extractionScope: isScoped ? "selection" : "page", scopeDescription: isScoped ? `${sel.length} items` : "entire page" }, pages, textNodes: texts, variables: [], styles: [], components: comps, nodeCounts: { total, textNodes: texts.length, frames: byType["FRAME"] || 0, components: byType["COMPONENT"] || 0, instances: byType["INSTANCE"] || 0, byType }, hierarchy: [] };
+            const data = {
+                meta: {
+                    fileName: figma.root.name || "Untitled",
+                    extractDate: new Date().toISOString(),
+                    pluginVersion: PLUGIN_VERSION,
+                    totalPages: figma.root.children.length,
+                    extractionScope: isScoped ? "selection" : "page",
+                    scopeDescription: isScoped ? `${sel.length} items` : "entire page",
+                },
+                pages,
+                textNodes: texts,
+                variables: [],
+                styles: [],
+                components: comps,
+                nodeCounts: {
+                    total,
+                    textNodes: texts.length,
+                    frames: byType["FRAME"] || 0,
+                    components: byType["COMPONENT"] || 0,
+                    instances: byType["INSTANCE"] || 0,
+                    byType,
+                },
+                hierarchy: [],
+            };
             const tc = buildPlainText(texts);
             if (tc.length < 65000)
                 downloadFile(`${baseName}_text.txt`, tc, "text/plain");
@@ -340,42 +800,90 @@ figma.ui.onmessage = async (msg) => {
                 addToZip(`${baseName}_text.txt`, tc);
             addToZip(`${baseName}_full-extract.json`, JSON.stringify(data));
             flushZipChunked(baseName);
-            figma.ui.postMessage({ type: "full-extract", data: { textNodes: texts.length, variables: 0, styles: 0, components: comps.length, totalNodes: total, scope: isScoped ? `${sel.length} items` : "entire page" } });
-            runningExtract = false;
-            if (opts) {
+            let svgTargets = [];
+            if (opts && opts.includeSVGs && !cancelRequested) {
+                svgTargets = workingNodes
+                    .filter((n) => n.type !== "TEXT" && n.visible !== false)
+                    .map((n) => ({ id: n.id, pageName: pgName }));
+            }
+            workingNodes.length = 0;
+            figma.ui.postMessage({
+                type: "full-extract",
+                data: {
+                    textNodes: texts.length,
+                    variables: 0,
+                    styles: 0,
+                    components: comps.length,
+                    totalNodes: total,
+                    scope: isScoped ? `${sel.length} items` : "entire page",
+                },
+            });
+            if (opts && !cancelRequested) {
                 setTimeout(() => {
                     (async () => {
+                        armWatchdog();
                         try {
-                            await fetchVars(baseName);
-                            await fetchStyles(baseName);
-                            if (opts.includeSVGs && !cancelRequested) {
-                                const an = workingNodes.filter(n => n.type !== "TEXT" && n.type !== "PAGE" && n.visible !== false);
-                                figma.ui.postMessage({ type: "progress", current: 0, total: an.length, label: "SVG Export" });
-                                for (let i = 0; i < an.length && !cancelRequested; i += 4) {
+                            const shouldFetchVars = aiOpts ? aiOpts.includeVars : true;
+                            const shouldFetchStyles = aiOpts ? aiOpts.includeStyles : true;
+                            if (shouldFetchVars)
+                                await fetchVars(baseName);
+                            if (shouldFetchStyles)
+                                await fetchStyles(baseName);
+                            if (opts.includeSVGs && svgTargets.length > 0 && !cancelRequested) {
+                                figma.ui.postMessage({ type: "progress", current: 0, total: svgTargets.length, label: "SVG Export" });
+                                let extrasPart = 0;
+                                for (let i = 0; i < svgTargets.length && !cancelRequested; i += 4) {
                                     try {
-                                        const br = await Promise.all(an.slice(i, i + 4).map(n => svgExport(n.id, pgName)));
+                                        const br = await Promise.all(svgTargets.slice(i, i + 4).map((n) => svgExport(n.id, n.pageName)));
                                         for (const r of br)
                                             if (r)
                                                 zipFiles.push(r);
                                     }
-                                    catch (e) { }
-                                    figma.ui.postMessage({ type: "progress", current: Math.min(i + 4, an.length), total: an.length, label: "SVG Export" });
+                                    catch (e) {
+                                    }
+                                    figma.ui.postMessage({ type: "progress", current: Math.min(i + 4, svgTargets.length), total: svgTargets.length, label: "SVG Export" });
+                                    if (zipFiles.length >= 25) {
+                                        extrasPart++;
+                                        flushZipPart(baseName + "_extras", extrasPart);
+                                    }
+                                }
+                                if (zipFiles.length > 0) {
+                                    extrasPart++;
+                                    flushZipPart(baseName + "_extras", extrasPart);
                                 }
                             }
-                            if (msg.aeOpts && msg.aeOpts.includeLottie && !cancelRequested) {
+                            if (aeOpts && aeOpts.includeLottie && !cancelRequested) {
                                 try {
-                                    addToZip(`${baseName}_lottie.json`, "[]");
+                                    addToZip(`${baseName}_lottie.json`, JSON.stringify({
+                                        note: "Lottie bundle placeholder. Use SVGs in svgs/ and positions in the full-extract.json for After Effects composition.",
+                                        source: figma.root.name || "Untitled",
+                                        exportedAt: new Date().toISOString(),
+                                        pluginVersion: PLUGIN_VERSION,
+                                    }));
                                 }
-                                catch (e) { }
+                                catch (e) {
+                                }
                             }
                             if (zipFiles.length > 0)
                                 flushZipChunked(baseName + "_extras");
+                            figma.ui.postMessage({ type: "extras-complete", scope: isScoped ? `${sel.length} items` : "entire page" });
                         }
                         catch (e) {
-                            figma.ui.postMessage({ type: "error", message: "Extras: " + e.message });
+                            figma.ui.postMessage({ type: "error", message: "Extras failed: " + e.message });
+                        }
+                        finally {
+                            runningExtract = false;
+                            if (watchdog)
+                                clearTimeout(watchdog);
                         }
                     })();
                 }, 100);
+            }
+            else {
+                runningExtract = false;
+                if (watchdog)
+                    clearTimeout(watchdog);
+                figma.ui.postMessage({ type: "extras-complete", scope: isScoped ? `${sel.length} items` : "entire page" });
             }
         }
         setTimeout(processBatch, 10);
@@ -385,12 +893,15 @@ figma.ui.onmessage = async (msg) => {
         await figma.loadAllPagesAsync();
         const nodes = figma.currentPage.findAll(() => true);
         const tn = [];
-        for (const n of nodes)
-            if (n.type === "TEXT")
+        for (const n of nodes) {
+            if (n.type === "TEXT") {
                 try {
                     tn.push(extractText(n));
                 }
                 catch (e) { }
+            }
+        }
+        nodes.length = 0;
         const txt = buildPlainText(tn);
         if (txt.length < 65000)
             downloadFile(`${baseName}_text.txt`, txt, "text/plain");
@@ -407,7 +918,6 @@ figma.ui.onmessage = async (msg) => {
         for (const n of nodes) {
             if (n.type === "COMPONENT" || n.type === "COMPONENT_SET") {
                 try {
-                    const sc = n;
                     let vp = null;
                     if (n.type === "COMPONENT_SET") {
                         const rp = n.variantGroupProperties || n.variantProperties;
@@ -417,11 +927,24 @@ figma.ui.onmessage = async (msg) => {
                                 vp[k] = rp[k];
                         }
                     }
-                    cc.push({ id: n.id, name: n.name, key: n.key || "", description: n.description || "", type: n.type, pageName: getPageName(n), hasVariants: n.type === "COMPONENT_SET", variantProperties: vp, width: Math.round(sc.width * 100) / 100, height: Math.round(sc.height * 100) / 100, childCount: n.children ? (n.children.length) : 0 });
+                    cc.push({
+                        id: n.id,
+                        name: n.name,
+                        key: n.key || "",
+                        description: n.description || "",
+                        type: n.type,
+                        pageName: getNodeContext(n).pageName,
+                        hasVariants: n.type === "COMPONENT_SET",
+                        variantProperties: vp,
+                        width: Math.round(n.width * 100) / 100,
+                        height: Math.round(n.height * 100) / 100,
+                        childCount: n.children ? n.children.length : 0,
+                    });
                 }
                 catch (e) { }
             }
         }
+        nodes.length = 0;
         addToZip(`${baseName}_components.json`, JSON.stringify(cc));
         flushZipChunked(baseName + "_components");
         return;
@@ -441,7 +964,19 @@ figma.ui.onmessage = async (msg) => {
         const pp = [];
         for (const pg of figma.root.children) {
             const pgd = pg;
-            pp.push({ id: pg.id, name: pgd.name || "", nodeCount: 0, background: pgd.backgrounds && pgd.backgrounds.length > 0 ? JSON.parse(JSON.stringify(pgd.backgrounds[0])) : null, topLevelFrames: (pgd.children || []).map((c) => ({ id: c.id, name: c.name || "", width: Math.round(c.width * 100) / 100, height: Math.round(c.height * 100) / 100, childCount: c.children ? c.children.length : 0 })) });
+            pp.push({
+                id: pg.id,
+                name: pgd.name || "",
+                nodeCount: 0,
+                background: pgd.backgrounds && pgd.backgrounds.length > 0 ? JSON.parse(JSON.stringify(pgd.backgrounds[0])) : null,
+                topLevelFrames: (pgd.children || []).map((c) => ({
+                    id: c.id,
+                    name: c.name || "",
+                    width: Math.round(c.width * 100) / 100,
+                    height: Math.round(c.height * 100) / 100,
+                    childCount: c.children ? c.children.length : 0,
+                })),
+            });
         }
         addToZip(`${baseName}_pages.json`, JSON.stringify(pp));
         flushZipChunked(baseName + "_pages");
@@ -454,7 +989,7 @@ figma.ui.onmessage = async (msg) => {
             return;
         }
         const fmt = msg.type === "export-selected-svg" ? "SVG" : msg.type === "export-selected-png" ? "PNG" : "JPG";
-        const sc = fmt === "SVG" ? (msg.scale || 1) : (msg.scale || 2);
+        const sc = fmt === "SVG" ? msg.scale || 1 : msg.scale || 2;
         const results = await exportNodes(sel.map((n) => n.id), fmt, sc);
         if (results.length <= 3) {
             if (results.length > 0)
@@ -474,9 +1009,13 @@ figma.ui.onmessage = async (msg) => {
             return;
         }
         for (const node of sel) {
-            const s = await node.exportAsync({ format: "SVG_STRING" });
-            if (s)
-                downloadFile(`${sanitizeName(node.name)}.svg`, s, "image/svg+xml");
+            try {
+                const s = await node.exportAsync({ format: "SVG_STRING" });
+                if (s)
+                    downloadFile(`${sanitizeName(node.name)}.svg`, s, "image/svg+xml");
+            }
+            catch (e) {
+            }
         }
         return;
     }
@@ -487,7 +1026,7 @@ figma.ui.onmessage = async (msg) => {
     if (msg.type === "export-all-svg-page" || msg.type === "export-all-png-page" || msg.type === "export-all-svg-all-pages" || msg.type === "export-all-png-all-pages") {
         await figma.loadAllPagesAsync();
         const fmt = msg.type.includes("svg") ? "SVG" : "PNG";
-        const sc = fmt === "SVG" ? (msg.scale || 1) : (msg.scale || 2);
+        const sc = fmt === "SVG" ? msg.scale || 1 : msg.scale || 2;
         const pages = msg.type.includes("all-pages") ? [...figma.root.children] : [figma.currentPage];
         let tN = 0;
         for (const pg of pages) {
@@ -495,6 +1034,7 @@ figma.ui.onmessage = async (msg) => {
             tN += ns.length;
         }
         let pN = 0;
+        let batchPart = 0;
         for (const pg of pages) {
             const ns = pg.findAll(() => true).filter((n) => n.visible !== false && n.type !== "PAGE");
             for (let i = 0; i < ns.length; i += 20) {
@@ -507,10 +1047,17 @@ figma.ui.onmessage = async (msg) => {
                 }
                 pN += Math.min(20, ns.length - i);
                 figma.ui.postMessage({ type: "progress", current: pN, total: tN, label: fmt });
+                if (zipFiles.length >= 25) {
+                    batchPart++;
+                    flushZipPart(baseName + "_batch", batchPart);
+                }
             }
         }
         if (!cancelRequested) {
-            flushZipChunked(baseName + "_batch");
+            if (zipFiles.length > 0) {
+                batchPart++;
+                flushZipPart(baseName + "_batch", batchPart);
+            }
             figma.ui.postMessage({ type: "export-complete" });
         }
         return;

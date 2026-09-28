@@ -533,7 +533,10 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
     parent.postMessage({ pluginMessage: { type: "cancel" } }, "*");
     isExporting = false; progEl.classList.remove("show"); hideCancel();
     el("renderOverlay").classList.remove("show");
-    zipChunks = {}; log("Cancelled", "err");
+    zipChunks = {};
+    pendingZips = 0;
+    pendingExtras = false;
+    log("Cancelled", "err");
   }
 
   // ── Downloads ──
@@ -541,9 +544,20 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
   function dlBytes(n, bytes, f) { var mm = { svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg", zip: "application/zip" }, m = mm[f] || "application/octet-stream", u8 = new Uint8Array(bytes), b = new Blob([u8], { type: m }), u = URL.createObjectURL(b), a = document.createElement("a"); a.href = u; a.download = n; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
 
   // ═══ ZIP chunk reassembler ═══
-  function handleZipChunk(fn, idx, total, bytes) {
-    if (!zipChunks[fn]) zipChunks[fn] = [];
-    zipChunks[fn][idx] = new Uint8Array(bytes);
+  function b64ToU8(s) {
+    var bin = atob(s);
+    var len = bin.length;
+    var u8 = new Uint8Array(len);
+    for (var i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
+    return u8;
+  }
+
+  function handleZipChunk(fn, idx, total, b64) {
+    if (!zipChunks[fn]) {
+      zipChunks[fn] = [];
+      bumpPendingZips(1);
+    }
+    zipChunks[fn][idx] = b64ToU8(b64);
     var allHere = true;
     for (var i = 0; i < total; i++) { if (!zipChunks[fn][i]) { allHere = false; break; } }
     if (allHere) {
@@ -552,8 +566,15 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
       for (var i = 0; i < total; i++) { res.set(zipChunks[fn][i], pos); pos += zipChunks[fn][i].length; }
       dlBytes(fn, Array.from(res), "zip");
       log("Downloaded: " + fn + " (" + (res.length / 1024 / 1024).toFixed(1) + " MB)", "ok");
-      delete zipChunks[fn]; if (isExporting) { isExporting = false; progEl.classList.remove("show"); hideCancel(); }
-    } else { var done = 0; for (var i = 0; i < total; i++) if (zipChunks[fn][i]) done++; progFill.style.width = Math.round((done / total) * 100) + "%"; progTxt.textContent = "ZIP (" + done + "/" + total + ")"; }
+      delete zipChunks[fn];
+      bumpPendingZips(-1);
+      maybeFinishExport();
+    } else {
+      var done = 0;
+      for (var i = 0; i < total; i++) if (zipChunks[fn][i]) done++;
+      progFill.style.width = Math.round((done / total) * 100) + "%";
+      progTxt.textContent = "ZIP (" + done + "/" + total + ")";
+    }
   }
 
   // ═══ LOTTIE import handler ═══
@@ -845,15 +866,22 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
   }
 
   // ── Actions ──
+  function resetExportState() {
+    zipChunks = {};
+    pendingZips = 0;
+    pendingExtras = false;
+    progFill.style.width = "0%";
+  }
   function request(type) {
     if (type === "place-lottie") { renderLottieAsGif(); return; }
     if (isExporting) { log("Already exporting","err"); return; }
+    resetExportState();
     parent.postMessage({ pluginMessage: { type: type } }, "*");
   }
-  function exportSel(type) { if (isExporting) return; var s = parseFloat(el("scaleSel").value) || 1; isExporting = true; progEl.classList.add("show"); showCancel(); progFill.style.width = "0%"; parent.postMessage({ pluginMessage: { type: type, scale: s } }, "*"); }
-  function runBatch(fmt) { if (isExporting) return; var s = parseFloat(el("scaleBatch").value) || 1; var all = el("batch-scope").checked; isExporting = true; progEl.classList.add("show"); showCancel(); progFill.style.width = "0%"; var t = fmt === "svg" ? (all ? "export-all-svg-all-pages" : "export-all-svg-page") : (all ? "export-all-png-all-pages" : "export-all-png-page"); parent.postMessage({ pluginMessage: { type: t, scale: s } }, "*"); }
-  function runAEExport() { if (isExporting) return; isExporting = true; progEl.classList.add("show"); showCancel(); var o = { includeSVGs: el("ae-svgs").checked, includeJSON: el("ae-json").checked, includeLottie: el("ae-lottie").checked, includeText: el("ae-text").checked }; parent.postMessage({ pluginMessage: { type: "get-full-extract", aeOpts: o } }, "*"); }
-  function runAIExtract() { if (isExporting) return; isExporting = true; progEl.classList.add("show"); showCancel(); var o = { includeSVGs: el("ai-svgs").checked, includeText: el("ai-text").checked, includeVars: el("ai-vars").checked, includeStyles: el("ai-styles").checked, includeComps: el("ai-comps").checked, includeTree: el("ai-tree").checked, includeTXT: el("ai-txtfile").checked }; parent.postMessage({ pluginMessage: { type: "get-full-extract", aiOpts: o } }, "*"); }
+  function exportSel(type) { if (isExporting) return; resetExportState(); var s = parseFloat(el("scaleSel").value) || 1; isExporting = true; progEl.classList.add("show"); showCancel(); parent.postMessage({ pluginMessage: { type: type, scale: s } }, "*"); }
+  function runBatch(fmt) { if (isExporting) return; resetExportState(); var s = parseFloat(el("scaleBatch").value) || 1; var all = el("batch-scope").checked; isExporting = true; progEl.classList.add("show"); showCancel(); var t = fmt === "svg" ? (all ? "export-all-svg-all-pages" : "export-all-svg-page") : (all ? "export-all-png-all-pages" : "export-all-png-page"); parent.postMessage({ pluginMessage: { type: t, scale: s } }, "*"); }
+  function runAEExport() { if (isExporting) return; resetExportState(); isExporting = true; pendingExtras = true; progEl.classList.add("show"); showCancel(); progTxt.textContent = "Starting AE export..."; var o = { includeSVGs: el("ae-svgs").checked, includeJSON: el("ae-json").checked, includeLottie: el("ae-lottie").checked, includeText: el("ae-text").checked }; parent.postMessage({ pluginMessage: { type: "get-full-extract", aeOpts: o } }, "*"); }
+  function runAIExtract() { if (isExporting) return; resetExportState(); isExporting = true; pendingExtras = true; progEl.classList.add("show"); showCancel(); progTxt.textContent = "Starting AI export..."; var o = { includeSVGs: el("ai-svgs").checked, includeText: el("ai-text").checked, includeVars: el("ai-vars").checked, includeStyles: el("ai-styles").checked, includeComps: el("ai-comps").checked, includeTree: el("ai-tree").checked, includeTXT: el("ai-txtfile").checked }; parent.postMessage({ pluginMessage: { type: "get-full-extract", aiOpts: o } }, "*"); }
 
   document.querySelectorAll("[data-action]").forEach(function (btn) {
     btn.addEventListener("click", function (e) { e.preventDefault(); var act = this.getAttribute("data-action");
@@ -868,15 +896,28 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
   });
 
   // ── Progress tracking ──
-  var currentPhase = '';
-  var phaseEnd = 0;
+  var pendingZips = 0;
+  var pendingExtras = false;
+
+  function bumpPendingZips(delta) {
+    pendingZips += delta;
+    if (pendingZips < 0) pendingZips = 0;
+  }
+
+  function maybeFinishExport() {
+    if (pendingZips === 0 && !pendingExtras) {
+      isExporting = false;
+      hideCancel();
+      setTimeout(function () {
+        if (!isExporting) progEl.classList.remove("show");
+      }, 3000);
+    }
+  }
+
   function updateProgress(msg) {
     if (!progEl) return;
     if (msg.type === 'full-extract-progress' && msg.progress) {
       var p = msg.progress;
-      currentPhase = p.label;
-      phaseEnd = p.totalSteps;
-      // Phase 0-3 is the initial sync scan (33% of total work)
       var phasePct = Math.min(33, Math.round((p.step / p.totalSteps) * 33));
       if (p.totalSteps >= 6) { phasePct = Math.round((p.step / p.totalSteps) * 100); }
       progFill.style.width = phasePct + "%";
@@ -884,7 +925,6 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
       progEl.classList.add("show");
     } else if (msg.type === 'progress') {
       if (msg.total > 0) {
-        // SVG export phase: 33% to 100%
         var pct = 33 + Math.round((msg.current / msg.total) * 67);
         progFill.style.width = pct + "%";
         progTxt.textContent = (msg.label || 'Exporting') + ': ' + msg.current + ' / ' + msg.total;
@@ -902,14 +942,34 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
         if (m.rawJson) lastRawJson = m.rawJson;
         break;
       case "full-extract-progress": updateProgress(m); break;
-      case "full-extract": isExporting = false; hideCancel(); progFill.style.width = "100%"; progTxt.textContent = "Complete: " + (m.data && m.data.textNodes ? m.data.textNodes : 0) + " text nodes extracted"; setTimeout(function () { if (!isExporting) { progEl.classList.remove("show"); } }, 4000); log("Extract complete — " + (m.data ? m.data.textNodes + " texts, " + m.data.components + " components" : ""), "ok"); break;
+      case "full-extract":
+        progFill.style.width = "100%";
+        progTxt.textContent = "Core extract done: " + (m.data && m.data.textNodes ? m.data.textNodes : 0) + " texts, " + (m.data && m.data.components ? m.data.components : 0) + " components. Finishing extras...";
+        log("Core extract complete — " + (m.data ? m.data.textNodes + " texts, " + m.data.components + " components" : ""), "ok");
+        break;
+      case "extras-complete":
+        pendingExtras = false;
+        progFill.style.width = "100%";
+        progTxt.textContent = "All done.";
+        log("All extras complete.", "ok");
+        maybeFinishExport();
+        break;
       case "download-file": dlFile(m.fileName, m.content, m.mimeType); break;
-      case "zip-chunk": handleZipChunk(m.fileName, m.index, m.total, m.bytes); break;
+      case "zip-chunk": handleZipChunk(m.fileName, m.index, m.total, m.b64); break;
       case "export-results": if (m.results && m.results.length > 0) { for (var i = 0; i < m.results.length; i++) { var it = m.results[i]; dlBytes(it.name + "." + it.format.toLowerCase(), it.bytes, it.format.toLowerCase()); } } break;
       case "progress": updateProgress(m); break;
       case "export-complete": isExporting = false; hideCancel(); progFill.style.width = "100%"; progTxt.textContent = "Export complete"; setTimeout(function () { if (!isExporting) { progEl.classList.remove("show"); } }, 3000); log("Batch export complete", "ok"); break;
       case "animation-placed": log("GIF placed on canvas: " + m.name + " at (" + m.x + ", " + m.y + ")", "ok"); break;
-      case "error": isExporting = false; hideCancel(); el("renderOverlay").classList.remove("show"); log(m.message, "err"); progEl.classList.remove("show"); break;
+      case "error":
+        isExporting = false;
+        pendingExtras = false;
+        pendingZips = 0;
+        zipChunks = {};
+        hideCancel();
+        el("renderOverlay").classList.remove("show");
+        log(m.message, "err");
+        progEl.classList.remove("show");
+        break;
     }
   });
 
