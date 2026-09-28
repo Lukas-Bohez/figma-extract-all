@@ -7,6 +7,18 @@
 
 ---
 
+## ✨ New in v19
+
+| Tab | What it does |
+|---|---|
+| **🏗 Build** | Turn a **web page** — React, HTML, localhost or online — into **editable Figma layers**: frames with auto layout from flexbox, text with styled runs, SVGs with real colours, shadows. Light and dark side by side. |
+| **✅ Rubric** | Check the file against a design rubric: 8px grid, two-layer variables with modes, **whether fills are actually bound to variables**, local text styles, generic variant names (`Property 1 = Variant2`), auto-layout coverage, off-scale font sizes. Creates the missing spacing variables and text styles. |
+| **🔌 Claude** | Let **Claude** (or any other AI) work in the open file through a local MCP bridge: read, screenshot, build components and variants, create and bind variables, import web pages. Nothing leaves your machine. |
+
+Setup and the full tool list: [`bridge/README.md`](bridge/README.md).
+
+---
+
 ## 📋 What This Plugin Does
 
 Extract **everything** from any Figma file into structured, reusable formats — making it trivially easy to:
@@ -84,7 +96,9 @@ For Lottie work, the UI can also import Bodymovin JSON, analyze it, render it to
 
 This plugin requests `documentAccess: "dynamic-page"` because it needs to read the active Figma document, inspect the current page and selection, and export data from the nodes you choose. In practice, that means it can access the current page tree, local styles, local variables, components, and node export output inside the file you have open.
 
-The only declared network access is `https://cdnjs.cloudflare.com`, which is used to load `lottie_canvas.min.js` in the plugin UI. That library powers the Lottie-to-GIF rendering flow in the import/export tab. The plugin does not send your Figma document contents to that CDN or to any other remote service.
+**Network:** `allowedDomains` is `["none"]`. The UI is fully self-contained — lottie-web and the GIF encoder are bundled into `ui.html`, nothing is loaded from a CDN. (Earlier versions of this README said lottie was loaded from cdnjs; that is no longer true.)
+
+The only other entry is `devAllowedDomains: ws://localhost:3055` (and `http://`), used by the **Claude** tab to reach the bridge running on your own machine. Figma honours `devAllowedDomains` only for plugins loaded from their manifest in development mode, so a published build stays completely offline.
 
 The GitHub link shown in the UI is just a normal external link for convenience; it is not used by the plugin to process or transmit design data.
 
@@ -140,7 +154,10 @@ This plugin is specifically designed to make **AI-assisted development** seamles
 ```
 figma-extract-all/
 ├── manifest.json          ← Figma plugin manifest
-├── code.ts                ← Main plugin logic (TypeScript → compiled to code.js)
+├── code.ts                ← Main plugin logic: extraction, Lottie, exports
+├── features.ts            ← v19: rubric check, web-page import, bridge commands
+│                            (code.ts + features.ts are compiled together into code.js)
+├── bridge/                ← v19: MCP server, local hub, page capture, contrast audit, tests
 ├── ui.html                ← Plugin UI (self-contained HTML/CSS/JS)
 ├── package.json           ← NPM config & scripts
 ├── tsconfig.json          ← TypeScript compiler config
@@ -154,7 +171,8 @@ figma-extract-all/
 
 ```bash
 npm install        # Install TypeScript + Figma plugin typings
-npm run build      # Compile code.ts → code.js
+npm run build      # Compile code.ts + features.ts → code.js
+npm test           # build, verify.js, and the plugin + bridge test suites
 npm run watch      # Watch mode for development
 ```
 

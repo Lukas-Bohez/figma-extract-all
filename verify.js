@@ -2,7 +2,8 @@ const fs = require('fs');
 const c = fs.readFileSync('code.js', 'utf8');
 const h = fs.readFileSync('ui.html', 'utf8');
 const checks = {
-  'code: version 18.3.0': c.includes('18.3.0'),
+  // read from package.json, so this check does not break on every release
+  ['code: version ' + require('./package.json').version]: c.includes('"' + require('./package.json').version + '"'),
   'code: b64Encode': c.includes('b64Encode'),
   'code: zip sends b64 not bytes array': c.includes('b64: b64Encode') && !c.includes('bytes: Array.from(zip.slice'),
   'code: flushZipPart': c.includes('flushZipPart'),

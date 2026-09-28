@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "18.3.0";
+const PLUGIN_VERSION = "19.0.0";
 const TE = {
     encode: (s) => {
         const r = new Uint8Array(s.length);
@@ -592,6 +592,8 @@ postSel();
 let lastAnalysis = null;
 let runningExtract = false;
 figma.ui.onmessage = async (msg) => {
+    if (isFeatureMessage(msg))
+        return;
     cancelRequested = false;
     zipFiles.length = 0;
     const baseName = sanitizeName(figma.root.name || "Untitled");
@@ -1063,3 +1065,1046 @@ figma.ui.onmessage = async (msg) => {
         return;
     }
 };
+const FEATURE_VERSION = "19.0.0";
+function isFeatureMessage(msg) {
+    return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
+}
+function uiSend(type, payload = {}) {
+    figma.ui.postMessage(Object.assign({ type }, payload));
+}
+function errMsg(e) {
+    return e instanceof Error ? e.message : String(e);
+}
+const yieldToFigma = () => new Promise((r) => setTimeout(r, 0));
+function hex2(n) { return Math.round(Math.max(0, Math.min(1, n)) * 255).toString(16).padStart(2, "0"); }
+function toHex(c) {
+    const a = c.a;
+    return "#" + hex2(c.r) + hex2(c.g) + hex2(c.b) + (a !== undefined && a < 1 ? hex2(a) : "");
+}
+function parseColor(input) {
+    if (input && typeof input === "object" && "r" in input) {
+        return { r: +input.r, g: +input.g, b: +input.b, a: input.a === undefined ? 1 : +input.a };
+    }
+    const s = String(input || "").trim();
+    let m = s.match(/^#([0-9a-f]{3,8})$/i);
+    if (m) {
+        let h = m[1];
+        if (h.length === 3 || h.length === 4)
+            h = h.split("").map((ch) => ch + ch).join("");
+        const n = (i) => parseInt(h.slice(i, i + 2), 16) / 255;
+        return { r: n(0), g: n(2), b: n(4), a: h.length === 8 ? n(6) : 1 };
+    }
+    m = s.match(/^rgba?\(([^)]+)\)$/i);
+    if (m) {
+        const p = m[1].split(/[\s,\/]+/).filter(Boolean).map(parseFloat);
+        return { r: p[0] / 255, g: p[1] / 255, b: p[2] / 255, a: p[3] === undefined ? 1 : p[3] };
+    }
+    throw new Error(`Onbekende kleur: ${s}`);
+}
+function solid(c) {
+    return { type: "SOLID", color: { r: c.r, g: c.g, b: c.b }, opacity: c.a };
+}
+const SPACING_SCALE = [
+    ["space/1", 4], ["space/2", 8], ["space/3", 12], ["space/4", 16],
+    ["space/5", 24], ["space/6", 32], ["space/7", 48], ["space/8", 64],
+];
+const RADIUS_SCALE = [["radius/sm", 6], ["radius/md", 10], ["radius/lg", 14], ["radius/full", 999]];
+const TEXT_SCALE = [
+    { name: "text/xs", size: 12, style: "Regular", line: 1.5 },
+    { name: "text/sm", size: 14, style: "Regular", line: 1.5 },
+    { name: "text/base", size: 16, style: "Regular", line: 1.5 },
+    { name: "text/lg", size: 18, style: "Medium", line: 1.2 },
+    { name: "text/xl", size: 22, style: "Semi Bold", line: 1.2 },
+    { name: "text/2xl", size: 28, style: "Semi Bold", line: 1.2 },
+    { name: "text/3xl", size: 36, style: "Semi Bold", line: 1.2 },
+];
+const GRID = 4;
+function hasFills(n) {
+    return "fills" in n;
+}
+async function rubricAudit() {
+    await figma.loadAllPagesAsync();
+    const r = {};
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    const variables = await figma.variables.getLocalVariablesAsync();
+    r.collections = collections.map((c) => ({ name: c.name, modes: c.modes.map((m) => m.name), count: c.variableIds.length }));
+    const byType = {};
+    let aliasCount = 0;
+    for (const v of variables) {
+        byType[v.resolvedType] = (byType[v.resolvedType] || 0) + 1;
+        if (Object.keys(v.valuesByMode).some((k) => {
+            const val = v.valuesByMode[k];
+            return val && typeof val === "object" && val.type === "VARIABLE_ALIAS";
+        }))
+            aliasCount++;
+    }
+    r.variableTypes = byType;
+    r.aliasCount = aliasCount;
+    r.hasSpacing = SPACING_SCALE.every(([n]) => variables.some((v) => v.name === n));
+    const sets = figma.root.findAllWithCriteria({ types: ["COMPONENT_SET"] });
+    const comps = figma.root.findAllWithCriteria({ types: ["COMPONENT"] });
+    const instances = figma.root.findAllWithCriteria({ types: ["INSTANCE"] });
+    r.componentSets = sets.map((s) => ({
+        name: s.name,
+        props: Object.keys(s.componentPropertyDefinitions || {}),
+        variants: s.children.length,
+    }));
+    r.componentCount = comps.length;
+    r.instanceCount = instances.length;
+    r.genericVariants = [];
+    for (const s of sets) {
+        const defs = s.componentPropertyDefinitions || {};
+        for (const p of Object.keys(defs)) {
+            const vals = defs[p].variantOptions || [];
+            const generic = vals.filter((x) => /^(Variant ?\d+|Property ?\d+|Default)$/i.test(x));
+            if (/^Property ?\d+$/i.test(p) || generic.length)
+                r.genericVariants.push({ set: s.name, prop: p, values: vals });
+        }
+    }
+    const textStyles = await figma.getLocalTextStylesAsync();
+    r.textStyles = textStyles.map((s) => ({ name: s.name, size: s.fontSize, font: s.fontName.style }));
+    r.missingTextStyles = TEXT_SCALE.filter((t) => !textStyles.some((s) => s.name === t.name)).map((t) => t.name);
+    const scaleSizes = TEXT_SCALE.map((t) => t.size);
+    const texts = figma.root.findAllWithCriteria({ types: ["TEXT"] });
+    let unstyled = 0;
+    const offScale = {};
+    for (const t of texts) {
+        if (!t.textStyleId || t.textStyleId === figma.mixed)
+            unstyled++;
+        if (typeof t.fontSize === "number" && scaleSizes.indexOf(Math.round(t.fontSize)) < 0) {
+            const k = String(Math.round(t.fontSize * 100) / 100);
+            offScale[k] = (offScale[k] || 0) + 1;
+        }
+    }
+    r.textTotal = texts.length;
+    r.textUnstyled = unstyled;
+    r.offScale = Object.keys(offScale).map((k) => [k, offScale[k]]).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    const frames = figma.root.findAllWithCriteria({ types: ["FRAME", "COMPONENT", "INSTANCE"] });
+    let auto = 0;
+    const offGrid = [];
+    const noAuto = [];
+    for (const f of frames) {
+        if (f.layoutMode && f.layoutMode !== "NONE") {
+            auto++;
+            const vals = [f.paddingLeft, f.paddingRight, f.paddingTop, f.paddingBottom, f.itemSpacing];
+            const bad = vals.filter((n) => typeof n === "number" && n > 0 && n % GRID !== 0);
+            if (bad.length)
+                offGrid.push({ id: f.id, name: f.name, values: bad });
+        }
+        else if ("children" in f && f.children.length > 1 && f.type !== "INSTANCE") {
+            noAuto.push({ id: f.id, name: f.name, children: f.children.length });
+        }
+    }
+    r.frameTotal = frames.length;
+    r.frameAuto = auto;
+    r.offGrid = offGrid.slice(0, 15);
+    r.offGridTotal = offGrid.length;
+    r.noAutoLayout = noAuto.sort((a, b) => b.children - a.children).slice(0, 10);
+    let bound = 0, raw = 0;
+    const rawColors = {};
+    const all = figma.root.findAll((n) => hasFills(n));
+    for (const n of all) {
+        const fills = n.fills;
+        if (!Array.isArray(fills))
+            continue;
+        for (const f of fills) {
+            if (f.type !== "SOLID" || f.visible === false)
+                continue;
+            if (f.boundVariables && f.boundVariables.color)
+                bound++;
+            else {
+                raw++;
+                const h = toHex(f.color);
+                rawColors[h] = (rawColors[h] || 0) + 1;
+            }
+        }
+    }
+    r.fillsBound = bound;
+    r.fillsRaw = raw;
+    r.topRawColors = Object.keys(rawColors).map((h) => [h, rawColors[h]]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    r.pages = figma.root.children.map((p) => p.name);
+    r.fileName = figma.root.name;
+    return r;
+}
+async function createSpacingVariables() {
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    const existing = await figma.variables.getLocalVariablesAsync();
+    let col = collections.find((c) => c.name === "primitives");
+    if (!col)
+        col = figma.variables.createVariableCollection("primitives");
+    const modeId = col.modes[0].modeId;
+    const made = [];
+    for (const [name, value] of SPACING_SCALE.concat(RADIUS_SCALE)) {
+        if (existing.some((v) => v.name === name))
+            continue;
+        const v = figma.variables.createVariable(name, col, "FLOAT");
+        v.setValueForMode(modeId, value);
+        v.scopes = name.indexOf("radius/") === 0 ? ["CORNER_RADIUS"] : ["GAP", "WIDTH_HEIGHT"];
+        made.push(`${name} = ${value}`);
+    }
+    return made;
+}
+async function createTextStyles() {
+    const existing = await figma.getLocalTextStylesAsync();
+    const made = [], failed = [];
+    for (const t of TEXT_SCALE) {
+        if (existing.some((s) => s.name === t.name))
+            continue;
+        try {
+            const font = await resolveFont("Inter", t.style === "Regular" ? 400 : t.style === "Medium" ? 500 : 600, false);
+            const s = figma.createTextStyle();
+            s.name = t.name;
+            s.fontName = font;
+            s.fontSize = t.size;
+            s.lineHeight = { unit: "PERCENT", value: t.line * 100 };
+            made.push(`${t.name} — ${t.size}px ${font.style}`);
+        }
+        catch (e) {
+            failed.push(`${t.name}: ${errMsg(e)}`);
+        }
+    }
+    return { made, failed };
+}
+const WEIGHT_NAMES = {
+    100: ["Thin", "Hairline"], 200: ["Extra Light", "ExtraLight", "Ultra Light"], 300: ["Light"],
+    400: ["Regular", "Normal", "Book"], 500: ["Medium"], 600: ["Semi Bold", "SemiBold", "Demi Bold"],
+    700: ["Bold"], 800: ["Extra Bold", "ExtraBold", "Ultra Bold"], 900: ["Black", "Heavy"],
+};
+let fontListCache = null;
+const fontResolveCache = {};
+const loadedFonts = {};
+const norm = (s) => s.toLowerCase().replace(/[\s_-]+/g, "");
+function styleWeight(style) {
+    const s = norm(style.replace(/italic|oblique/i, ""));
+    for (const w of Object.keys(WEIGHT_NAMES)) {
+        if (WEIGHT_NAMES[+w].some((n) => norm(n) === s))
+            return +w;
+    }
+    return s === "" ? 400 : 400;
+}
+async function resolveFont(family, weight, italic) {
+    const key = `${family}|${weight}|${italic}`;
+    if (fontResolveCache[key])
+        return fontResolveCache[key];
+    if (!fontListCache)
+        fontListCache = await figma.listAvailableFontsAsync();
+    const generic = /^(system-ui|-apple-system|sans-serif|serif|monospace|ui-sans-serif|ui-monospace|blinkmacsystemfont|inherit|initial)$/i;
+    const wanted = generic.test(family) ? "Inter" : family;
+    let styles = fontListCache.filter((f) => norm(f.fontName.family) === norm(wanted)).map((f) => f.fontName);
+    if (!styles.length)
+        styles = fontListCache.filter((f) => f.fontName.family === "Inter").map((f) => f.fontName);
+    if (!styles.length)
+        styles = [{ family: "Roboto", style: "Regular" }];
+    const withItalic = styles.filter((s) => /italic|oblique/i.test(s.style) === italic);
+    const pool = withItalic.length ? withItalic : styles;
+    pool.sort((a, b) => Math.abs(styleWeight(a.style) - weight) - Math.abs(styleWeight(b.style) - weight));
+    const pick = pool[0];
+    const lk = `${pick.family}|${pick.style}`;
+    if (!loadedFonts[lk]) {
+        await figma.loadFontAsync(pick);
+        loadedFonts[lk] = true;
+    }
+    fontResolveCache[key] = pick;
+    return pick;
+}
+const TEXT_CASE = { UPPER: "UPPER", LOWER: "LOWER", TITLE: "TITLE", ORIGINAL: "ORIGINAL" };
+const TEXT_DECO = { UNDERLINE: "UNDERLINE", STRIKETHROUGH: "STRIKETHROUGH", NONE: "NONE" };
+function rgba(c) {
+    return c ? { r: c.r, g: c.g, b: c.b, a: c.a === undefined ? 1 : c.a } : null;
+}
+async function importLayout(doc, opts = {}) {
+    if (!doc || doc.format !== "figma-layout" || !doc.root) {
+        throw new Error("Dit is geen figma-layout-document (verwacht: format \"figma-layout\" met een root).");
+    }
+    const autoLayout = opts.autoLayout !== false;
+    const counts = { FRAME: 0, TEXT: 0, SVG: 0, IMAGE: 0 };
+    const warnings = [];
+    const warn = (m) => { if (warnings.length < 50)
+        warnings.push(m); };
+    let made = 0;
+    const needed = {};
+    (function collect(n) {
+        if (n.type === "TEXT") {
+            for (const r of n.runs || [{ text: n.text || "", font: n.font }]) {
+                if (r.font)
+                    needed[`${r.font.family}|${r.font.weight}|${r.font.italic}`] = r.font;
+            }
+        }
+        for (const c of n.children || [])
+            collect(c);
+    })(doc.root);
+    for (const k of Object.keys(needed)) {
+        const f = needed[k];
+        try {
+            await resolveFont(f.family, f.weight, f.italic);
+        }
+        catch (e) {
+            warn(`lettertype ${f.family} ${f.weight}: ${errMsg(e)}`);
+        }
+    }
+    const fontFor = (f) => fontResolveCache[`${f.family}|${f.weight}|${f.italic}`] || { family: "Inter", style: "Regular" };
+    async function build(n, parentX, parentY, parentAuto) {
+        made++;
+        if (made % 150 === 0) {
+            uiSend("x:layout-progress", { made });
+            await yieldToFigma();
+        }
+        let node = null;
+        try {
+            if (n.type === "TEXT")
+                node = await buildText(n);
+            else if (n.type === "SVG")
+                node = buildSvg(n);
+            else if (n.type === "IMAGE")
+                node = buildImage(n);
+            else
+                node = await buildFrame(n);
+        }
+        catch (e) {
+            warn(`${n.type} "${n.name}": ${errMsg(e)}`);
+            return null;
+        }
+        if (!node)
+            return null;
+        counts[n.type]++;
+        node.__abs = n.absolute || !parentAuto;
+        node.x = n.x - parentX;
+        node.y = n.y - parentY;
+        return node;
+    }
+    async function buildFrame(n) {
+        const f = figma.createFrame();
+        f.name = n.name || "frame";
+        f.fills = [];
+        for (const fill of n.fills || []) {
+            const c = rgba(fill.color);
+            if (fill.type === "SOLID" && c)
+                f.fills = [...f.fills, solid(c)];
+        }
+        if (n.stroke) {
+            const c = rgba(n.stroke.color);
+            f.strokes = [solid(c)];
+            f.strokeAlign = "INSIDE";
+            const [t, rgt, b, l] = n.stroke.weights;
+            if (t === rgt && t === b && t === l)
+                f.strokeWeight = t;
+            else {
+                f.strokeTopWeight = t;
+                f.strokeRightWeight = rgt;
+                f.strokeBottomWeight = b;
+                f.strokeLeftWeight = l;
+            }
+        }
+        if (n.radius) {
+            const [tl, tr, br, bl] = n.radius;
+            if (tl === tr && tl === br && tl === bl)
+                f.cornerRadius = tl;
+            else {
+                f.topLeftRadius = tl;
+                f.topRightRadius = tr;
+                f.bottomRightRadius = br;
+                f.bottomLeftRadius = bl;
+            }
+        }
+        if (n.shadows && n.shadows.length) {
+            f.effects = n.shadows.map((s) => ({
+                type: s.inset ? "INNER_SHADOW" : "DROP_SHADOW",
+                color: { r: s.color.r, g: s.color.g, b: s.color.b, a: s.color.a === undefined ? 1 : s.color.a },
+                offset: { x: s.x, y: s.y }, radius: s.blur, spread: s.spread,
+                visible: true, blendMode: "NORMAL",
+            }));
+        }
+        if (n.opacity !== undefined)
+            f.opacity = n.opacity;
+        f.clipsContent = !!n.clip;
+        const useAuto = autoLayout && !!n.layout;
+        if (useAuto) {
+            const L = n.layout;
+            f.layoutMode = L.mode;
+            f.primaryAxisSizingMode = "FIXED";
+            f.counterAxisSizingMode = "FIXED";
+            f.itemSpacing = L.primary === "SPACE_BETWEEN" ? 0 : L.gap;
+            [f.paddingTop, f.paddingRight, f.paddingBottom, f.paddingLeft] = L.padding;
+            f.primaryAxisAlignItems = (["MIN", "CENTER", "MAX", "SPACE_BETWEEN"].indexOf(L.primary) >= 0 ? L.primary : "MIN");
+            const counter = L.counter === "BASELINE" && L.mode !== "HORIZONTAL" ? "MIN" : L.counter;
+            f.counterAxisAlignItems = (["MIN", "CENTER", "MAX", "BASELINE"].indexOf(counter) >= 0 ? counter : "MIN");
+            if (L.wrap && L.mode === "HORIZONTAL") {
+                f.layoutWrap = "WRAP";
+                if (L.crossGap)
+                    f.counterAxisSpacing = L.crossGap;
+            }
+        }
+        f.resize(Math.max(n.w, 0.01), Math.max(n.h, 0.01));
+        for (const c of n.children || []) {
+            const child = await build(c, n.x, n.y, useAuto);
+            if (!child)
+                continue;
+            f.appendChild(child);
+            if (useAuto) {
+                if (child.__abs) {
+                    child.layoutPositioning = "ABSOLUTE";
+                    child.x = c.x - n.x;
+                    child.y = c.y - n.y;
+                }
+                else if ("layoutSizingHorizontal" in child) {
+                    try {
+                        child.layoutSizingHorizontal = "FIXED";
+                        child.layoutSizingVertical = "FIXED";
+                    }
+                    catch (e) { }
+                }
+            }
+            delete child.__abs;
+        }
+        return f;
+    }
+    async function buildText(n) {
+        const text = n.text || "";
+        if (!text.trim())
+            return null;
+        const t = figma.createText();
+        const base = n.font;
+        t.fontName = fontFor(base);
+        t.characters = text;
+        t.name = n.name || text.slice(0, 40);
+        t.fontSize = Math.max(1, base.size);
+        if (base.lineHeight)
+            t.lineHeight = { unit: "PIXELS", value: base.lineHeight };
+        if (base.letterSpacing)
+            t.letterSpacing = { unit: "PIXELS", value: base.letterSpacing };
+        const col = rgba(n.color);
+        t.fills = col ? [solid(col)] : [];
+        t.textCase = TEXT_CASE[n.transform || "ORIGINAL"] || "ORIGINAL";
+        t.textDecoration = TEXT_DECO[n.decoration || "NONE"] || "NONE";
+        t.textAlignHorizontal = (["LEFT", "CENTER", "RIGHT", "JUSTIFIED"].indexOf(n.align || "") >= 0 ? n.align : "LEFT");
+        if (n.runs && n.runs.length > 1) {
+            let at = 0;
+            for (const r of n.runs) {
+                const end = at + r.text.length;
+                if (end > at && end <= text.length) {
+                    t.setRangeFontName(at, end, fontFor(r.font));
+                    t.setRangeFontSize(at, end, Math.max(1, r.font.size));
+                    const rc = rgba(r.color);
+                    if (rc)
+                        t.setRangeFills(at, end, [solid(rc)]);
+                    if (r.decoration)
+                        t.setRangeTextDecoration(at, end, TEXT_DECO[r.decoration] || "NONE");
+                    if (r.transform)
+                        t.setRangeTextCase(at, end, TEXT_CASE[r.transform] || "ORIGINAL");
+                    if (r.font.letterSpacing)
+                        t.setRangeLetterSpacing(at, end, { unit: "PIXELS", value: r.font.letterSpacing });
+                }
+                at = end;
+            }
+        }
+        if (n.wrap || (n.align && n.align !== "LEFT")) {
+            t.textAutoResize = "HEIGHT";
+            t.resize(Math.max(n.w, 1), Math.max(n.h, 1));
+        }
+        else {
+            t.textAutoResize = "WIDTH_AND_HEIGHT";
+        }
+        return t;
+    }
+    function buildSvg(n) {
+        try {
+            const f = figma.createNodeFromSvg(n.svg || "<svg xmlns='http://www.w3.org/2000/svg'/>");
+            f.name = n.name || "svg";
+            if (Math.abs(f.width - n.w) > 0.5 || Math.abs(f.height - n.h) > 0.5)
+                f.resize(Math.max(n.w, 0.01), Math.max(n.h, 0.01));
+            return f;
+        }
+        catch (e) {
+            warn(`SVG "${n.name}" niet leesbaar voor Figma, vervangen door een vlak: ${errMsg(e)}`);
+            const r = figma.createRectangle();
+            r.name = `${n.name || "svg"} (niet geïmporteerd)`;
+            r.resize(Math.max(n.w, 0.01), Math.max(n.h, 0.01));
+            r.fills = [solid({ r: 0.9, g: 0.9, b: 0.9, a: 1 })];
+            return r;
+        }
+    }
+    function buildImage(n) {
+        const r = figma.createRectangle();
+        r.name = n.name || "image";
+        r.resize(Math.max(n.w, 0.01), Math.max(n.h, 0.01));
+        const m = (n.src || "").match(/^data:image\/[a-z+]+;base64,(.+)$/i);
+        if (m) {
+            const img = figma.createImage(figma.base64Decode(m[1]));
+            r.fills = [{ type: "IMAGE", imageHash: img.hash, scaleMode: n.fit === "FIT" ? "FIT" : "FILL" }];
+        }
+        else {
+            r.fills = [solid({ r: 0.88, g: 0.89, b: 0.9, a: 1 })];
+            warn(`afbeelding "${n.name}" had geen leesbare bron (CORS) — grijs vlak geplaatst`);
+        }
+        return r;
+    }
+    const rootNode = await build(doc.root, doc.root.x, doc.root.y, false);
+    if (!rootNode)
+        throw new Error("De root kon niet opgebouwd worden. " + (warnings[0] || ""));
+    const src = doc.source || {};
+    rootNode.name = opts.name || [src.title || doc.root.name || "Import", src.colorScheme ? `(${src.colorScheme})` : ""].join(" ").trim();
+    let parent = figma.currentPage;
+    if (opts.parentId) {
+        const p = await figma.getNodeByIdAsync(opts.parentId);
+        if (p && "appendChild" in p)
+            parent = p;
+    }
+    parent.appendChild(rootNode);
+    if (opts.x !== undefined && opts.y !== undefined) {
+        rootNode.x = opts.x;
+        rootNode.y = opts.y;
+    }
+    else if (parent.type === "PAGE") {
+        const others = parent.children.filter((c) => c !== rootNode);
+        const right = others.reduce((m, c) => Math.max(m, c.x + c.width), 0);
+        const top = others.length ? Math.min(...others.map((c) => c.y)) : 0;
+        rootNode.x = others.length ? Math.round(right + 200) : 0;
+        rootNode.y = Math.round(top);
+    }
+    figma.currentPage.selection = [rootNode];
+    figma.viewport.scrollAndZoomIntoView([rootNode]);
+    return { rootId: rootNode.id, name: rootNode.name, counts, warnings, width: Math.round(rootNode.width), height: Math.round(rootNode.height) };
+}
+const varNameCache = {};
+async function varName(id) {
+    if (varNameCache[id])
+        return varNameCache[id];
+    const v = await figma.variables.getVariableByIdAsync(id);
+    varNameCache[id] = v ? v.name : id;
+    return varNameCache[id];
+}
+async function describePaints(paints) {
+    if (paints === figma.mixed)
+        return "mixed";
+    const out = [];
+    for (const p of paints) {
+        if (p.visible === false)
+            continue;
+        if (p.type === "SOLID") {
+            const e = { type: "SOLID", hex: toHex({ r: p.color.r, g: p.color.g, b: p.color.b, a: p.opacity === undefined ? 1 : p.opacity }) };
+            if (p.boundVariables && p.boundVariables.color)
+                e.variable = await varName(p.boundVariables.color.id);
+            out.push(e);
+        }
+        else
+            out.push({ type: p.type });
+    }
+    return out;
+}
+async function describeNode(n, depth) {
+    const d = { id: n.id, name: n.name, type: n.type };
+    if ("x" in n) {
+        d.x = Math.round(n.x);
+        d.y = Math.round(n.y);
+    }
+    if ("width" in n) {
+        d.w = Math.round(n.width);
+        d.h = Math.round(n.height);
+    }
+    if (!n.visible)
+        d.visible = false;
+    if ("opacity" in n && n.opacity < 1)
+        d.opacity = Math.round(n.opacity * 100) / 100;
+    if ("fills" in n && n.type !== "TEXT") {
+        const f = await describePaints(n.fills);
+        if (f === "mixed" || f.length)
+            d.fills = f;
+    }
+    if ("strokes" in n && n.strokes.length) {
+        d.strokes = await describePaints(n.strokes);
+        d.strokeWeight = n.strokeWeight === figma.mixed ? "mixed" : n.strokeWeight;
+    }
+    if ("cornerRadius" in n)
+        d.radius = n.cornerRadius === figma.mixed ? "mixed" : n.cornerRadius || undefined;
+    if ("layoutMode" in n && n.layoutMode !== "NONE") {
+        const f = n;
+        d.autoLayout = {
+            mode: f.layoutMode, gap: f.itemSpacing,
+            padding: [f.paddingTop, f.paddingRight, f.paddingBottom, f.paddingLeft],
+            primary: f.primaryAxisAlignItems, counter: f.counterAxisAlignItems,
+            wrap: f.layoutWrap,
+        };
+    }
+    if ("layoutSizingHorizontal" in n && n.parent && "layoutMode" in n.parent && n.parent.layoutMode !== "NONE") {
+        d.sizing = { h: n.layoutSizingHorizontal, v: n.layoutSizingVertical };
+    }
+    if ("boundVariables" in n && n.boundVariables) {
+        const bv = {};
+        for (const k of Object.keys(n.boundVariables)) {
+            const v = n.boundVariables[k];
+            if (v && v.id)
+                bv[k] = await varName(v.id);
+        }
+        if (Object.keys(bv).length)
+            d.boundVariables = bv;
+    }
+    if (n.type === "TEXT") {
+        d.characters = n.characters.length > 400 ? n.characters.slice(0, 400) + "…" : n.characters;
+        d.fontName = n.fontName === figma.mixed ? "mixed" : n.fontName;
+        d.fontSize = n.fontSize === figma.mixed ? "mixed" : n.fontSize;
+        d.fills = await describePaints(n.fills);
+        if (n.textStyleId && n.textStyleId !== figma.mixed) {
+            const s = await figma.getStyleByIdAsync(n.textStyleId);
+            d.textStyle = s ? s.name : n.textStyleId;
+        }
+    }
+    if (n.type === "COMPONENT_SET")
+        d.variantProperties = Object.keys(n.componentPropertyDefinitions || {});
+    if (n.type === "COMPONENT" && n.parent && n.parent.type === "COMPONENT_SET")
+        d.variant = n.variantProperties;
+    if (n.type === "INSTANCE") {
+        const main = await n.getMainComponentAsync();
+        d.mainComponent = main ? main.name : null;
+    }
+    if ("children" in n) {
+        if (depth > 0) {
+            d.children = [];
+            for (const c of n.children)
+                d.children.push(await describeNode(c, depth - 1));
+        }
+        else if (n.children.length)
+            d.childCount = n.children.length;
+    }
+    return d;
+}
+async function nodesFrom(p) {
+    const ids = p.ids || (p.id ? [p.id] : []);
+    if (!ids.length) {
+        const sel = figma.currentPage.selection;
+        if (!sel.length)
+            throw new Error("Geef ids mee of selecteer eerst iets in Figma.");
+        return sel.slice();
+    }
+    const out = [];
+    for (const id of ids) {
+        const n = await figma.getNodeByIdAsync(id);
+        if (!n || n.type === "DOCUMENT" || n.type === "PAGE")
+            throw new Error(`Geen laag met id ${id}`);
+        out.push(n);
+    }
+    return out;
+}
+async function findVariable(ref) {
+    const byId = await figma.variables.getVariableByIdAsync(ref).catch(() => null);
+    if (byId)
+        return byId;
+    const all = await figma.variables.getLocalVariablesAsync();
+    const v = all.find((x) => x.name === ref) || all.find((x) => x.name.toLowerCase() === ref.toLowerCase());
+    if (!v)
+        throw new Error(`Variabele "${ref}" niet gevonden`);
+    return v;
+}
+async function loadAllFontsOf(t) {
+    const fonts = t.fontName === figma.mixed ? t.getRangeAllFontNames(0, t.characters.length) : [t.fontName];
+    for (const f of fonts)
+        await figma.loadFontAsync(f);
+}
+async function applyProps(n, p) {
+    const any = n;
+    if (p.name !== undefined)
+        n.name = String(p.name);
+    if (p.visible !== undefined)
+        n.visible = !!p.visible;
+    if (p.opacity !== undefined && "opacity" in n)
+        any.opacity = +p.opacity;
+    if (p.text !== undefined || p.fontSize !== undefined || p.fontFamily !== undefined || p.fontWeight !== undefined) {
+        if (n.type !== "TEXT")
+            throw new Error(`${n.name} is geen tekstlaag`);
+        await loadAllFontsOf(n);
+        if (p.fontFamily !== undefined || p.fontWeight !== undefined) {
+            const cur = n.fontName === figma.mixed ? { family: "Inter", style: "Regular" } : n.fontName;
+            n.fontName = await resolveFont(p.fontFamily || cur.family, p.fontWeight || styleWeight(cur.style), /italic/i.test(cur.style));
+        }
+        if (p.text !== undefined)
+            n.characters = String(p.text);
+        if (p.fontSize !== undefined)
+            n.fontSize = +p.fontSize;
+        if (p.lineHeight !== undefined)
+            n.lineHeight = p.lineHeight === "auto" ? { unit: "AUTO" } : { unit: "PIXELS", value: +p.lineHeight };
+        if (p.textAlign !== undefined)
+            n.textAlignHorizontal = String(p.textAlign).toUpperCase();
+        if (p.textAutoResize !== undefined)
+            n.textAutoResize = p.textAutoResize;
+    }
+    if (p.width !== undefined || p.height !== undefined) {
+        if (!("resize" in n))
+            throw new Error(`${n.name} kan niet geschaald worden`);
+        any.resize(p.width !== undefined ? +p.width : any.width, p.height !== undefined ? +p.height : any.height);
+    }
+    if (p.x !== undefined)
+        n.x = +p.x;
+    if (p.y !== undefined)
+        n.y = +p.y;
+    if (p.fill !== undefined || p.fills !== undefined) {
+        const list = p.fills !== undefined ? p.fills : [p.fill];
+        any.fills = (list || []).filter((c) => c !== null && c !== "none").map((c) => solid(parseColor(c)));
+    }
+    if (p.stroke !== undefined) {
+        if (p.stroke === null || p.stroke === "none")
+            any.strokes = [];
+        else {
+            const s = typeof p.stroke === "object" && !("r" in p.stroke) ? p.stroke : { color: p.stroke };
+            any.strokes = [solid(parseColor(s.color))];
+            if (s.weight !== undefined)
+                any.strokeWeight = +s.weight;
+            any.strokeAlign = s.align || "INSIDE";
+        }
+    }
+    if (p.cornerRadius !== undefined)
+        any.cornerRadius = +p.cornerRadius;
+    if (p.layout !== undefined) {
+        if (!("layoutMode" in n))
+            throw new Error(`${n.name} kan geen auto layout krijgen`);
+        const L = p.layout;
+        if (L === null || L === "none" || L.mode === "NONE")
+            any.layoutMode = "NONE";
+        else {
+            if (L.mode)
+                any.layoutMode = String(L.mode).toUpperCase();
+            if (L.gap !== undefined)
+                any.itemSpacing = +L.gap;
+            if (L.padding !== undefined) {
+                const pd = Array.isArray(L.padding) ? L.padding : [L.padding, L.padding, L.padding, L.padding];
+                const [t, r, b, l] = pd.length === 2 ? [pd[0], pd[1], pd[0], pd[1]] : pd;
+                any.paddingTop = +t;
+                any.paddingRight = +r;
+                any.paddingBottom = +b;
+                any.paddingLeft = +l;
+            }
+            if (L.primary)
+                any.primaryAxisAlignItems = String(L.primary).toUpperCase();
+            if (L.counter)
+                any.counterAxisAlignItems = String(L.counter).toUpperCase();
+            if (L.wrap !== undefined)
+                any.layoutWrap = L.wrap ? "WRAP" : "NO_WRAP";
+        }
+    }
+    if (p.sizing !== undefined) {
+        if (p.sizing.h)
+            any.layoutSizingHorizontal = String(p.sizing.h).toUpperCase();
+        if (p.sizing.v)
+            any.layoutSizingVertical = String(p.sizing.v).toUpperCase();
+    }
+    if (p.shadow !== undefined) {
+        any.effects = p.shadow === null ? [] : [{
+                type: "DROP_SHADOW", color: parseColor(p.shadow.color || "#00000026"),
+                offset: { x: +(p.shadow.x || 0), y: +(p.shadow.y || 2) }, radius: +(p.shadow.blur || 8),
+                spread: +(p.shadow.spread || 0), visible: true, blendMode: "NORMAL",
+            }];
+    }
+}
+async function createNode(p) {
+    const kind = String(p.kind || p.type || "FRAME").toUpperCase();
+    let n;
+    if (kind === "FRAME") {
+        const f = figma.createFrame();
+        f.fills = [];
+        n = f;
+    }
+    else if (kind === "RECTANGLE")
+        n = figma.createRectangle();
+    else if (kind === "ELLIPSE")
+        n = figma.createEllipse();
+    else if (kind === "TEXT") {
+        const t = figma.createText();
+        t.fontName = await resolveFont(p.fontFamily || "Inter", p.fontWeight || 400, false);
+        t.characters = String(p.text || "Text");
+        n = t;
+    }
+    else if (kind === "SVG")
+        n = figma.createNodeFromSvg(String(p.svg || ""));
+    else
+        throw new Error(`Onbekend soort laag: ${kind} (FRAME, RECTANGLE, ELLIPSE, TEXT of SVG)`);
+    let parent = figma.currentPage;
+    if (p.parentId) {
+        const pn = await figma.getNodeByIdAsync(p.parentId);
+        if (!pn || !("appendChild" in pn))
+            throw new Error(`Ouder ${p.parentId} kan geen kinderen hebben`);
+        parent = pn;
+    }
+    parent.appendChild(n);
+    const props = Object.assign({}, p);
+    delete props.text;
+    delete props.fontFamily;
+    delete props.fontWeight;
+    if (kind === "TEXT" && p.text === undefined)
+        delete props.text;
+    await applyProps(n, props);
+    return n;
+}
+async function screenshot(p) {
+    let nodes;
+    if (p.ids || p.id)
+        nodes = await nodesFrom(p);
+    else if (figma.currentPage.selection.length)
+        nodes = figma.currentPage.selection.slice();
+    else
+        nodes = figma.currentPage.children.slice(0, 1);
+    if (!nodes.length)
+        throw new Error("Niets om te fotograferen: de pagina is leeg.");
+    const maxPx = Math.min(+(p.maxSize || 1600), 4096);
+    const images = [];
+    for (const n of nodes.slice(0, 4)) {
+        const w = n.width || 1, h = n.height || 1;
+        const scale = Math.min(+(p.scale || 1), maxPx / Math.max(w, h));
+        const bytes = await n.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: Math.max(scale, 0.05) } });
+        images.push({ id: n.id, name: n.name, width: Math.round(w * scale), height: Math.round(h * scale), base64: figma.base64Encode(bytes) });
+    }
+    return { images };
+}
+async function getVariablesDump() {
+    const cols = await figma.variables.getLocalVariableCollectionsAsync();
+    const out = [];
+    for (const c of cols) {
+        const vars = [];
+        for (const id of c.variableIds) {
+            const v = await figma.variables.getVariableByIdAsync(id);
+            if (!v)
+                continue;
+            const values = {};
+            for (const m of c.modes) {
+                const val = v.valuesByMode[m.modeId];
+                if (val && typeof val === "object" && val.type === "VARIABLE_ALIAS")
+                    values[m.name] = { alias: await varName(val.id) };
+                else if (val && typeof val === "object" && "r" in val)
+                    values[m.name] = toHex(val);
+                else
+                    values[m.name] = val;
+            }
+            vars.push({ id: v.id, name: v.name, type: v.resolvedType, values, scopes: v.scopes });
+        }
+        out.push({ id: c.id, name: c.name, modes: c.modes.map((m) => m.name), variables: vars });
+    }
+    return { collections: out };
+}
+async function getStylesDump() {
+    const text = await figma.getLocalTextStylesAsync();
+    const paint = await figma.getLocalPaintStylesAsync();
+    const effect = await figma.getLocalEffectStylesAsync();
+    return {
+        text: text.map((s) => ({ id: s.id, name: s.name, font: s.fontName, size: s.fontSize, lineHeight: s.lineHeight })),
+        paint: await Promise.all(paint.map(async (s) => ({ id: s.id, name: s.name, paints: await describePaints(s.paints) }))),
+        effect: effect.map((s) => ({ id: s.id, name: s.name, effects: s.effects.map((e) => e.type) })),
+    };
+}
+async function createVariables(p) {
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    let col = collections.find((c) => c.name === p.collection);
+    if (!col)
+        col = figma.variables.createVariableCollection(String(p.collection || "tokens"));
+    const modeNames = p.modes || [];
+    modeNames.forEach((name, i) => {
+        if (col.modes.some((m) => m.name === name))
+            return;
+        if (i === 0 && col.modes.length === 1 && col.variableIds.length === 0)
+            col.renameMode(col.modes[0].modeId, name);
+        else
+            col.addMode(name);
+    });
+    const modeId = (name) => {
+        const m = col.modes.find((x) => x.name === name);
+        if (!m)
+            throw new Error(`Mode "${name}" bestaat niet in ${col.name}`);
+        return m.modeId;
+    };
+    const existing = await figma.variables.getLocalVariablesAsync();
+    const results = [];
+    for (const spec of p.variables || []) {
+        const type = String(spec.type || "COLOR").toUpperCase();
+        let v = existing.find((x) => x.name === spec.name && x.variableCollectionId === col.id);
+        const isNew = !v;
+        if (!v)
+            v = figma.variables.createVariable(spec.name, col, type);
+        const values = spec.values || (spec.value !== undefined ? { [col.modes[0].name]: spec.value } : {});
+        for (const modeName of Object.keys(values)) {
+            const raw = values[modeName];
+            let val;
+            if (raw && typeof raw === "object" && raw.alias)
+                val = figma.variables.createVariableAlias(await findVariable(raw.alias));
+            else if (type === "COLOR")
+                val = parseColor(raw);
+            else if (type === "FLOAT")
+                val = +raw;
+            else if (type === "BOOLEAN")
+                val = !!raw;
+            else
+                val = String(raw);
+            v.setValueForMode(modeId(modeName), val);
+        }
+        if (spec.scopes)
+            v.scopes = spec.scopes;
+        results.push(`${isNew ? "nieuw" : "bijgewerkt"}: ${v.name}`);
+    }
+    return { collection: col.name, modes: col.modes.map((m) => m.name), results };
+}
+async function bindVariable(p) {
+    const nodes = await nodesFrom(p);
+    const v = await findVariable(String(p.variable));
+    const field = String(p.field);
+    let done = 0;
+    for (const n of nodes) {
+        const any = n;
+        if (field === "fill" || field === "fills" || field === "stroke" || field === "strokes") {
+            const prop = field.indexOf("fill") === 0 ? "fills" : "strokes";
+            if (!(prop in n))
+                continue;
+            const current = any[prop] === figma.mixed ? [] : any[prop].slice();
+            const base = current.find((x) => x.type === "SOLID") || { type: "SOLID", color: { r: 0, g: 0, b: 0 } };
+            any[prop] = [figma.variables.setBoundVariableForPaint(base, "color", v)];
+        }
+        else {
+            if (!("setBoundVariable" in n))
+                continue;
+            n.setBoundVariable(field, v);
+        }
+        done++;
+    }
+    return { bound: done, variable: v.name, field };
+}
+async function applyTextStyle(p) {
+    const nodes = (await nodesFrom(p)).filter((n) => n.type === "TEXT");
+    const styles = await figma.getLocalTextStylesAsync();
+    const s = styles.find((x) => x.id === p.style || x.name === p.style);
+    if (!s)
+        throw new Error(`Tekststijl "${p.style}" niet gevonden. Bestaand: ${styles.map((x) => x.name).join(", ") || "geen"}`);
+    await figma.loadFontAsync(s.fontName);
+    for (const t of nodes) {
+        await loadAllFontsOf(t);
+        await t.setTextStyleIdAsync(s.id);
+    }
+    return { applied: nodes.length, style: s.name };
+}
+async function bridgeCommand(cmd, p) {
+    var _a, _b;
+    switch (cmd) {
+        case "status":
+            return {
+                fileName: figma.root.name, page: figma.currentPage.name, pageId: figma.currentPage.id,
+                selection: figma.currentPage.selection.map((n) => ({ id: n.id, name: n.name, type: n.type })),
+                pluginVersion: typeof PLUGIN_VERSION !== "undefined" ? PLUGIN_VERSION : "?", featureVersion: FEATURE_VERSION,
+            };
+        case "get_document": {
+            await figma.loadAllPagesAsync();
+            return {
+                fileName: figma.root.name, currentPageId: figma.currentPage.id,
+                pages: figma.root.children.map((pg) => ({
+                    id: pg.id, name: pg.name,
+                    children: pg.children.slice(0, 200).map((c) => ({ id: c.id, name: c.name, type: c.type, w: Math.round(c.width || 0), h: Math.round(c.height || 0) })),
+                })),
+            };
+        }
+        case "get_selection": {
+            const out = [];
+            for (const n of figma.currentPage.selection)
+                out.push(await describeNode(n, +((_a = p.depth) !== null && _a !== void 0 ? _a : 1)));
+            return { selection: out };
+        }
+        case "get_node": {
+            const nodes = await nodesFrom(p);
+            const out = [];
+            for (const n of nodes)
+                out.push(await describeNode(n, Math.min(+((_b = p.depth) !== null && _b !== void 0 ? _b : 2), 6)));
+            return { nodes: out };
+        }
+        case "screenshot": return screenshot(p);
+        case "get_variables": return getVariablesDump();
+        case "get_styles": return getStylesDump();
+        case "rubric_check": return rubricAudit();
+        case "create": {
+            const n = await createNode(p);
+            return { id: n.id, name: n.name, type: n.type };
+        }
+        case "update": {
+            const nodes = await nodesFrom(p);
+            for (const n of nodes)
+                await applyProps(n, p.props || {});
+            return { updated: nodes.map((n) => n.id) };
+        }
+        case "delete": {
+            const nodes = await nodesFrom(p);
+            const ids = nodes.map((n) => n.id);
+            nodes.forEach((n) => n.remove());
+            return { deleted: ids };
+        }
+        case "create_component": {
+            const nodes = await nodesFrom(p);
+            const out = nodes.map((n) => {
+                const c = figma.createComponentFromNode(n);
+                if (p.name && nodes.length === 1)
+                    c.name = p.name;
+                return { id: c.id, name: c.name };
+            });
+            return { components: out };
+        }
+        case "combine_as_variants": {
+            const nodes = await nodesFrom(p);
+            const comps = nodes.map((n) => (n.type === "COMPONENT" ? n : figma.createComponentFromNode(n)));
+            const parent = (comps[0].parent && "appendChild" in comps[0].parent ? comps[0].parent : figma.currentPage);
+            const set = figma.combineAsVariants(comps, parent);
+            if (p.name)
+                set.name = p.name;
+            return { id: set.id, name: set.name, variantProperties: Object.keys(set.componentPropertyDefinitions) };
+        }
+        case "create_variables": return createVariables(p);
+        case "bind_variable": return bindVariable(p);
+        case "apply_text_style": return applyTextStyle(p);
+        case "create_spacing_variables": return { made: await createSpacingVariables() };
+        case "create_text_styles": return createTextStyles();
+        case "import_layout": return importLayout(p.doc, p.options || p);
+        case "set_selection": {
+            const nodes = await nodesFrom(p);
+            figma.currentPage.selection = nodes;
+            if (p.zoom !== false)
+                figma.viewport.scrollAndZoomIntoView(nodes);
+            return { selected: nodes.map((n) => n.id) };
+        }
+        case "notify":
+            figma.notify(String(p.message || "").slice(0, 200));
+            return { ok: true };
+        default:
+            throw new Error(`Onbekend commando "${cmd}"`);
+    }
+}
+figma.on("currentpagechange", () => uiSend("x:page", { page: figma.currentPage.name, fileName: figma.root.name }));
+figma.ui.on("message", async (msg) => {
+    if (!isFeatureMessage(msg))
+        return;
+    try {
+        switch (msg.type) {
+            case "x:hello":
+                uiSend("x:info", { featureVersion: FEATURE_VERSION, fileName: figma.root.name, page: figma.currentPage.name, bridge: (await figma.clientStorage.getAsync("bridge")) || null });
+                break;
+            case "x:save-bridge":
+                await figma.clientStorage.setAsync("bridge", msg.value || null);
+                break;
+            case "x:rubric-audit":
+                uiSend("x:rubric-report", { report: await rubricAudit() });
+                break;
+            case "x:rubric-spacing":
+                uiSend("x:rubric-done", { title: "Spacing- en radius-variabelen", made: await createSpacingVariables() });
+                uiSend("x:rubric-report", { report: await rubricAudit() });
+                break;
+            case "x:rubric-textstyles": {
+                const r = await createTextStyles();
+                uiSend("x:rubric-done", { title: "Tekststijlen", made: r.made, failed: r.failed });
+                uiSend("x:rubric-report", { report: await rubricAudit() });
+                break;
+            }
+            case "x:layout-import":
+                uiSend("x:layout-done", { result: await importLayout(msg.doc, msg.options || {}) });
+                break;
+            case "x:bridge-cmd":
+                try {
+                    const result = await bridgeCommand(String(msg.cmd), msg.params || {});
+                    uiSend("x:bridge-result", { id: msg.id, ok: true, result });
+                }
+                catch (e) {
+                    uiSend("x:bridge-result", { id: msg.id, ok: false, error: errMsg(e) });
+                }
+                break;
+        }
+    }
+    catch (e) {
+        uiSend("x:error", { message: errMsg(e), during: msg.type });
+    }
+});

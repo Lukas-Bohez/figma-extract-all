@@ -1,1 +1,1 @@
-{"name":"Extract All","id":"1655550973103544441","api":"1.0.0","main":"code.js","ui":"ui.html","editorType":["figma"],"networkAccess":{"allowedDomains":["none"]},"documentAccess":"dynamic-page"}
+{"name":"Extract All","id":"1655550973103544441","api":"1.0.0","main":"code.js","ui":"ui.html","editorType":["figma"],"networkAccess":{"allowedDomains":["none"],"devAllowedDomains":["http://localhost:3055","ws://localhost:3055"],"reasoning":"Alleen in ontwikkelmodus: de Claude-bridge draait lokaal op localhost:3055. Geen externe servers."},"documentAccess":"dynamic-page"}

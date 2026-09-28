@@ -203,7 +203,7 @@ interface BMCheckResult {
   settingsOK: boolean;
 }
 
-const PLUGIN_VERSION = "18.3.0";
+const PLUGIN_VERSION = "19.0.0";
 const TE = {
   encode: (s: string) => {
     const r = new Uint8Array(s.length);
@@ -816,6 +816,10 @@ let lastAnalysis: LottieAnalysis | null = null;
 let runningExtract = false;
 
 figma.ui.onmessage = async (msg: any) => {
+  // v19 features (rubric check, build, Claude bridge) have their own handler in
+  // features.ts. Skip them here: the two lines below would otherwise wipe the
+  // ZIP buffer and undo a cancel whenever a bridge message arrives mid-export.
+  if (isFeatureMessage(msg)) return;
   cancelRequested = false;
   zipFiles.length = 0;
   const baseName = sanitizeName(figma.root.name || "Untitled");

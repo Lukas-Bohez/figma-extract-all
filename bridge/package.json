@@ -1,0 +1,28 @@
+{
+  "name": "figma-extract-all-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Let Claude and other LLMs work in Figma through the Extract All plugin: MCP server, local HTTP/WebSocket hub, and a web-page-to-Figma capture.",
+  "bin": {
+    "figma-mcp": "bin/figma-mcp.mjs",
+    "figma-hub": "bin/figma-hub.mjs",
+    "figma-capture": "bin/capture.mjs",
+    "figma-contrast": "bin/contrast.mjs"
+  },
+  "scripts": {
+    "start": "node bin/figma-hub.mjs",
+    "mcp": "node bin/figma-mcp.mjs",
+    "capture": "node bin/capture.mjs",
+    "contrast": "node bin/contrast.mjs",
+    "test": "node test/plugin.test.mjs && node test/bridge.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  }
+}

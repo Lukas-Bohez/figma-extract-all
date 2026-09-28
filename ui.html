@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Extract All — Lottie Import</title>
+<title>Extract All</title>
 <style>
   :root {
     --bg: #f6f3ee; --bg-el: #fff; --bg-solid: #fff;
@@ -125,7 +125,7 @@
   <div class="hdr">
     <div>
       <h1>Extract All</h1>
-      <p>Lottie Import & Export — Figma to Animated GIF</p>
+      <p>Extract · Lottie · Build from web · Rubric · Claude bridge</p>
     </div>
     <button class="theme-btn" id="themeToggle"><span class="theme-dot"></span><span id="themeLabel">Theme</span></button>
   </div>
@@ -135,6 +135,9 @@
     <button class="tab-btn" data-tab="ae"><span class="tab-emoji">&#x1F3AC;</span>AE Export</button>
     <button class="tab-btn" data-tab="ai"><span class="tab-emoji">&#x1F916;</span>AI Export</button>
     <button class="tab-btn" data-tab="assets"><span class="tab-emoji">&#x1F4E6;</span>Assets</button>
+    <button class="tab-btn" data-tab="build"><span class="tab-emoji">&#x1F3D7;</span>Build</button>
+    <button class="tab-btn" data-tab="rubric"><span class="tab-emoji">&#x2705;</span>Rubric</button>
+    <button class="tab-btn" data-tab="claude"><span class="tab-emoji">&#x1F50C;</span>Claude</button>
   </div>
 
   <!-- TAB 1: LOTTIE IMPORT -->
@@ -243,6 +246,71 @@
       <h3>Data</h3>
       <div class="row2"><button data-action="req-variables">Variables</button><button data-action="req-styles">Styles</button></div>
       <div class="row2" style="margin-top:4px;"><button data-action="req-components">Components</button><button data-action="req-pages">Pages</button></div>
+    </div>
+  </div>
+
+
+  <!-- TAB 5: BUILD (web page -> Figma) — v19 -->
+  <div class="panel" id="panel-build">
+    <p class="desc">Zet een <strong>web-pagina</strong> — React, HTML, localhost of online — om naar <strong>bewerkbare Figma-lagen</strong>: frames met auto layout uit flexbox, tekst met stijlen, SVG's, schaduwen.</p>
+    <div class="card">
+      <h3>Vanaf een URL</h3>
+      <input type="text" class="x-input" id="xbUrl" placeholder="http://localhost:5173" spellcheck="false">
+      <div class="row2" style="margin-top:6px;">
+        <select id="xbTheme"><option value="light">Licht thema</option><option value="dark">Donker thema</option><option value="both">Licht + donker</option></select>
+        <select id="xbWidth"><option value="1440">Desktop 1440</option><option value="1024">Tablet 1024</option><option value="390">Mobiel 390</option></select>
+      </div>
+      <div class="checks" style="margin:8px 0;"><label><input type="checkbox" id="xbAuto" checked> Auto layout uit flexbox (waar dat getrouw kan)</label></div>
+      <button class="primary" id="xbCapture" style="width:100%">&#x1F3D7; Vastleggen en in Figma zetten</button>
+      <p class="x-hint">Heeft de lokale bridge nodig: tab <strong>Claude</strong> &rarr; Verbinden.</p>
+    </div>
+    <div class="card">
+      <h3>Vanaf een bestand</h3>
+      <div class="dropzone" id="xbDrop" style="padding:14px;">
+        <input type="file" id="xbFile" accept=".json,application/json">
+        <div class="dz-text" style="font-size:11px;">&#x1F4C2; Sleep een figma-layout .json hierheen</div>
+        <div class="dz-sub">Gemaakt met <code>node bridge/bin/capture.mjs &lt;url&gt;</code> of de bookmarklet</div>
+      </div>
+      <div class="checks" style="margin-top:8px;"><label><input type="checkbox" id="xbAutoFile" checked> Auto layout uit flexbox</label></div>
+    </div>
+    <div id="xbResult"></div>
+  </div>
+
+  <!-- TAB 6: RUBRIC — v19 -->
+  <div class="panel" id="panel-rubric">
+    <p class="desc">Kijkt dit bestand na op een <strong>designrubric</strong>: 8px-grid, variabelen in twee lagen, of kleuren écht aan variabelen gebonden zijn, tekststijlen, variantnamen en auto layout. Niets wordt overschreven; wat je aanmaakt draai je terug met Ctrl+Z.</p>
+    <div class="row3">
+      <button class="primary" id="xrAudit">&#x2705; Nakijken</button>
+      <button id="xrSpacing">8px-variabelen</button>
+      <button id="xrText">Tekststijlen</button>
+    </div>
+    <div id="xrOut" style="margin-top:10px;"><p class="x-hint">Klik op Nakijken.</p></div>
+  </div>
+
+  <!-- TAB 7: CLAUDE BRIDGE — v19 -->
+  <div class="panel" id="panel-claude">
+    <p class="desc">Geef <strong>Claude</strong> (of een andere AI) toegang tot dit bestand via een <strong>lokale</strong> bridge op je eigen pc. Niets gaat naar een externe server; de plugin moet open blijven zolang de AI werkt.</p>
+    <div class="card">
+      <h3>Verbinding</h3>
+      <div class="x-status"><span class="x-dot" id="xcDot"></span><span id="xcState">Niet verbonden</span></div>
+      <div class="row2" style="margin-top:8px;">
+        <button class="primary" id="xcToggle">&#x1F50C; Verbinden</button>
+        <button id="xcTest">Test</button>
+      </div>
+      <div class="checks" style="margin-top:8px;"><label><input type="checkbox" id="xcAuto"> Automatisch verbinden als de plugin opent</label></div>
+    </div>
+    <div class="card">
+      <h3>Eenmalig instellen</h3>
+      <ol class="x-steps">
+        <li>In de map <code>bridge</code> van deze plugin: <code>npm install</code></li>
+        <li>Claude Code: <code class="x-copy" title="Klik om te kopiëren">claude mcp add figma -- node "&lt;pad naar plugin&gt;\bridge\bin\figma-mcp.mjs"</code></li>
+        <li>Hier op <strong>Verbinden</strong> klikken, en aan Claude vragen:<br><em>"Kijk mijn Figma-bestand na op de rubric"</em> of <em>"Zet http://localhost:5173 in Figma, licht en donker"</em>.</li>
+      </ol>
+      <p class="x-hint">Geen MCP? Start <code>node bridge/bin/figma-hub.mjs</code> en stuur <code>POST http://127.0.0.1:3055/command</code> met JSON <code>{"cmd":"status"}</code>.</p>
+    </div>
+    <div class="card">
+      <h3>Activiteit</h3>
+      <div class="log show" id="xcLog" style="max-height:140px;"></div>
     </div>
   </div>
 
@@ -977,6 +1045,283 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isExporting) { e.preventDefault(); doCancel(); } });
   log("Ready — drop a Lottie JSON file.", "inf");
   log("Click 'Render & Place GIF' to convert to animated GIF.", "inf");
+})();
+</script>
+
+<!-- ═══════════ v19: Build, Rubric and Claude bridge ═══════════
+     Separate from the main script on purpose: it only listens for its own
+     "x:" messages and never touches the export state above. -->
+<style>
+  .x-input { width: 100%; font: inherit; font-size: 11px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-solid); color: var(--text); user-select: text; }
+  .x-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .x-hint { margin: 8px 0 0; font-size: 10px; color: var(--muted); line-height: 1.5; }
+  .x-status { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; }
+  .x-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--muted); flex-shrink: 0; }
+  .x-dot.on { background: var(--green); box-shadow: 0 0 0 3px rgba(31,143,75,.18); }
+  .x-dot.wait { background: var(--orange); }
+  .x-steps { margin: 0; padding-left: 16px; font-size: 10px; line-height: 1.7; color: var(--text); }
+  .x-steps code, .x-hint code, .desc code, .dz-sub code { background: rgba(127,127,127,.14); padding: 1px 4px; border-radius: 4px; font-size: 9.5px; user-select: text; }
+  .x-copy { cursor: pointer; word-break: break-all; }
+  .x-copy:hover { outline: 1px solid var(--accent); }
+  .x-sec { border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; margin-bottom: 6px; background: var(--bg-solid); }
+  .x-sec h4 { margin: 0 0 5px; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+  .x-sec ul { margin: 3px 0 0; padding-left: 15px; font-size: 10px; line-height: 1.6; }
+  .x-sec p { margin: 3px 0; font-size: 10px; color: var(--muted); }
+  .x-tag { font-size: 9px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+  .x-ok { background: rgba(31,143,75,.14); color: var(--green); }
+  .x-warn { background: rgba(180,105,14,.14); color: var(--orange); }
+  .x-bad { background: rgba(194,38,45,.12); color: var(--red); }
+  .x-swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: -1px; margin-right: 3px; border: 1px solid var(--border); }
+</style>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var toCode = function (msg) { parent.postMessage({ pluginMessage: msg }, "*"); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var tag = function (state, text) { return '<span class="x-tag x-' + state + '">' + esc(text) + "</span>"; };
+
+  var info = { fileName: "", page: "", featureVersion: "" };
+  toCode({ type: "x:hello" });
+
+  /* ─────────────── Claude bridge ─────────────── */
+  var PORT = 3055;               // must match devAllowedDomains in manifest.json
+  var ws = null, manual = false, retry = 0, retryTimer = null, pingTimer = null;
+  var pending = {};              // bridge command id -> start time
+  var captures = {};             // capture reqId -> {resolve, reject}
+  var captureSeq = 0;
+
+  function clog(text, cls) {
+    var box = $("xcLog");
+    var line = document.createElement("div");
+    if (cls) line.className = cls;
+    line.textContent = new Date().toLocaleTimeString().slice(0, 8) + "  " + text;
+    box.insertBefore(line, box.firstChild);
+    while (box.childNodes.length > 60) box.removeChild(box.lastChild);
+  }
+  function setState(state, text) {
+    $("xcDot").className = "x-dot" + (state === "on" ? " on" : state === "wait" ? " wait" : "");
+    $("xcState").textContent = text;
+    $("xcToggle").innerHTML = state === "off" ? "&#x1F50C; Verbinden" : "Verbreken";
+  }
+
+  function connect() {
+    retryTimer = null;
+    if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
+    manual = false;
+    setState("wait", "Verbinden met localhost:" + PORT + "...");
+    try { ws = new WebSocket("ws://localhost:" + PORT); }
+    catch (e) { setState("off", "Kon niet verbinden: " + e.message); return; }
+
+    ws.onopen = function () {
+      retry = 0;
+      ws.send(JSON.stringify({ kind: "hello", fileName: info.fileName, page: info.page, featureVersion: info.featureVersion }));
+      pingTimer = setInterval(function () { if (ws && ws.readyState === 1) ws.send('{"kind":"ping"}'); }, 20000);
+    };
+    ws.onmessage = function (ev) {
+      var msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (msg.kind === "welcome") { setState("on", "Verbonden — Claude kan nu in “" + info.fileName + "” werken"); clog("Verbonden met de bridge", "ok"); }
+      if (msg.kind === "cmd") {
+        pending[msg.id] = Date.now();
+        clog("→ " + msg.cmd, "inf");
+        toCode({ type: "x:bridge-cmd", id: msg.id, cmd: msg.cmd, params: msg.params || {} });
+      }
+      if (msg.kind === "capture-result" && captures[msg.reqId]) {
+        var c = captures[msg.reqId]; delete captures[msg.reqId];
+        msg.ok ? c.resolve(msg.doc) : c.reject(new Error(msg.error));
+      }
+    };
+    ws.onclose = function () {
+      clearInterval(pingTimer);
+      var was = ws; ws = null;
+      Object.keys(captures).forEach(function (k) { captures[k].reject(new Error("bridge verbroken")); delete captures[k]; });
+      if (manual) { setState("off", "Niet verbonden"); return; }
+      if (!$("xcAuto").checked && was && retry === 0 && !was._everOpen) {
+        setState("off", "Geen bridge gevonden op localhost:" + PORT + ". Start Claude (met de figma-MCP) of node bridge/bin/figma-hub.mjs.");
+        return;
+      }
+      retry = Math.min(retry + 1, 6);
+      var wait = Math.min(30, Math.pow(2, retry));
+      setState("wait", "Bridge weg — opnieuw proberen over " + wait + " s");
+      retryTimer = setTimeout(connect, wait * 1000);
+    };
+    ws.addEventListener("open", function () { ws._everOpen = true; });
+    ws.onerror = function () { /* onclose follows */ };
+  }
+  function disconnect() {
+    manual = true; clearTimeout(retryTimer); clearInterval(pingTimer);
+    if (ws) ws.close(); else setState("off", "Niet verbonden");
+  }
+
+  // Connected, connecting, or waiting to retry all count as "active".
+  function isActive() { return (ws && ws.readyState <= 1) || retryTimer !== null; }
+  $("xcToggle").addEventListener("click", function () {
+    if (isActive()) { clearTimeout(retryTimer); retryTimer = null; disconnect(); }
+    else connect();
+  });
+  $("xcTest").addEventListener("click", function () {
+    if (!ws || ws.readyState !== 1) { clog("Niet verbonden — eerst Verbinden", "err"); return; }
+    toCode({ type: "x:bridge-cmd", id: "local-test", cmd: "status", params: {} });
+  });
+  $("xcAuto").addEventListener("change", function () {
+    toCode({ type: "x:save-bridge", value: { auto: $("xcAuto").checked } });
+  });
+  document.querySelectorAll(".x-copy").forEach(function (el) {
+    el.addEventListener("click", function () {
+      var ta = document.createElement("textarea"); ta.value = el.textContent; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); clog("Gekopieerd naar het klembord", "ok"); } catch (e) { /* ignore */ }
+      document.body.removeChild(ta);
+    });
+  });
+
+  function requestCapture(url, theme, width, autoLayout) {
+    return new Promise(function (resolve, reject) {
+      if (!ws || ws.readyState !== 1) { reject(new Error("De bridge is niet verbonden (tab Claude → Verbinden).")); return; }
+      var reqId = "cap" + (++captureSeq);
+      captures[reqId] = { resolve: resolve, reject: reject };
+      ws.send(JSON.stringify({ kind: "capture", reqId: reqId, url: url, theme: theme, width: width, autoLayout: autoLayout }));
+    });
+  }
+
+  /* ─────────────── Build ─────────────── */
+  var buildQueue = [];            // resolves for pending x:layout-done
+  function importDoc(doc, autoLayout) {
+    return new Promise(function (resolve, reject) {
+      buildQueue.push({ resolve: resolve, reject: reject });
+      toCode({ type: "x:layout-import", doc: doc, options: { autoLayout: autoLayout } });
+    });
+  }
+  function showBuild(html) { $("xbResult").innerHTML = html; }
+  function buildSummary(r) {
+    var c = r.counts;
+    var w = (r.warnings || []).length
+      ? '<p>' + r.warnings.length + ' waarschuwing(en):</p><ul>' + r.warnings.slice(0, 6).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "";
+    return '<div class="x-sec"><h4>' + esc(r.name) + " " + tag("ok", "in Figma") + "</h4>" +
+      "<p>" + c.FRAME + " frames · " + c.TEXT + " tekstlagen · " + c.SVG + " svg's · " + c.IMAGE + " afbeeldingen · " + r.width + "×" + r.height + "px</p>" + w + "</div>";
+  }
+
+  $("xbCapture").addEventListener("click", function () {
+    var url = $("xbUrl").value.trim();
+    if (!/^https?:\/\//i.test(url)) { showBuild('<div class="x-sec"><p>Geef een volledige URL, bv. http://localhost:5173</p></div>'); return; }
+    var theme = $("xbTheme").value, width = +$("xbWidth").value, auto = $("xbAuto").checked;
+    var themes = theme === "both" ? ["light", "dark"] : [theme];
+    var btn = $("xbCapture"); btn.disabled = true;
+    var html = "";
+    (function next(i) {
+      if (i >= themes.length) { btn.disabled = false; return; }
+      showBuild(html + '<div class="x-sec"><p>Pagina renderen (' + themes[i] + ")…</p></div>");
+      requestCapture(url, themes[i], width, auto)
+        .then(function (doc) {
+          showBuild(html + '<div class="x-sec"><p>' + doc.counts.FRAME + " frames, " + doc.counts.TEXT + " tekstlagen vastgelegd — opbouwen in Figma…</p></div>");
+          return importDoc(doc, auto);
+        })
+        .then(function (r) { html += buildSummary(r); showBuild(html); next(i + 1); })
+        .catch(function (e) { btn.disabled = false; showBuild(html + '<div class="x-sec"><h4>Mislukt ' + tag("bad", "fout") + "</h4><p>" + esc(e.message) + "</p></div>"); });
+    })(0);
+  });
+
+  function readFile(file) {
+    if (!file) return;
+    var fr = new FileReader();
+    fr.onload = function () {
+      var doc;
+      try { doc = JSON.parse(fr.result); } catch (e) { showBuild('<div class="x-sec"><p>Geen geldige JSON.</p></div>'); return; }
+      showBuild('<div class="x-sec"><p>Opbouwen in Figma…</p></div>');
+      importDoc(doc, $("xbAutoFile").checked).then(function (r) { showBuild(buildSummary(r)); })
+        .catch(function (e) { showBuild('<div class="x-sec"><h4>Mislukt ' + tag("bad", "fout") + "</h4><p>" + esc(e.message) + "</p></div>"); });
+    };
+    fr.readAsText(file);
+  }
+  var drop = $("xbDrop");
+  drop.addEventListener("click", function () { $("xbFile").click(); });
+  $("xbFile").addEventListener("change", function () { readFile(this.files[0]); this.value = ""; });
+  drop.addEventListener("dragover", function (e) { e.preventDefault(); drop.classList.add("dragover"); });
+  drop.addEventListener("dragleave", function () { drop.classList.remove("dragover"); });
+  drop.addEventListener("drop", function (e) { e.preventDefault(); drop.classList.remove("dragover"); readFile(e.dataTransfer.files[0]); });
+
+  /* ─────────────── Rubric ─────────────── */
+  function renderRubric(r) {
+    var out = [];
+    var modesOk = r.collections.some(function (c) { return c.modes.length >= 2; });
+    var usage = r.fillsBound + r.fillsRaw ? Math.round(100 * r.fillsBound / (r.fillsBound + r.fillsRaw)) : 0;
+    out.push('<div class="x-sec"><h4>2 · Local variables ' + (modesOk && r.aliasCount ? tag("ok", "twee lagen") : tag("warn", "kijk na")) + "</h4><ul>" +
+      (r.collections.map(function (c) { return "<li><code>" + esc(c.name) + "</code> — " + c.count + " variabelen, modes: " + c.modes.map(esc).join(" / ") + "</li>"; }).join("") || "<li>geen collecties</li>") +
+      "<li>" + r.aliasCount + " variabelen verwijzen naar een andere variabele — dat is de <strong>tweede laag</strong></li>" +
+      "<li>8px spacing-variabelen: " + (r.hasSpacing ? tag("ok", "aanwezig") : tag("bad", "ontbreken")) + "</li></ul></div>");
+
+    out.push('<div class="x-sec"><h4>Tokens echt gebruikt? ' + (usage >= 80 ? tag("ok", usage + "%") : usage >= 30 ? tag("warn", usage + "%") : tag("bad", usage + "%")) + "</h4>" +
+      "<p>" + r.fillsBound + " kleurvullingen gebonden aan een variabele, " + r.fillsRaw + " hardgecodeerd. Variabelen die nergens gebruikt worden, tellen voor de lector niet.</p>" +
+      (r.topRawColors.length ? "<ul>" + r.topRawColors.map(function (x) { return '<li><span class="x-swatch" style="background:' + esc(x[0]) + '"></span><code>' + esc(x[0]) + "</code> ×" + x[1] + "</li>"; }).join("") + "</ul>" : "") + "</div>");
+
+    var gen = r.genericVariants.map(function (g) { return "<li><code>" + esc(g.set) + "</code> → <code>" + esc(g.prop) + "</code>: " + g.values.map(esc).join(", ") + "</li>"; }).join("");
+    out.push('<div class="x-sec"><h4>3 · Components &amp; tekststijlen ' + (r.componentSets.length ? (gen ? tag("warn", "namen nakijken") : tag("ok", "ok")) : tag("bad", "geen variant-sets")) + "</h4><ul>" +
+      "<li>" + r.componentCount + " components, " + r.componentSets.length + " sets met varianten, " + r.instanceCount + " instances</li>" +
+      r.componentSets.slice(0, 8).map(function (s) { return "<li><code>" + esc(s.name) + "</code> — " + s.variants + " varianten, props: " + (s.props.map(esc).join(", ") || "—") + "</li>"; }).join("") + "</ul>" +
+      (gen ? "<p>Generieke namen — hernoem naar iets betekenisvols (<code>size</code> = sm/md, <code>status</code> = healthy/error):</p><ul>" + gen + "</ul>" : "") +
+      "<ul><li>" + r.textStyles.length + " lokale tekststijlen" + (r.missingTextStyles.length ? " — ontbreekt: " + r.missingTextStyles.map(esc).join(", ") : "") + "</li>" +
+      "<li>" + r.textUnstyled + " van " + r.textTotal + " tekstlagen gebruiken <strong>geen</strong> stijl " + (r.textUnstyled === 0 ? tag("ok", "top") : tag("warn", "toepassen")) + "</li></ul></div>");
+
+    var pct = r.frameTotal ? Math.round(100 * r.frameAuto / r.frameTotal) : 0;
+    out.push('<div class="x-sec"><h4>4 · Auto layout ' + (pct > 60 ? tag("ok", pct + "%") : pct > 20 ? tag("warn", pct + "%") : tag("bad", pct + "%")) + "</h4>" +
+      "<p>" + r.frameAuto + " van " + r.frameTotal + " frames hebben auto layout.</p>" +
+      (r.noAutoLayout.length ? "<p>Grootste frames zonder auto layout:</p><ul>" + r.noAutoLayout.map(function (f) { return "<li><code>" + esc(f.name) + "</code> — " + f.children + " kinderen</li>"; }).join("") + "</ul>" : "") + "</div>");
+
+    out.push('<div class="x-sec"><h4>1 · Design checklist ' + (r.offGridTotal === 0 && !r.offScale.length ? tag("ok", "netjes") : tag("warn", "afwijkingen")) + "</h4>" +
+      "<p>" + r.offGridTotal + " auto-layout-frames met padding/gap buiten het 4/8px-grid</p>" +
+      (r.offGrid.length ? "<ul>" + r.offGrid.map(function (f) { return "<li><code>" + esc(f.name) + "</code>: " + f.values.join(", ") + "px</li>"; }).join("") + "</ul>" : "") +
+      "<p>" + r.offScale.length + " lettergroottes buiten de schaal (12/14/16/18/22/28/36)</p>" +
+      (r.offScale.length ? "<ul>" + r.offScale.map(function (x) { return "<li>" + x[0] + "px — " + x[1] + "×</li>"; }).join("") + "</ul>" : "") + "</div>");
+
+    $("xrOut").innerHTML = out.join("") + '<p class="x-hint">Pagina\'s: ' + r.pages.map(esc).join(" · ") + "</p>";
+  }
+  function rubricBusy(on) { ["xrAudit", "xrSpacing", "xrText"].forEach(function (id) { $(id).disabled = on; }); }
+  $("xrAudit").addEventListener("click", function () { rubricBusy(true); $("xrOut").innerHTML = '<p class="x-hint">Bezig met nakijken…</p>'; toCode({ type: "x:rubric-audit" }); });
+  $("xrSpacing").addEventListener("click", function () { rubricBusy(true); toCode({ type: "x:rubric-spacing" }); });
+  $("xrText").addEventListener("click", function () { rubricBusy(true); toCode({ type: "x:rubric-textstyles" }); });
+
+  /* ─────────────── messages from code.ts / features.ts ─────────────── */
+  window.addEventListener("message", function (e) {
+    var m = e.data && e.data.pluginMessage;
+    if (!m || typeof m.type !== "string" || m.type.indexOf("x:") !== 0) return;
+    switch (m.type) {
+      case "x:info":
+        info = { fileName: m.fileName, page: m.page, featureVersion: m.featureVersion };
+        // If we connected before this arrived, the hello carried an empty name.
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ kind: "info", fileName: info.fileName, page: info.page, featureVersion: info.featureVersion }));
+        if (m.bridge && m.bridge.auto) { $("xcAuto").checked = true; connect(); }
+        break;
+      case "x:page":
+        info.page = m.page; info.fileName = m.fileName;
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ kind: "info", page: m.page, fileName: m.fileName }));
+        break;
+      case "x:bridge-result":
+        if (m.id === "local-test") { clog(m.ok ? "Test ok: " + m.result.fileName + " / " + m.result.page : "Test mislukt: " + m.error, m.ok ? "ok" : "err"); break; }
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ kind: "result", id: m.id, ok: m.ok, result: m.result, error: m.error }));
+        var t = pending[m.id]; delete pending[m.id];
+        clog((m.ok ? "✓ " : "✗ ") + (t ? (Date.now() - t) + " ms" : "") + (m.ok ? "" : "  " + m.error), m.ok ? "ok" : "err");
+        break;
+      case "x:layout-progress":
+        showBuild('<div class="x-sec"><p>Opbouwen in Figma… ' + m.made + " lagen</p></div>");
+        break;
+      case "x:layout-done":
+        if (buildQueue.length) buildQueue.shift().resolve(m.result);
+        break;
+      case "x:rubric-report":
+        rubricBusy(false); renderRubric(m.report);
+        break;
+      case "x:rubric-done":
+        $("xrOut").insertAdjacentHTML("afterbegin", '<div class="x-sec"><h4>' + esc(m.title) + " " + tag("ok", "aangemaakt") + "</h4>" +
+          ((m.made && m.made.length) ? "<ul>" + m.made.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "<p>Alles stond er al.</p>") +
+          ((m.failed && m.failed.length) ? "<p>Niet gelukt:</p><ul>" + m.failed.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "") + "</div>");
+        break;
+      case "x:error":
+        rubricBusy(false);
+        if (m.during === "x:layout-import" && buildQueue.length) { buildQueue.shift().reject(new Error(m.message)); break; }
+        clog("Fout (" + m.during + "): " + m.message, "err");
+        if (m.during && m.during.indexOf("x:rubric") === 0) $("xrOut").innerHTML = '<div class="x-sec"><h4>Fout ' + tag("bad", "!") + "</h4><p>" + esc(m.message) + "</p></div>";
+        break;
+    }
+  });
 })();
 </script>
 </body>

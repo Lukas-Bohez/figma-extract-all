@@ -1,21 +1,27 @@
 {
   "name": "figma-extract-all",
-  "version": "18.3.0",
-  "description": "Extract everything from Figma: SVGs, PNGs, text, variables, styles, components — with one click.",
+  "version": "19.0.0",
+  "description": "Extract everything from Figma, rebuild web pages as Figma layers, check a design rubric, and let Claude or other LLMs work in Figma through a local MCP bridge.",
   "main": "code.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch",
-    "release": "npm run build && git add -A && git commit -m 'Release v18.3.0' && git tag v18.3.0 && git push origin master --tags"
+    "release": "npm run build && node verify.js && git add -A && git commit -m 'Release v19.0.0' && git tag v19.0.0 && git push origin master --tags",
+    "test": "npm run build && node verify.js && cd bridge && node test/plugin.test.mjs && node test/bridge.test.mjs"
   },
   "keywords": [
-    "figma",
-    "figma-plugin",
+    "auto-layout",
+    "claude",
+    "design-rubric",
+    "design-tokens",
     "export",
     "extract",
-    "svg",
+    "figma",
+    "figma-plugin",
+    "html-to-figma",
+    "mcp",
     "png",
-    "design-tokens",
+    "svg",
     "text-extraction",
     "variables"
   ],
