@@ -36,7 +36,11 @@
   .tabs { display: flex; gap: 1px; }
   .tab-btn { flex: 1; padding: 10px 2px; border: 1px solid var(--border); border-bottom: none; border-radius: 12px 12px 0 0; background: var(--bg-el); color: var(--muted); cursor: pointer; font: inherit; font-size: 10px; font-weight: 600; text-align: center; transition: background 120ms, color 120ms; }
   .tab-btn.active { background: var(--bg-solid); color: var(--accent); }
-  .tab-emoji { display: block; font-size: 16px; margin-bottom: 1px; }
+  .ic { width: 14px; height: 14px; flex-shrink: 0; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tab-btn { flex-direction: column; gap: 4px; line-height: 1.2; }
+  .tab-btn .ic { width: 16px; height: 16px; }
+  .dz-text .ic, .stat-badge .ic, h3 .ic, .bm-item .ic, .warn-msg .ic, #bmOverall .ic { margin-right: 5px; }
+  .ic-ok { color: var(--green); } .ic-bad { color: var(--red); } .ic-warn { color: var(--orange); }
 
   .panel { display: none; padding: 14px; border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); background: var(--bg-el); margin-bottom: 10px; }
   .panel.active { display: block; }
@@ -121,6 +125,31 @@
 </style>
 </head>
 <body>
+<!-- Icons: Lucide v1.53.0 (https://lucide.dev), ISC License, Copyright (c) Lucide Contributors -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4"/></symbol>
+<symbol id="i-clapperboard" viewBox="0 0 24 24"><path d="m12.296 3.464 3.02 3.956"/><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3z"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m6.18 5.276 3.1 3.899"/></symbol>
+<symbol id="i-bot" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></symbol>
+<symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></symbol>
+<symbol id="i-hammer" viewBox="0 0 24 24"><path d="m15 12-9.373 9.373a1 1 0 0 1-3.001-3L12 9"/><path d="m18 15 4-4"/><path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172v-.344a2 2 0 0 0-.586-1.414l-1.657-1.657A6 6 0 0 0 12.516 3H9l1.243 1.243A6 6 0 0 1 12 8.485V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5"/></symbol>
+<symbol id="i-list-checks" viewBox="0 0 24 24"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></symbol>
+<symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M15 8V2"/><path d="M17 8a1 1 0 0 1 1 1v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1z"/><path d="M9 8V2"/></symbol>
+<symbol id="i-unplug" viewBox="0 0 24 24"><path d="m19 5 3-3"/><path d="m2 22 3-3"/><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="M7.5 13.5 10 11"/><path d="M10.5 16.5 13 14"/><path d="m12 6 6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4l-2.6-2.6a2.4 2.4 0 0 0-3.4 0Z"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></symbol>
+<symbol id="i-film" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></symbol>
+<symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 9-5.5 5.5L8 12"/></symbol>
+<symbol id="i-circle-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+<symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></symbol>
+<symbol id="i-shapes" viewBox="0 0 24 24"><path d="M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/></symbol>
+<symbol id="i-square" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/></symbol>
+<symbol id="i-type" viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><path d="M9 20h6"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+<symbol id="i-circle-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></symbol>
+</svg>
+<script>window.ic = function (name, cls) { return '<svg class="ic' + (cls ? ' ' + cls : '') + '" aria-hidden="true"><use href="#i-' + name + '"/></svg>'; };</script>
 <div class="wrap">
   <div class="hdr">
     <div>
@@ -131,13 +160,13 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="import"><span class="tab-emoji">&#x1F4E5;</span>Lottie Import</button>
-    <button class="tab-btn" data-tab="ae"><span class="tab-emoji">&#x1F3AC;</span>AE Export</button>
-    <button class="tab-btn" data-tab="ai"><span class="tab-emoji">&#x1F916;</span>AI Export</button>
-    <button class="tab-btn" data-tab="assets"><span class="tab-emoji">&#x1F4E6;</span>Assets</button>
-    <button class="tab-btn" data-tab="build"><span class="tab-emoji">&#x1F3D7;</span>Build</button>
-    <button class="tab-btn" data-tab="rubric"><span class="tab-emoji">&#x2705;</span>Rubric</button>
-    <button class="tab-btn" data-tab="claude"><span class="tab-emoji">&#x1F50C;</span>Claude</button>
+    <button class="tab-btn active" data-tab="import"><svg class="ic" aria-hidden="true"><use href="#i-import"/></svg>Lottie Import</button>
+    <button class="tab-btn" data-tab="ae"><svg class="ic" aria-hidden="true"><use href="#i-clapperboard"/></svg>AE Export</button>
+    <button class="tab-btn" data-tab="ai"><svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg>AI Export</button>
+    <button class="tab-btn" data-tab="assets"><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg>Assets</button>
+    <button class="tab-btn" data-tab="build"><svg class="ic" aria-hidden="true"><use href="#i-hammer"/></svg>Build</button>
+    <button class="tab-btn" data-tab="rubric"><svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg>Rubric</button>
+    <button class="tab-btn" data-tab="claude"><svg class="ic" aria-hidden="true"><use href="#i-plug"/></svg>Claude</button>
   </div>
 
   <!-- TAB 1: LOTTIE IMPORT -->
@@ -146,7 +175,7 @@
       <h3>Import Lottie / Bodymovin JSON</h3>
       <div class="dropzone" id="dropzone">
         <input type="file" id="lottieFileInput" accept=".json">
-        <div class="dz-text">&#x1F4C2; Drop a Lottie JSON file here</div>
+        <div class="dz-text"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg>Drop a Lottie JSON file here</div>
         <div class="dz-sub">or click to browse. Exported from After Effects via Bodymovin.</div>
       </div>
     </div>
@@ -178,7 +207,7 @@
         <div id="errorsList" style="font-size:10px;color:var(--red);"></div>
       </div>
       <div class="card" style="border-color:var(--accent);background:linear-gradient(135deg,var(--accent),var(--accent2));text-align:center;">
-        <button class="primary" data-action="place-lottie" id="btnPlaceLottie" style="width:100%;border-color:transparent;color:#fff;font-size:12px;padding:14px;">&#x2B07; Render & Place GIF Animation</button>
+        <button class="primary" data-action="place-lottie" id="btnPlaceLottie" style="width:100%;border-color:transparent;color:#fff;font-size:12px;padding:14px;"><svg class="ic" aria-hidden="true"><use href="#i-film"/></svg>Render &amp; Place GIF Animation</button>
         <div style="font-size:9px;color:rgba(255,255,255,0.7);margin-top:4px;">Converts Lottie to animated GIF via canvas rendering</div>
       </div>
     </div>
@@ -195,13 +224,13 @@
         <label><input type="checkbox" id="ae-lottie" checked> Lottie JSON Bundle</label>
         <label><input type="checkbox" id="ae-text" checked> Text content</label>
       </div>
-      <button class="primary" data-action="ae-extract">&#x1F3AC; Extract for After Effects</button>
+      <button class="primary" data-action="ae-extract"><svg class="ic" aria-hidden="true"><use href="#i-clapperboard"/></svg>Extract for After Effects</button>
     </div>
     <div class="card">
       <h3>Import from After Effects</h3>
       <div class="dropzone" id="dropzone2" style="padding:12px;">
         <input type="file" id="lottieFileInput2" accept=".json">
-        <div class="dz-text" style="font-size:11px;">&#x1F4C2; Drop Lottie JSON here</div>
+        <div class="dz-text" style="font-size:11px;"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg>Drop Lottie JSON here</div>
       </div>
     </div>
   </div>
@@ -220,7 +249,7 @@
         <label><input type="checkbox" id="ai-tree" checked> Hierarchy tree</label>
         <label><input type="checkbox" id="ai-txtfile" checked> Text dump</label>
       </div>
-      <button class="primary" data-action="ai-extract">&#x1F916; Extract for AI</button>
+      <button class="primary" data-action="ai-extract"><svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg>Extract for AI</button>
     </div>
   </div>
 
@@ -252,64 +281,66 @@
 
   <!-- TAB 5: BUILD (web page -> Figma) — v19 -->
   <div class="panel" id="panel-build">
-    <p class="desc">Zet een <strong>web-pagina</strong> — React, HTML, localhost of online — om naar <strong>bewerkbare Figma-lagen</strong>: frames met auto layout uit flexbox, tekst met stijlen, SVG's, schaduwen.</p>
+    <p class="desc">Turn a <strong>web page</strong> — React, HTML, localhost or online — into <strong>editable Figma layers</strong>: frames with auto layout from flexbox, styled text, SVGs and shadows.</p>
     <div class="card">
-      <h3>Vanaf een URL</h3>
+      <h3>From a URL</h3>
       <input type="text" class="x-input" id="xbUrl" placeholder="http://localhost:5173" spellcheck="false">
       <div class="row2" style="margin-top:6px;">
-        <select id="xbTheme"><option value="light">Licht thema</option><option value="dark">Donker thema</option><option value="both">Licht + donker</option></select>
-        <select id="xbWidth"><option value="1440">Desktop 1440</option><option value="1024">Tablet 1024</option><option value="390">Mobiel 390</option></select>
+        <select id="xbTheme"><option value="light">Light theme</option><option value="dark">Dark theme</option><option value="both">Light + dark</option></select>
+        <select id="xbWidth"><option value="1440">Desktop 1440</option><option value="1024">Tablet 1024</option><option value="390">Mobile 390</option></select>
       </div>
-      <div class="checks" style="margin:8px 0;"><label><input type="checkbox" id="xbAuto" checked> Auto layout uit flexbox (waar dat getrouw kan)</label></div>
-      <button class="primary" id="xbCapture" style="width:100%">&#x1F3D7; Vastleggen en in Figma zetten</button>
-      <p class="x-hint">Heeft de lokale bridge nodig: tab <strong>Claude</strong> &rarr; Verbinden.</p>
+      <div class="checks" style="margin:8px 0;"><label><input type="checkbox" id="xbAuto" checked> Auto layout from flexbox (where it stays faithful)</label></div>
+      <button class="primary" id="xbCapture" style="width:100%"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Capture and place in Figma</button>
+      <p class="x-hint">Needs the local bridge: <strong>Claude</strong> tab &rarr; Connect (development mode only).</p>
     </div>
     <div class="card">
-      <h3>Vanaf een bestand</h3>
+      <h3>From a file</h3>
       <div class="dropzone" id="xbDrop" style="padding:14px;">
         <input type="file" id="xbFile" accept=".json,application/json">
-        <div class="dz-text" style="font-size:11px;">&#x1F4C2; Sleep een figma-layout .json hierheen</div>
-        <div class="dz-sub">Gemaakt met <code>node bridge/bin/capture.mjs &lt;url&gt;</code> of de bookmarklet</div>
+        <div class="dz-text" style="font-size:11px;"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg>Drop a figma-layout .json here</div>
+        <div class="dz-sub">Made with <code>node bridge/bin/capture.mjs &lt;url&gt;</code> or the bookmarklet</div>
       </div>
-      <div class="checks" style="margin-top:8px;"><label><input type="checkbox" id="xbAutoFile" checked> Auto layout uit flexbox</label></div>
+      <div class="checks" style="margin-top:8px;"><label><input type="checkbox" id="xbAutoFile" checked> Auto layout from flexbox</label></div>
     </div>
     <div id="xbResult"></div>
   </div>
 
   <!-- TAB 6: RUBRIC — v19 -->
   <div class="panel" id="panel-rubric">
-    <p class="desc">Kijkt dit bestand na op een <strong>designrubric</strong>: 8px-grid, variabelen in twee lagen, of kleuren écht aan variabelen gebonden zijn, tekststijlen, variantnamen en auto layout. Niets wordt overschreven; wat je aanmaakt draai je terug met Ctrl+Z.</p>
+    <p class="desc">Checks this file against a <strong>design rubric</strong>: 8px grid, variables in two layers, whether colors are really bound to variables, text styles, variant names and auto layout. Nothing is overwritten; undo anything it creates with Ctrl/Cmd+Z.</p>
     <div class="row3">
-      <button class="primary" id="xrAudit">&#x2705; Nakijken</button>
-      <button id="xrSpacing">8px-variabelen</button>
-      <button id="xrText">Tekststijlen</button>
+      <button class="primary" id="xrAudit"><svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg>Check</button>
+      <button id="xrSpacing">8px variables</button>
+      <button id="xrText">Text styles</button>
     </div>
-    <div id="xrOut" style="margin-top:10px;"><p class="x-hint">Klik op Nakijken.</p></div>
+    <div id="xrOut" style="margin-top:10px;"><p class="x-hint">Click Check.</p></div>
   </div>
 
   <!-- TAB 7: CLAUDE BRIDGE — v19 -->
   <div class="panel" id="panel-claude">
-    <p class="desc">Geef <strong>Claude</strong> (of een andere AI) toegang tot dit bestand via een <strong>lokale</strong> bridge op je eigen pc. Niets gaat naar een externe server; de plugin moet open blijven zolang de AI werkt.</p>
+    <p class="desc">Give <strong>Claude</strong> (or another AI) access to this file through a <strong>local</strong> bridge on your own computer. Nothing goes to an external server; keep the plugin open while the AI works.</p>
     <div class="card">
-      <h3>Verbinding</h3>
-      <div class="x-status"><span class="x-dot" id="xcDot"></span><span id="xcState">Niet verbonden</span></div>
+      <h3>Connection</h3>
+      <div class="x-status"><span class="x-dot" id="xcDot"></span><span id="xcState">Not connected</span></div>
       <div class="row2" style="margin-top:8px;">
-        <button class="primary" id="xcToggle">&#x1F50C; Verbinden</button>
+        <button class="primary" id="xcToggle"><svg class="ic" aria-hidden="true"><use href="#i-plug"/></svg>Connect</button>
         <button id="xcTest">Test</button>
       </div>
-      <div class="checks" style="margin-top:8px;"><label><input type="checkbox" id="xcAuto"> Automatisch verbinden als de plugin opent</label></div>
+      <div class="checks" style="margin-top:8px;"><label><input type="checkbox" id="xcAuto"> Connect automatically when the plugin opens</label></div>
     </div>
     <div class="card">
-      <h3>Eenmalig instellen</h3>
+      <h3>One-time setup</h3>
       <ol class="x-steps">
-        <li>In de map <code>bridge</code> van deze plugin: <code>npm install</code></li>
-        <li>Claude Code: <code class="x-copy" title="Klik om te kopiëren">claude mcp add figma -- node "&lt;pad naar plugin&gt;\bridge\bin\figma-mcp.mjs"</code></li>
-        <li>Hier op <strong>Verbinden</strong> klikken, en aan Claude vragen:<br><em>"Kijk mijn Figma-bestand na op de rubric"</em> of <em>"Zet http://localhost:5173 in Figma, licht en donker"</em>.</li>
+        <li>Get the plugin source from GitHub and run <code>npm install</code> in its <code>bridge</code> folder</li>
+        <li>In Figma: <strong>Plugins &rarr; Development &rarr; Import plugin from manifest&hellip;</strong> and run that copy</li>
+        <li>Claude Code: <code class="x-copy" title="Click to copy">claude mcp add figma -- node "&lt;path to plugin&gt;\bridge\bin\figma-mcp.mjs"</code></li>
+        <li>Click <strong>Connect</strong> here and ask Claude:<br><em>"Check my Figma file against the rubric"</em> or <em>"Put http://localhost:5173 in Figma, light and dark"</em>.</li>
       </ol>
-      <p class="x-hint">Geen MCP? Start <code>node bridge/bin/figma-hub.mjs</code> en stuur <code>POST http://127.0.0.1:3055/command</code> met JSON <code>{"cmd":"status"}</code>.</p>
+      <p class="x-hint">No MCP? Start <code>node bridge/bin/figma-hub.mjs</code> and send <code>POST http://127.0.0.1:3055/command</code> with JSON <code>{"cmd":"status"}</code>.</p>
+      <p class="x-hint">The bridge only works when the plugin runs from its manifest. The Community version has no network access, so it cannot reach <code>localhost</code>; Lottie, export, Build from a file and Rubric work everywhere.</p>
     </div>
     <div class="card">
-      <h3>Activiteit</h3>
+      <h3>Activity</h3>
       <div class="log show" id="xcLog" style="max-height:140px;"></div>
     </div>
   </div>
@@ -325,7 +356,7 @@
 <!-- GIF rendering overlay -->
 <div class="render-overlay" id="renderOverlay">
   <div class="render-box">
-    <h3>&#x1F39E; Rendering Animation</h3>
+    <h3><svg class="ic" aria-hidden="true"><use href="#i-film"/></svg>Rendering Animation</h3>
     <div class="frames-done" id="framesDone">0</div>
     <div class="frames-label">frames processed</div>
     <div class="prog-bar" style="margin-top:12px;"><div class="prog-fill" id="renderFill" style="width:0%;"></div></div>
@@ -677,7 +708,7 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
     var m = analysis.meta;
     var mg = el("metaGrid"); if (mg) mg.innerHTML = '<div class="meta-item"><div class="val">'+m.frameRate+'</div><div class="lbl">Frame Rate (fps)</div></div><div class="meta-item"><div class="val">'+m.width+'&times;'+m.height+'</div><div class="lbl">Dimensions</div></div><div class="meta-item"><div class="val">'+(m.duration||0).toFixed(1)+'s</div><div class="lbl">Duration</div></div><div class="meta-item"><div class="val">'+analysis.totalFrames+'</div><div class="lbl">Total Frames</div></div>';
     var st = analysis.stats;
-    var sr = el("statsRow"); if (sr) sr.innerHTML = '<span class="stat-badge">&#x1F3AC; '+st.layers+' layers</span><span class="stat-badge">&#x1F537; '+st.shapes+' shapes</span><span class="stat-badge">&#x1F7E6; '+st.solids+' solids</span><span class="stat-badge">&#x1F4DD; '+st.texts+' texts</span><span class="stat-badge">&#x1F5BC; '+st.images+' images</span><span class="stat-badge">&#x1F517; '+st.nulls+' nulls</span><span class="stat-badge">&#x1F4E6; '+st.precomps+' precomps</span>';
+    var sr = el("statsRow"); if (sr) sr.innerHTML = '<span class="stat-badge">'+ic("layers")+st.layers+' layers</span><span class="stat-badge">'+ic("shapes")+st.shapes+' shapes</span><span class="stat-badge">'+ic("square")+st.solids+' solids</span><span class="stat-badge">'+ic("type")+st.texts+' texts</span><span class="stat-badge">'+ic("image")+st.images+' images</span><span class="stat-badge">'+ic("link")+st.nulls+' nulls</span><span class="stat-badge">'+ic("package")+st.precomps+' precomps</span>';
     var bm = analysis.bodymovinSettings;
     var items = [
       {label:"Assets embedded", ok:bm.includeAssets},
@@ -686,12 +717,12 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
       {label:"No hidden layers", ok:!bm.hiddenLayers},
       {label:"Uncompressed JSON", ok:bm.compressedJson},
     ];
-    var bc = el("bmCheck"); if (bc) { var bhtml = ''; for (var i=0;i<items.length;i++) bhtml+='<div class="bm-item"><span class="icon">'+(items[i].ok?'&#x2705;':'&#x274C;')+'</span>'+items[i].label+'</div>'; bc.innerHTML = bhtml; }
-    var bo = el("bmOverall"); if (bo) bo.textContent = bm.settingsOK ? "&#x2705; All critical Bodymovin settings are correct." : "&#x26A0; Some Bodymovin settings need attention.";
-    var lt = el("layerTree"); if (lt) { var ltOut = ''; walkTree(analysis.layerTree,0); function walkTree(nodes,d){ for(var i=0;i<nodes.length;i++){ var n=nodes[i],indent='&nbsp;'.repeat(d*3); var icons={precomp:'&#x1F4E6;',solid:'&#x1F7E6;',image:'&#x1F5BC;',null:'&#x1F517;',shape:'&#x1F537;',text:'&#x1F4DD;',unknown:'&#x2753;'}; var cls=n.hidden?' lt-hidden':''; ltOut+='<div class="lt-node'+cls+'">'+indent+'<span class="lt-icon">'+(icons[n.type]||'&#x2753;')+'</span>'+n.name+'</div>'; if(n.children)walkTree(n.children,d+1); } } lt.innerHTML = ltOut; }
+    var bc = el("bmCheck"); if (bc) { var bhtml = ''; for (var i=0;i<items.length;i++) bhtml+='<div class="bm-item"><span class="icon">'+(items[i].ok?ic("circle-check","ic-ok"):ic("circle-x","ic-bad"))+'</span>'+items[i].label+'</div>'; bc.innerHTML = bhtml; }
+    var bo = el("bmOverall"); if (bo) bo.innerHTML = bm.settingsOK ? ic("circle-check","ic-ok") + "All critical Bodymovin settings are correct." : ic("triangle-alert","ic-warn") + "Some Bodymovin settings need attention.";
+    var lt = el("layerTree"); if (lt) { var ltOut = ''; walkTree(analysis.layerTree,0); function walkTree(nodes,d){ for(var i=0;i<nodes.length;i++){ var n=nodes[i],indent='&nbsp;'.repeat(d*3); var icons={precomp:ic("package"),solid:ic("square"),image:ic("image"),null:ic("link"),shape:ic("shapes"),text:ic("type"),unknown:ic("circle-help")}; var cls=n.hidden?' lt-hidden':''; ltOut+='<div class="lt-node'+cls+'">'+indent+'<span class="lt-icon">'+(icons[n.type]||icons.unknown)+'</span>'+n.name+'</div>'; if(n.children)walkTree(n.children,d+1); } } lt.innerHTML = ltOut; }
     var wc = el("warningsCard"); var wl = el("warningsList");
     if (wc && wl) {
-      if (analysis.warnings.length > 0) { wc.style.display = 'block'; var wh = ''; for (var i=0;i<analysis.warnings.length;i++){ var w=analysis.warnings[i]; wh+='<div class="warning-card"><div class="warn-msg">&#x26A0; '+w.message+'</div><div class="warn-fix">'+w.fix+'</div></div>'; } wl.innerHTML = wh; }
+      if (analysis.warnings.length > 0) { wc.style.display = 'block'; var wh = ''; for (var i=0;i<analysis.warnings.length;i++){ var w=analysis.warnings[i]; wh+='<div class="warning-card"><div class="warn-msg">'+ic("triangle-alert","ic-warn")+w.message+'</div><div class="warn-fix">'+w.fix+'</div></div>'; } wl.innerHTML = wh; }
       else { wc.style.display = 'none'; }
     }
     var ec = el("errorsCard"); var eli = el("errorsList");
@@ -1102,16 +1133,16 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
   function setState(state, text) {
     $("xcDot").className = "x-dot" + (state === "on" ? " on" : state === "wait" ? " wait" : "");
     $("xcState").textContent = text;
-    $("xcToggle").innerHTML = state === "off" ? "&#x1F50C; Verbinden" : "Verbreken";
+    $("xcToggle").innerHTML = state === "off" ? ic("plug") + "Connect" : ic("unplug") + "Disconnect";
   }
 
   function connect() {
     retryTimer = null;
     if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
     manual = false;
-    setState("wait", "Verbinden met localhost:" + PORT + "...");
+    setState("wait", "Connecting to localhost:" + PORT + "...");
     try { ws = new WebSocket("ws://localhost:" + PORT); }
-    catch (e) { setState("off", "Kon niet verbinden: " + e.message); return; }
+    catch (e) { setState("off", "Could not connect: " + e.message); return; }
 
     ws.onopen = function () {
       retry = 0;
@@ -1120,7 +1151,7 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
     };
     ws.onmessage = function (ev) {
       var msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
-      if (msg.kind === "welcome") { setState("on", "Verbonden — Claude kan nu in “" + info.fileName + "” werken"); clog("Verbonden met de bridge", "ok"); }
+      if (msg.kind === "welcome") { setState("on", "Connected — Claude can now work in “" + info.fileName + "”"); clog("Connected to the bridge", "ok"); }
       if (msg.kind === "cmd") {
         pending[msg.id] = Date.now();
         clog("→ " + msg.cmd, "inf");
@@ -1134,15 +1165,15 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
     ws.onclose = function () {
       clearInterval(pingTimer);
       var was = ws; ws = null;
-      Object.keys(captures).forEach(function (k) { captures[k].reject(new Error("bridge verbroken")); delete captures[k]; });
-      if (manual) { setState("off", "Niet verbonden"); return; }
+      Object.keys(captures).forEach(function (k) { captures[k].reject(new Error("bridge disconnected")); delete captures[k]; });
+      if (manual) { setState("off", "Not connected"); return; }
       if (!$("xcAuto").checked && was && retry === 0 && !was._everOpen) {
-        setState("off", "Geen bridge gevonden op localhost:" + PORT + ". Start Claude (met de figma-MCP) of node bridge/bin/figma-hub.mjs.");
+        setState("off", "No bridge on localhost:" + PORT + ". Start Claude (with the figma MCP) or node bridge/bin/figma-hub.mjs. The Community version cannot reach localhost: run the plugin from its manifest.");
         return;
       }
       retry = Math.min(retry + 1, 6);
       var wait = Math.min(30, Math.pow(2, retry));
-      setState("wait", "Bridge weg — opnieuw proberen over " + wait + " s");
+      setState("wait", "Bridge gone — retrying in " + wait + " s");
       retryTimer = setTimeout(connect, wait * 1000);
     };
     ws.addEventListener("open", function () { ws._everOpen = true; });
@@ -1150,7 +1181,7 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
   }
   function disconnect() {
     manual = true; clearTimeout(retryTimer); clearInterval(pingTimer);
-    if (ws) ws.close(); else setState("off", "Niet verbonden");
+    if (ws) ws.close(); else setState("off", "Not connected");
   }
 
   // Connected, connecting, or waiting to retry all count as "active".
@@ -1160,7 +1191,7 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
     else connect();
   });
   $("xcTest").addEventListener("click", function () {
-    if (!ws || ws.readyState !== 1) { clog("Niet verbonden — eerst Verbinden", "err"); return; }
+    if (!ws || ws.readyState !== 1) { clog("Not connected — click Connect first", "err"); return; }
     toCode({ type: "x:bridge-cmd", id: "local-test", cmd: "status", params: {} });
   });
   $("xcAuto").addEventListener("change", function () {
@@ -1169,14 +1200,14 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
   document.querySelectorAll(".x-copy").forEach(function (el) {
     el.addEventListener("click", function () {
       var ta = document.createElement("textarea"); ta.value = el.textContent; document.body.appendChild(ta); ta.select();
-      try { document.execCommand("copy"); clog("Gekopieerd naar het klembord", "ok"); } catch (e) { /* ignore */ }
+      try { document.execCommand("copy"); clog("Copied to the clipboard", "ok"); } catch (e) { /* ignore */ }
       document.body.removeChild(ta);
     });
   });
 
   function requestCapture(url, theme, width, autoLayout) {
     return new Promise(function (resolve, reject) {
-      if (!ws || ws.readyState !== 1) { reject(new Error("De bridge is niet verbonden (tab Claude → Verbinden).")); return; }
+      if (!ws || ws.readyState !== 1) { reject(new Error("The bridge is not connected (Claude tab → Connect).")); return; }
       var reqId = "cap" + (++captureSeq);
       captures[reqId] = { resolve: resolve, reject: reject };
       ws.send(JSON.stringify({ kind: "capture", reqId: reqId, url: url, theme: theme, width: width, autoLayout: autoLayout }));
@@ -1195,28 +1226,28 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
   function buildSummary(r) {
     var c = r.counts;
     var w = (r.warnings || []).length
-      ? '<p>' + r.warnings.length + ' waarschuwing(en):</p><ul>' + r.warnings.slice(0, 6).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "";
+      ? '<p>' + r.warnings.length + ' warning(s):</p><ul>' + r.warnings.slice(0, 6).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "";
     return '<div class="x-sec"><h4>' + esc(r.name) + " " + tag("ok", "in Figma") + "</h4>" +
-      "<p>" + c.FRAME + " frames · " + c.TEXT + " tekstlagen · " + c.SVG + " svg's · " + c.IMAGE + " afbeeldingen · " + r.width + "×" + r.height + "px</p>" + w + "</div>";
+      "<p>" + c.FRAME + " frames · " + c.TEXT + " text layers · " + c.SVG + " SVGs · " + c.IMAGE + " images · " + r.width + "×" + r.height + "px</p>" + w + "</div>";
   }
 
   $("xbCapture").addEventListener("click", function () {
     var url = $("xbUrl").value.trim();
-    if (!/^https?:\/\//i.test(url)) { showBuild('<div class="x-sec"><p>Geef een volledige URL, bv. http://localhost:5173</p></div>'); return; }
+    if (!/^https?:\/\//i.test(url)) { showBuild('<div class="x-sec"><p>Enter a full URL, e.g. http://localhost:5173</p></div>'); return; }
     var theme = $("xbTheme").value, width = +$("xbWidth").value, auto = $("xbAuto").checked;
     var themes = theme === "both" ? ["light", "dark"] : [theme];
     var btn = $("xbCapture"); btn.disabled = true;
     var html = "";
     (function next(i) {
       if (i >= themes.length) { btn.disabled = false; return; }
-      showBuild(html + '<div class="x-sec"><p>Pagina renderen (' + themes[i] + ")…</p></div>");
+      showBuild(html + '<div class="x-sec"><p>Rendering page (' + themes[i] + ")…</p></div>");
       requestCapture(url, themes[i], width, auto)
         .then(function (doc) {
-          showBuild(html + '<div class="x-sec"><p>' + doc.counts.FRAME + " frames, " + doc.counts.TEXT + " tekstlagen vastgelegd — opbouwen in Figma…</p></div>");
+          showBuild(html + '<div class="x-sec"><p>' + doc.counts.FRAME + " frames, " + doc.counts.TEXT + " text layers captured — building in Figma…</p></div>");
           return importDoc(doc, auto);
         })
         .then(function (r) { html += buildSummary(r); showBuild(html); next(i + 1); })
-        .catch(function (e) { btn.disabled = false; showBuild(html + '<div class="x-sec"><h4>Mislukt ' + tag("bad", "fout") + "</h4><p>" + esc(e.message) + "</p></div>"); });
+        .catch(function (e) { btn.disabled = false; showBuild(html + '<div class="x-sec"><h4>Failed ' + tag("bad", "error") + "</h4><p>" + esc(e.message) + "</p></div>"); });
     })(0);
   });
 
@@ -1225,10 +1256,10 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
     var fr = new FileReader();
     fr.onload = function () {
       var doc;
-      try { doc = JSON.parse(fr.result); } catch (e) { showBuild('<div class="x-sec"><p>Geen geldige JSON.</p></div>'); return; }
-      showBuild('<div class="x-sec"><p>Opbouwen in Figma…</p></div>');
+      try { doc = JSON.parse(fr.result); } catch (e) { showBuild('<div class="x-sec"><p>Not valid JSON.</p></div>'); return; }
+      showBuild('<div class="x-sec"><p>Building in Figma…</p></div>');
       importDoc(doc, $("xbAutoFile").checked).then(function (r) { showBuild(buildSummary(r)); })
-        .catch(function (e) { showBuild('<div class="x-sec"><h4>Mislukt ' + tag("bad", "fout") + "</h4><p>" + esc(e.message) + "</p></div>"); });
+        .catch(function (e) { showBuild('<div class="x-sec"><h4>Failed ' + tag("bad", "error") + "</h4><p>" + esc(e.message) + "</p></div>"); });
     };
     fr.readAsText(file);
   }
@@ -1244,38 +1275,38 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
     var out = [];
     var modesOk = r.collections.some(function (c) { return c.modes.length >= 2; });
     var usage = r.fillsBound + r.fillsRaw ? Math.round(100 * r.fillsBound / (r.fillsBound + r.fillsRaw)) : 0;
-    out.push('<div class="x-sec"><h4>2 · Local variables ' + (modesOk && r.aliasCount ? tag("ok", "twee lagen") : tag("warn", "kijk na")) + "</h4><ul>" +
-      (r.collections.map(function (c) { return "<li><code>" + esc(c.name) + "</code> — " + c.count + " variabelen, modes: " + c.modes.map(esc).join(" / ") + "</li>"; }).join("") || "<li>geen collecties</li>") +
-      "<li>" + r.aliasCount + " variabelen verwijzen naar een andere variabele — dat is de <strong>tweede laag</strong></li>" +
-      "<li>8px spacing-variabelen: " + (r.hasSpacing ? tag("ok", "aanwezig") : tag("bad", "ontbreken")) + "</li></ul></div>");
+    out.push('<div class="x-sec"><h4>2 · Local variables ' + (modesOk && r.aliasCount ? tag("ok", "two layers") : tag("warn", "check")) + "</h4><ul>" +
+      (r.collections.map(function (c) { return "<li><code>" + esc(c.name) + "</code> — " + c.count + " variables, modes: " + c.modes.map(esc).join(" / ") + "</li>"; }).join("") || "<li>no collections</li>") +
+      "<li>" + r.aliasCount + " variables point to another variable — that is the <strong>second layer</strong></li>" +
+      "<li>8px spacing variables: " + (r.hasSpacing ? tag("ok", "present") : tag("bad", "missing")) + "</li></ul></div>");
 
-    out.push('<div class="x-sec"><h4>Tokens echt gebruikt? ' + (usage >= 80 ? tag("ok", usage + "%") : usage >= 30 ? tag("warn", usage + "%") : tag("bad", usage + "%")) + "</h4>" +
-      "<p>" + r.fillsBound + " kleurvullingen gebonden aan een variabele, " + r.fillsRaw + " hardgecodeerd. Variabelen die nergens gebruikt worden, tellen voor de lector niet.</p>" +
+    out.push('<div class="x-sec"><h4>Tokens actually used? ' + (usage >= 80 ? tag("ok", usage + "%") : usage >= 30 ? tag("warn", usage + "%") : tag("bad", usage + "%")) + "</h4>" +
+      "<p>" + r.fillsBound + " color fills bound to a variable, " + r.fillsRaw + " hard-coded. Variables that nothing uses don't count.</p>" +
       (r.topRawColors.length ? "<ul>" + r.topRawColors.map(function (x) { return '<li><span class="x-swatch" style="background:' + esc(x[0]) + '"></span><code>' + esc(x[0]) + "</code> ×" + x[1] + "</li>"; }).join("") + "</ul>" : "") + "</div>");
 
     var gen = r.genericVariants.map(function (g) { return "<li><code>" + esc(g.set) + "</code> → <code>" + esc(g.prop) + "</code>: " + g.values.map(esc).join(", ") + "</li>"; }).join("");
-    out.push('<div class="x-sec"><h4>3 · Components &amp; tekststijlen ' + (r.componentSets.length ? (gen ? tag("warn", "namen nakijken") : tag("ok", "ok")) : tag("bad", "geen variant-sets")) + "</h4><ul>" +
-      "<li>" + r.componentCount + " components, " + r.componentSets.length + " sets met varianten, " + r.instanceCount + " instances</li>" +
-      r.componentSets.slice(0, 8).map(function (s) { return "<li><code>" + esc(s.name) + "</code> — " + s.variants + " varianten, props: " + (s.props.map(esc).join(", ") || "—") + "</li>"; }).join("") + "</ul>" +
-      (gen ? "<p>Generieke namen — hernoem naar iets betekenisvols (<code>size</code> = sm/md, <code>status</code> = healthy/error):</p><ul>" + gen + "</ul>" : "") +
-      "<ul><li>" + r.textStyles.length + " lokale tekststijlen" + (r.missingTextStyles.length ? " — ontbreekt: " + r.missingTextStyles.map(esc).join(", ") : "") + "</li>" +
-      "<li>" + r.textUnstyled + " van " + r.textTotal + " tekstlagen gebruiken <strong>geen</strong> stijl " + (r.textUnstyled === 0 ? tag("ok", "top") : tag("warn", "toepassen")) + "</li></ul></div>");
+    out.push('<div class="x-sec"><h4>3 · Components &amp; text styles ' + (r.componentSets.length ? (gen ? tag("warn", "check names") : tag("ok", "ok")) : tag("bad", "no variant sets")) + "</h4><ul>" +
+      "<li>" + r.componentCount + " components, " + r.componentSets.length + " sets with variants, " + r.instanceCount + " instances</li>" +
+      r.componentSets.slice(0, 8).map(function (s) { return "<li><code>" + esc(s.name) + "</code> — " + s.variants + " variants, props: " + (s.props.map(esc).join(", ") || "—") + "</li>"; }).join("") + "</ul>" +
+      (gen ? "<p>Generic names — rename them to something meaningful (<code>size</code> = sm/md, <code>status</code> = healthy/error):</p><ul>" + gen + "</ul>" : "") +
+      "<ul><li>" + r.textStyles.length + " local text styles" + (r.missingTextStyles.length ? " — missing: " + r.missingTextStyles.map(esc).join(", ") : "") + "</li>" +
+      "<li>" + r.textUnstyled + " of " + r.textTotal + " text layers use <strong>no</strong> style " + (r.textUnstyled === 0 ? tag("ok", "great") : tag("warn", "apply")) + "</li></ul></div>");
 
     var pct = r.frameTotal ? Math.round(100 * r.frameAuto / r.frameTotal) : 0;
     out.push('<div class="x-sec"><h4>4 · Auto layout ' + (pct > 60 ? tag("ok", pct + "%") : pct > 20 ? tag("warn", pct + "%") : tag("bad", pct + "%")) + "</h4>" +
-      "<p>" + r.frameAuto + " van " + r.frameTotal + " frames hebben auto layout.</p>" +
-      (r.noAutoLayout.length ? "<p>Grootste frames zonder auto layout:</p><ul>" + r.noAutoLayout.map(function (f) { return "<li><code>" + esc(f.name) + "</code> — " + f.children + " kinderen</li>"; }).join("") + "</ul>" : "") + "</div>");
+      "<p>" + r.frameAuto + " of " + r.frameTotal + " frames have auto layout.</p>" +
+      (r.noAutoLayout.length ? "<p>Largest frames without auto layout:</p><ul>" + r.noAutoLayout.map(function (f) { return "<li><code>" + esc(f.name) + "</code> — " + f.children + " children</li>"; }).join("") + "</ul>" : "") + "</div>");
 
-    out.push('<div class="x-sec"><h4>1 · Design checklist ' + (r.offGridTotal === 0 && !r.offScale.length ? tag("ok", "netjes") : tag("warn", "afwijkingen")) + "</h4>" +
-      "<p>" + r.offGridTotal + " auto-layout-frames met padding/gap buiten het 4/8px-grid</p>" +
+    out.push('<div class="x-sec"><h4>1 · Design checklist ' + (r.offGridTotal === 0 && !r.offScale.length ? tag("ok", "clean") : tag("warn", "deviations")) + "</h4>" +
+      "<p>" + r.offGridTotal + " auto layout frames with padding/gap off the 4/8px grid</p>" +
       (r.offGrid.length ? "<ul>" + r.offGrid.map(function (f) { return "<li><code>" + esc(f.name) + "</code>: " + f.values.join(", ") + "px</li>"; }).join("") + "</ul>" : "") +
-      "<p>" + r.offScale.length + " lettergroottes buiten de schaal (12/14/16/18/22/28/36)</p>" +
+      "<p>" + r.offScale.length + " font sizes off the scale (12/14/16/18/22/28/36)</p>" +
       (r.offScale.length ? "<ul>" + r.offScale.map(function (x) { return "<li>" + x[0] + "px — " + x[1] + "×</li>"; }).join("") + "</ul>" : "") + "</div>");
 
-    $("xrOut").innerHTML = out.join("") + '<p class="x-hint">Pagina\'s: ' + r.pages.map(esc).join(" · ") + "</p>";
+    $("xrOut").innerHTML = out.join("") + '<p class="x-hint">Pages: ' + r.pages.map(esc).join(" · ") + "</p>";
   }
   function rubricBusy(on) { ["xrAudit", "xrSpacing", "xrText"].forEach(function (id) { $(id).disabled = on; }); }
-  $("xrAudit").addEventListener("click", function () { rubricBusy(true); $("xrOut").innerHTML = '<p class="x-hint">Bezig met nakijken…</p>'; toCode({ type: "x:rubric-audit" }); });
+  $("xrAudit").addEventListener("click", function () { rubricBusy(true); $("xrOut").innerHTML = '<p class="x-hint">Checking…</p>'; toCode({ type: "x:rubric-audit" }); });
   $("xrSpacing").addEventListener("click", function () { rubricBusy(true); toCode({ type: "x:rubric-spacing" }); });
   $("xrText").addEventListener("click", function () { rubricBusy(true); toCode({ type: "x:rubric-textstyles" }); });
 
@@ -1295,13 +1326,13 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
         if (ws && ws.readyState === 1) ws.send(JSON.stringify({ kind: "info", page: m.page, fileName: m.fileName }));
         break;
       case "x:bridge-result":
-        if (m.id === "local-test") { clog(m.ok ? "Test ok: " + m.result.fileName + " / " + m.result.page : "Test mislukt: " + m.error, m.ok ? "ok" : "err"); break; }
+        if (m.id === "local-test") { clog(m.ok ? "Test ok: " + m.result.fileName + " / " + m.result.page : "Test failed: " + m.error, m.ok ? "ok" : "err"); break; }
         if (ws && ws.readyState === 1) ws.send(JSON.stringify({ kind: "result", id: m.id, ok: m.ok, result: m.result, error: m.error }));
         var t = pending[m.id]; delete pending[m.id];
         clog((m.ok ? "✓ " : "✗ ") + (t ? (Date.now() - t) + " ms" : "") + (m.ok ? "" : "  " + m.error), m.ok ? "ok" : "err");
         break;
       case "x:layout-progress":
-        showBuild('<div class="x-sec"><p>Opbouwen in Figma… ' + m.made + " lagen</p></div>");
+        showBuild('<div class="x-sec"><p>Building in Figma… ' + m.made + " layers</p></div>");
         break;
       case "x:layout-done":
         if (buildQueue.length) buildQueue.shift().resolve(m.result);
@@ -1310,15 +1341,15 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
         rubricBusy(false); renderRubric(m.report);
         break;
       case "x:rubric-done":
-        $("xrOut").insertAdjacentHTML("afterbegin", '<div class="x-sec"><h4>' + esc(m.title) + " " + tag("ok", "aangemaakt") + "</h4>" +
-          ((m.made && m.made.length) ? "<ul>" + m.made.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "<p>Alles stond er al.</p>") +
-          ((m.failed && m.failed.length) ? "<p>Niet gelukt:</p><ul>" + m.failed.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "") + "</div>");
+        $("xrOut").insertAdjacentHTML("afterbegin", '<div class="x-sec"><h4>' + esc(m.title) + " " + tag("ok", "created") + "</h4>" +
+          ((m.made && m.made.length) ? "<ul>" + m.made.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "<p>Everything was already there.</p>") +
+          ((m.failed && m.failed.length) ? "<p>Failed:</p><ul>" + m.failed.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "") + "</div>");
         break;
       case "x:error":
         rubricBusy(false);
         if (m.during === "x:layout-import" && buildQueue.length) { buildQueue.shift().reject(new Error(m.message)); break; }
-        clog("Fout (" + m.during + "): " + m.message, "err");
-        if (m.during && m.during.indexOf("x:rubric") === 0) $("xrOut").innerHTML = '<div class="x-sec"><h4>Fout ' + tag("bad", "!") + "</h4><p>" + esc(m.message) + "</p></div>";
+        clog("Error (" + m.during + "): " + m.message, "err");
+        if (m.during && m.during.indexOf("x:rubric") === 0) $("xrOut").innerHTML = '<div class="x-sec"><h4>Error ' + tag("bad", "!") + "</h4><p>" + esc(m.message) + "</p></div>";
         break;
     }
   });

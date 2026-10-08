@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "19.0.0";
+const PLUGIN_VERSION = "19.1.0";
 const TE = {
     encode: (s) => {
         const r = new Uint8Array(s.length);
@@ -1065,7 +1065,7 @@ figma.ui.onmessage = async (msg) => {
         return;
     }
 };
-const FEATURE_VERSION = "19.0.0";
+const FEATURE_VERSION = "19.1.0";
 function isFeatureMessage(msg) {
     return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
 }
@@ -1314,7 +1314,7 @@ function rgba(c) {
 }
 async function importLayout(doc, opts = {}) {
     if (!doc || doc.format !== "figma-layout" || !doc.root) {
-        throw new Error("Dit is geen figma-layout-document (verwacht: format \"figma-layout\" met een root).");
+        throw new Error("This is not a figma-layout document (expected format \"figma-layout\" with a root).");
     }
     const autoLayout = opts.autoLayout !== false;
     const counts = { FRAME: 0, TEXT: 0, SVG: 0, IMAGE: 0 };
@@ -1339,7 +1339,7 @@ async function importLayout(doc, opts = {}) {
             await resolveFont(f.family, f.weight, f.italic);
         }
         catch (e) {
-            warn(`lettertype ${f.family} ${f.weight}: ${errMsg(e)}`);
+            warn(`font ${f.family} ${f.weight}: ${errMsg(e)}`);
         }
     }
     const fontFor = (f) => fontResolveCache[`${f.family}|${f.weight}|${f.italic}`] || { family: "Inter", style: "Regular" };
@@ -1515,7 +1515,7 @@ async function importLayout(doc, opts = {}) {
             return f;
         }
         catch (e) {
-            warn(`SVG "${n.name}" niet leesbaar voor Figma, vervangen door een vlak: ${errMsg(e)}`);
+            warn(`SVG "${n.name}" not readable by Figma, replaced by a rectangle: ${errMsg(e)}`);
             const r = figma.createRectangle();
             r.name = `${n.name || "svg"} (niet geïmporteerd)`;
             r.resize(Math.max(n.w, 0.01), Math.max(n.h, 0.01));
@@ -1534,13 +1534,13 @@ async function importLayout(doc, opts = {}) {
         }
         else {
             r.fills = [solid({ r: 0.88, g: 0.89, b: 0.9, a: 1 })];
-            warn(`afbeelding "${n.name}" had geen leesbare bron (CORS) — grijs vlak geplaatst`);
+            warn(`image "${n.name}" had no readable source (CORS), placed a grey rectangle`);
         }
         return r;
     }
     const rootNode = await build(doc.root, doc.root.x, doc.root.y, false);
     if (!rootNode)
-        throw new Error("De root kon niet opgebouwd worden. " + (warnings[0] || ""));
+        throw new Error("Could not build the root. " + (warnings[0] || ""));
     const src = doc.source || {};
     rootNode.name = opts.name || [src.title || doc.root.name || "Import", src.colorScheme ? `(${src.colorScheme})` : ""].join(" ").trim();
     let parent = figma.currentPage;
@@ -2220,12 +2220,12 @@ figma.ui.on("message", async (msg) => {
                 uiSend("x:rubric-report", { report: await rubricAudit() });
                 break;
             case "x:rubric-spacing":
-                uiSend("x:rubric-done", { title: "Spacing- en radius-variabelen", made: await createSpacingVariables() });
+                uiSend("x:rubric-done", { title: "Spacing and radius variables", made: await createSpacingVariables() });
                 uiSend("x:rubric-report", { report: await rubricAudit() });
                 break;
             case "x:rubric-textstyles": {
                 const r = await createTextStyles();
-                uiSend("x:rubric-done", { title: "Tekststijlen", made: r.made, failed: r.failed });
+                uiSend("x:rubric-done", { title: "Text styles", made: r.made, failed: r.failed });
                 uiSend("x:rubric-report", { report: await rubricAudit() });
                 break;
             }

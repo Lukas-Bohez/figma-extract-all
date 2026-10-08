@@ -41,7 +41,7 @@ const RESPONDER = `(() => {
     const m = e.data && e.data.pluginMessage;
     if (!m) return;
     window.__sent.push(m.type);
-    if (m.type === 'x:hello') reply({ type: 'x:info', fileName: 'UI test file', page: 'Page 1', featureVersion: '19.0.0', bridge: null });
+    if (m.type === 'x:hello') reply({ type: 'x:info', fileName: 'UI test file', page: 'Page 1', featureVersion: '19.1.0', bridge: null });
     if (m.type === 'x:bridge-cmd') reply({ type: 'x:bridge-result', id: m.id, ok: true, result: { fileName: 'UI test file', page: 'Page 1', echo: m.cmd } });
     if (m.type === 'x:layout-import') setTimeout(() => reply({ type: 'x:layout-done', result: {
       name: (m.doc.source.title || 'import') + ' (' + m.doc.source.colorScheme + ')', counts: m.doc.counts, warnings: [], width: m.doc.root.w, height: m.doc.root.h } }), 50);
@@ -74,7 +74,7 @@ const connected = await until(async () => (await hub.status()).plugin);
 ok(connected, 'hub ziet de plugin (handshake + origin-check in een echte browser)');
 const st = await hub.status();
 ok(st.fileName === 'UI test file' && st.page === 'Page 1', 'bestandsnaam en pagina doorgegeven');
-ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent.startsWith('Verbonden')`)), 'UI toont "Verbonden"');
+ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent.startsWith('Connected')`)), 'UI toont "Verbonden"');
 const r = await hub.send('get_document', {});
 ok(r && r.echo === 'get_document', 'commando van de hub -> UI -> code -> terug naar de hub', JSON.stringify(r));
 ok(await page.evaluate(`document.getElementById('xcLog').textContent.includes('get_document')`), 'activiteit gelogd in de UI');
@@ -88,7 +88,7 @@ if (dashUrl) {
   const done = await until(() => page.evaluate(`document.getElementById('xbResult').textContent.includes('in Figma')`), 60000, 250);
   ok(done, 'resultaat "in Figma" getoond');
   const txt = await page.evaluate(`document.getElementById('xbResult').textContent`);
-  ok(/\d+ tekstlagen/.test(txt) && /frames/.test(txt), `samenvatting: ${txt.replace(/\s+/g, ' ').slice(0, 110)}`);
+  ok(/\d+ text layers/.test(txt) && /frames/.test(txt), `samenvatting: ${txt.replace(/\s+/g, ' ').slice(0, 110)}`);
   if (shotDir) writeFileSync(join(shotDir, 'ui-build.png'), Buffer.from(await page.screenshot(), 'base64'));
 }
 
@@ -97,7 +97,7 @@ await page.evaluate(`document.querySelector('[data-tab=rubric]').click(); docume
 const rendered = await until(() => page.evaluate(`document.getElementById('xrOut').textContent.includes('Local variables')`));
 ok(rendered, 'rapport getoond');
 const rtxt = await page.evaluate(`document.getElementById('xrOut').textContent`);
-ok(/3 kleurvullingen gebonden/.test(rtxt) && /97 hardgecodeerd/.test(rtxt), 'toont hoeveel kleuren echt aan tokens hangen');
+ok(/3 color fills bound/.test(rtxt) && /97 hard-coded/.test(rtxt), 'toont hoeveel kleuren echt aan tokens hangen');
 ok(/Property 1/.test(rtxt) && /Variant2/.test(rtxt), 'toont generieke variantnamen');
 ok(await page.evaluate(`!document.getElementById('xrAudit').disabled`), 'knoppen weer bruikbaar na het rapport');
 if (shotDir) writeFileSync(join(shotDir, 'ui-rubric.png'), Buffer.from(await page.screenshot(), 'base64'));
@@ -105,7 +105,7 @@ if (shotDir) writeFileSync(join(shotDir, 'ui-rubric.png'), Buffer.from(await pag
 console.log('\n6. Verbreken');
 await page.evaluate(`document.querySelector('[data-tab=claude]').click(); document.getElementById('xcToggle').click()`);
 ok(await until(async () => !(await hub.status()).plugin), 'hub ziet de plugin vertrekken');
-ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent === 'Niet verbonden'`)), 'UI toont "Niet verbonden" (geen herverbind-lus na handmatig verbreken)');
+ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent === 'Not connected'`)), 'UI toont "Niet verbonden" (geen herverbind-lus na handmatig verbreken)');
 await sleep(2500);
 ok(!(await hub.status()).plugin, 'en blijft verbroken');
 if (shotDir) writeFileSync(join(shotDir, 'ui-claude.png'), Buffer.from(await page.screenshot(), 'base64'));
