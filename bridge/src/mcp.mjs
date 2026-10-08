@@ -119,6 +119,25 @@ export function createMcpServer(hub, { log = () => {} } = {}) {
     { ids: z.array(z.string()).min(2), name: z.string().optional() }, WRITE,
     async (a) => text(await cmd('combine_as_variants', a)));
 
+  tool('figma_duplicate',
+    'Dupliceer lagen naast het origineel. Een gedupliceerde variant blijft in zijn component set: zo maak je een hover-variant (daarna hernoemen naar bv. "state=hover" en de vulling aanpassen of binden).',
+    { ids, props: z.object(props).optional().describe('Eigenschappen voor de kopie, bv. {"name": "state=hover"}.') }, WRITE,
+    async (a) => text(await cmd('duplicate', a)));
+
+  tool('figma_set_hover',
+    'Prototype-hover: zet op elke rusttoestand-variant (bv. state=default) "While hovering → Change to" de hover-variant met dezelfde andere properties. Werkt op component sets, hun varianten of instances; met deep op een heel scherm. Figma zet de variant zelf terug als de muis weggaat. Geeft per set terug wat gekoppeld is en welke varianten nog geen hover-tegenhanger hebben.',
+    {
+      ids,
+      deep: z.boolean().optional().describe('Alle instances BINNEN de gegeven lagen (bv. een heel scherm) meenemen. Wat niet kan, staat in "skipped" met de reden.'),
+      property: z.string().optional().describe('Variant-property, bv. "state". Standaard: de property die een waarde "hover" heeft.'),
+      from: z.string().optional().describe('Rusttoestand, bv. "default". Standaard: default/rest/normal/idle/base.'),
+      to: z.string().optional().describe('Hover-waarde (standaard "hover").'),
+      transition: z.enum(['smart', 'dissolve', 'instant']).optional().describe('Standaard smart animate.'),
+      duration: z.number().min(0).max(2000).optional().describe('Milliseconden (standaard 150).'),
+      easing: z.enum(['EASE_OUT', 'EASE_IN', 'EASE_IN_AND_OUT', 'LINEAR', 'GENTLE', 'QUICK']).optional(),
+    }, WRITE,
+    async (a) => text(await cmd('set_hover', a)));
+
   tool('figma_create_variables',
     'Maak of werk variabelen bij in een collectie, met modes (bv. Light en Dark). Een waarde {"alias": "base/grey/950"} maakt een alias: zo bouw je de tweede, semantische laag.',
     {

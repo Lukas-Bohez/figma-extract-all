@@ -595,7 +595,16 @@ async function describeNode(n: SceneNode, depth: number): Promise<any> {
   if (n.type === "INSTANCE") {
     const main = await n.getMainComponentAsync();
     d.mainComponent = main ? main.name : null;
+    if (main) {
+      d.mainComponentId = main.id;
+      if (main.remote) d.remote = true;
+      if (main.parent && main.parent.type === "COMPONENT_SET") d.componentSet = { id: main.parent.id, name: main.parent.name };
+      let pg: BaseNode | null = main.parent;
+      while (pg && pg.type !== "PAGE") pg = pg.parent;
+      if (pg) d.mainComponentPage = pg.name;
+    }
   }
+  if ("reactions" in n && n.reactions.length) d.reactions = n.reactions.map(describeReaction);
   if ("children" in n) {
     if (depth > 0) {
       d.children = [];
@@ -857,6 +866,127 @@ async function applyTextStyle(p: any) {
   return { applied: nodes.length, style: s.name };
 }
 
+// ─────────────────────────── prototype: hover ───────────────────────────
+
+function describeReaction(r: Reaction) {
+  const acts = r.actions || (r.action ? [r.action] : []);
+  return {
+    trigger: r.trigger ? r.trigger.type : null,
+    actions: acts.map((a: any) => ({ type: a.type, navigation: a.navigation, destinationId: a.destinationId, transition: a.transition ? a.transition.type : undefined })),
+  };
+}
+
+/** Clone layers next to the original (a cloned variant stays in its component set). */
+async function duplicateNodes(p: any) {
+  const out = [];
+  for (const n of await nodesFrom(p)) {
+    const c = (n as any).clone() as SceneNode;
+    const props = Object.assign({}, p.props || {});
+    if (props.x === undefined && props.y === undefined && "width" in n) props.x = n.x + (n as any).width + 24;
+    await applyProps(c, props);
+    out.push({ id: c.id, name: c.name, type: c.type });
+  }
+  return { created: out };
+}
+
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+const withTimeout = <T,>(p: Promise<T>, ms: number, what: string) =>
+  Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${what}: geen antwoord binnen ${ms / 1000} s`)), ms))]);
+
+function collectInstances(n: SceneNode, out: InstanceNode[]) {
+  if (n.type === "INSTANCE") out.push(n);
+  if ("children" in n) for (const c of n.children) collectInstances(c, out);
+}
+
+/**
+ * The component sets behind the given nodes. With deep, every instance inside
+ * them counts (a whole screen at once); nodes that can't be used are reported
+ * in `skipped` instead of failing the whole call.
+ */
+async function componentSetsFrom(p: any): Promise<{ sets: ComponentSetNode[]; skipped: any[] }> {
+  const sets = new Map<string, ComponentSetNode>();
+  const skipped: any[] = [];
+  const seenMain = new Set<string>();
+  let candidates: SceneNode[] = await nodesFrom(p);
+  if (p.deep) {
+    const inst: InstanceNode[] = [];
+    for (const n of candidates) collectInstances(n, inst);
+    candidates = inst;
+  }
+  for (const n of candidates) {
+    let s: BaseNode | null = n;
+    try {
+      if (n.type === "INSTANCE") s = await withTimeout(n.getMainComponentAsync(), 5000, `hoofdcomponent van ${n.name}`);
+    } catch (e: any) { skipped.push({ node: n.name, id: n.id, reason: e.message }); continue; }
+    if (s && s.type === "COMPONENT") {
+      if (seenMain.has(s.id)) continue;
+      seenMain.add(s.id);
+      if (s.remote) { skipped.push({ node: n.name, id: n.id, reason: "komt uit een bibliotheek: voeg hover toe in het bibliotheekbestand" }); continue; }
+      s = s.parent;
+    }
+    if (!s || s.type !== "COMPONENT_SET") {
+      if (!p.deep) skipped.push({ node: n.name, id: n.id, reason: "geen component set, variant of instance ervan" });
+      continue;
+    }
+    sets.set(s.id, s);
+  }
+  return { sets: [...sets.values()], skipped };
+}
+
+/**
+ * Prototype hover: on every "from" variant (e.g. state=default) set
+ * "While hovering → Change to" the matching "to" variant (state=hover) with
+ * the same other properties. Figma reverts automatically when the mouse leaves.
+ */
+async function setHover(p: any) {
+  const ms = p.duration !== undefined ? +p.duration : 150;
+  const kind = String(p.transition || "smart").toLowerCase();
+  const transition: Transition | null = kind === "instant" ? null : {
+    type: kind === "dissolve" ? "DISSOLVE" : "SMART_ANIMATE",
+    easing: { type: (String(p.easing || "EASE_OUT").toUpperCase() as any) },
+    duration: ms / 1000,
+  };
+  const result: any[] = [];
+  const { sets, skipped } = await componentSetsFrom(p);
+  for (const set of sets) {
+    try { result.push(await hoverForSet(set, p, transition)); }
+    catch (e: any) { result.push({ set: set.name, id: set.id, error: e.message }); }
+  }
+  return { sets: result, skipped };
+}
+
+async function hoverForSet(set: ComponentSetNode, p: any, transition: Transition | null) {
+  const variants = set.children.filter((c): c is ComponentNode => c.type === "COMPONENT");
+  const defs = Object.keys(set.componentPropertyDefinitions || {}).filter((k) => set.componentPropertyDefinitions[k].type === "VARIANT");
+  const toValue = String(p.to || "hover");
+  const key = p.property
+    ? defs.find((k) => same(k, String(p.property)))
+    : defs.find((k) => (set.componentPropertyDefinitions[k].variantOptions || []).some((v) => same(v, toValue)));
+  if (!key) return { set: set.name, id: set.id, error: `Geen variant-property met de waarde "${toValue}". Maak eerst een hover-variant.`, properties: defs };
+  const options = set.componentPropertyDefinitions[key].variantOptions || [];
+  const fromValue = p.from ? String(p.from) : options.find((v) => ["default", "rest", "normal", "idle", "base"].some((d) => same(v, d)));
+  if (!fromValue) return { set: set.name, id: set.id, error: `Geef "from" mee: welke waarde van ${key} is de rusttoestand?`, options };
+
+  const linked = [], missing = [];
+  for (const src of variants) {
+    const vp = src.variantProperties || {};
+    if (!vp[key] || !same(vp[key], fromValue)) continue;
+    const dst = variants.find((v) => {
+      const tp = v.variantProperties || {};
+      return tp[key] && same(tp[key], toValue) && Object.keys(vp).every((k) => k === key || tp[k] === vp[k]);
+    });
+    if (!dst) { missing.push(src.name); continue; }
+    const kept = src.reactions.filter((r) => !(r.trigger && r.trigger.type === "ON_HOVER"));
+    await src.setReactionsAsync([...kept, {
+      trigger: { type: "ON_HOVER" },
+      actions: [{ type: "NODE", destinationId: dst.id, navigation: "CHANGE_TO", transition, resetVideoPosition: false }],
+    }]);
+    linked.push({ from: src.name, to: dst.name });
+  }
+  return { set: set.name, id: set.id, property: key, from: fromValue, to: toValue, linked, missing };
+}
+
 async function bridgeCommand(cmd: string, p: any): Promise<any> {
   switch (cmd) {
     case "status":
@@ -919,6 +1049,8 @@ async function bridgeCommand(cmd: string, p: any): Promise<any> {
       if (p.name) set.name = p.name;
       return { id: set.id, name: set.name, variantProperties: Object.keys(set.componentPropertyDefinitions) };
     }
+    case "duplicate": return duplicateNodes(p);
+    case "set_hover": return setHover(p);
     case "create_variables": return createVariables(p);
     case "bind_variable": return bindVariable(p);
     case "apply_text_style": return applyTextStyle(p);

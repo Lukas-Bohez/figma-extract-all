@@ -4,7 +4,7 @@ Local tooling around the **Extract All** plugin:
 
 | | What it does |
 |---|---|
-| **MCP server** | 23 tools that let Claude read, check and build in your open Figma file — including *seeing* frames as images |
+| **MCP server** | 25 tools that let Claude read, check and build in your open Figma file — including *seeing* frames as images |
 | **Hub** | the local meeting point (127.0.0.1:3055); also plain HTTP for AIs/scripts that don't speak MCP |
 | **Capture** | render any web page (React, HTML, localhost or online) in a real browser and turn it into editable Figma layers |
 | **Contrast** | measure WCAG contrast of every text layer of a page, against what it actually sits on |
@@ -37,7 +37,7 @@ Needs Node 22+ and Edge or Chrome (for capture/contrast). Then in Figma
 
 ### Claude Code
 
-`D:\2school\.mcp.json` already registers it for that workspace; reload the
+The `.mcp.json` in the root of the 2school repo already registers it for that workspace (relative path); reload the
 window and approve "figma" once. Elsewhere:
 
 ```powershell
@@ -87,6 +87,8 @@ Claude things like:
 | `figma_rubric_check` | 8px grid, two-layer variables, **how many fills are actually bound to variables**, text styles, generic variant names, auto-layout coverage, off-scale font sizes |
 | `figma_create`, `figma_update`, `figma_delete` | frames, rectangles, ellipses, text, SVG; any property incl. auto layout and sizing |
 | `figma_create_component`, `figma_combine_as_variants` | components and variant sets with meaningful properties |
+| `figma_duplicate` | clone layers; a cloned variant stays in its component set (e.g. to make a `state=hover` variant) |
+| `figma_set_hover` | prototype hover: "While hovering → Change to" from the rest variant to the hover variant with the same other properties; reports variants that still lack a hover twin |
 | `figma_create_variables`, `figma_bind_variable` | variables with modes and aliases; bind them to fills, strokes, padding, gap, radius… |
 | `figma_apply_text_style`, `figma_create_text_styles`, `figma_create_spacing_variables` | typography and the 8px grid |
 | `figma_import_layout` | import a captured page from a file or inline |

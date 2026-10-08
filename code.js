@@ -1655,7 +1655,21 @@ async function describeNode(n, depth) {
     if (n.type === "INSTANCE") {
         const main = await n.getMainComponentAsync();
         d.mainComponent = main ? main.name : null;
+        if (main) {
+            d.mainComponentId = main.id;
+            if (main.remote)
+                d.remote = true;
+            if (main.parent && main.parent.type === "COMPONENT_SET")
+                d.componentSet = { id: main.parent.id, name: main.parent.name };
+            let pg = main.parent;
+            while (pg && pg.type !== "PAGE")
+                pg = pg.parent;
+            if (pg)
+                d.mainComponentPage = pg.name;
+        }
     }
+    if ("reactions" in n && n.reactions.length)
+        d.reactions = n.reactions.map(describeReaction);
     if ("children" in n) {
         if (depth > 0) {
             d.children = [];
@@ -1974,6 +1988,129 @@ async function applyTextStyle(p) {
     }
     return { applied: nodes.length, style: s.name };
 }
+function describeReaction(r) {
+    const acts = r.actions || (r.action ? [r.action] : []);
+    return {
+        trigger: r.trigger ? r.trigger.type : null,
+        actions: acts.map((a) => ({ type: a.type, navigation: a.navigation, destinationId: a.destinationId, transition: a.transition ? a.transition.type : undefined })),
+    };
+}
+async function duplicateNodes(p) {
+    const out = [];
+    for (const n of await nodesFrom(p)) {
+        const c = n.clone();
+        const props = Object.assign({}, p.props || {});
+        if (props.x === undefined && props.y === undefined && "width" in n)
+            props.x = n.x + n.width + 24;
+        await applyProps(c, props);
+        out.push({ id: c.id, name: c.name, type: c.type });
+    }
+    return { created: out };
+}
+const same = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${what}: geen antwoord binnen ${ms / 1000} s`)), ms))]);
+function collectInstances(n, out) {
+    if (n.type === "INSTANCE")
+        out.push(n);
+    if ("children" in n)
+        for (const c of n.children)
+            collectInstances(c, out);
+}
+async function componentSetsFrom(p) {
+    const sets = new Map();
+    const skipped = [];
+    const seenMain = new Set();
+    let candidates = await nodesFrom(p);
+    if (p.deep) {
+        const inst = [];
+        for (const n of candidates)
+            collectInstances(n, inst);
+        candidates = inst;
+    }
+    for (const n of candidates) {
+        let s = n;
+        try {
+            if (n.type === "INSTANCE")
+                s = await withTimeout(n.getMainComponentAsync(), 5000, `hoofdcomponent van ${n.name}`);
+        }
+        catch (e) {
+            skipped.push({ node: n.name, id: n.id, reason: e.message });
+            continue;
+        }
+        if (s && s.type === "COMPONENT") {
+            if (seenMain.has(s.id))
+                continue;
+            seenMain.add(s.id);
+            if (s.remote) {
+                skipped.push({ node: n.name, id: n.id, reason: "komt uit een bibliotheek: voeg hover toe in het bibliotheekbestand" });
+                continue;
+            }
+            s = s.parent;
+        }
+        if (!s || s.type !== "COMPONENT_SET") {
+            if (!p.deep)
+                skipped.push({ node: n.name, id: n.id, reason: "geen component set, variant of instance ervan" });
+            continue;
+        }
+        sets.set(s.id, s);
+    }
+    return { sets: [...sets.values()], skipped };
+}
+async function setHover(p) {
+    const ms = p.duration !== undefined ? +p.duration : 150;
+    const kind = String(p.transition || "smart").toLowerCase();
+    const transition = kind === "instant" ? null : {
+        type: kind === "dissolve" ? "DISSOLVE" : "SMART_ANIMATE",
+        easing: { type: String(p.easing || "EASE_OUT").toUpperCase() },
+        duration: ms / 1000,
+    };
+    const result = [];
+    const { sets, skipped } = await componentSetsFrom(p);
+    for (const set of sets) {
+        try {
+            result.push(await hoverForSet(set, p, transition));
+        }
+        catch (e) {
+            result.push({ set: set.name, id: set.id, error: e.message });
+        }
+    }
+    return { sets: result, skipped };
+}
+async function hoverForSet(set, p, transition) {
+    const variants = set.children.filter((c) => c.type === "COMPONENT");
+    const defs = Object.keys(set.componentPropertyDefinitions || {}).filter((k) => set.componentPropertyDefinitions[k].type === "VARIANT");
+    const toValue = String(p.to || "hover");
+    const key = p.property
+        ? defs.find((k) => same(k, String(p.property)))
+        : defs.find((k) => (set.componentPropertyDefinitions[k].variantOptions || []).some((v) => same(v, toValue)));
+    if (!key)
+        return { set: set.name, id: set.id, error: `Geen variant-property met de waarde "${toValue}". Maak eerst een hover-variant.`, properties: defs };
+    const options = set.componentPropertyDefinitions[key].variantOptions || [];
+    const fromValue = p.from ? String(p.from) : options.find((v) => ["default", "rest", "normal", "idle", "base"].some((d) => same(v, d)));
+    if (!fromValue)
+        return { set: set.name, id: set.id, error: `Geef "from" mee: welke waarde van ${key} is de rusttoestand?`, options };
+    const linked = [], missing = [];
+    for (const src of variants) {
+        const vp = src.variantProperties || {};
+        if (!vp[key] || !same(vp[key], fromValue))
+            continue;
+        const dst = variants.find((v) => {
+            const tp = v.variantProperties || {};
+            return tp[key] && same(tp[key], toValue) && Object.keys(vp).every((k) => k === key || tp[k] === vp[k]);
+        });
+        if (!dst) {
+            missing.push(src.name);
+            continue;
+        }
+        const kept = src.reactions.filter((r) => !(r.trigger && r.trigger.type === "ON_HOVER"));
+        await src.setReactionsAsync([...kept, {
+                trigger: { type: "ON_HOVER" },
+                actions: [{ type: "NODE", destinationId: dst.id, navigation: "CHANGE_TO", transition, resetVideoPosition: false }],
+            }]);
+        linked.push({ from: src.name, to: dst.name });
+    }
+    return { set: set.name, id: set.id, property: key, from: fromValue, to: toValue, linked, missing };
+}
 async function bridgeCommand(cmd, p) {
     var _a, _b;
     switch (cmd) {
@@ -2045,6 +2182,8 @@ async function bridgeCommand(cmd, p) {
                 set.name = p.name;
             return { id: set.id, name: set.name, variantProperties: Object.keys(set.componentPropertyDefinitions) };
         }
+        case "duplicate": return duplicateNodes(p);
+        case "set_hover": return setHover(p);
         case "create_variables": return createVariables(p);
         case "bind_variable": return bindVariable(p);
         case "apply_text_style": return applyTextStyle(p);
