@@ -75,21 +75,27 @@ lottie, export, svg, after effects, ai, figma to code, design system, variables,
 
 ## Carousel (upload in this order)
 
-| # | File | Caption |
-|---|------|---------|
-| 1 | `screenshots/01-lottielight.png` | Drop a Lottie or Bodymovin JSON file |
-| 2 | `screenshots/02-lottiedark.png` | Light and dark theme |
-| 3 | `screenshots/03-aiexportlight.png` | Export everything an AI coding tool needs, in one ZIP |
-| 4 | `screenshots/04-aiexportdark.png` | AI Export in dark mode |
-| 5 | `screenshots/05-aeexportlight.png` | SVGs and positions for After Effects |
-| 6 | `screenshots/06-aeexportdark.png` | After Effects Export in dark mode |
-| 7 | `screenshots/07-assets.png` | SVG, PNG and JPG at any scale, single or batch |
-| 8 | `screenshots/08-rubric.png` | Audit grid, variables, text styles and auto layout |
-| 9 | `screenshots/09-build.png` | Import a captured web page as editable layers |
-| 10 | `screenshots/10-claude.png` | Developers: let Claude work in your file |
+Eight 16:9 slides of 1920 × 1080 in `carousel/`. Slide 1 also works as the
+thumbnail.
 
-The screenshots are portrait (about 520 × 740). Figma shows carousel media in a
-16:9 frame (1920 × 1080), so they will appear with bars on the sides.
+| # | File | Shows |
+|---|------|-------|
+| 1 | `carousel/01-overview.png` | Name, tagline and the six features |
+| 2 | `carousel/02-lottie-import.png` | Lottie Import, light and dark |
+| 3 | `carousel/03-ai-export.png` | AI Export, light and dark |
+| 4 | `carousel/04-after-effects.png` | After Effects Export, light and dark |
+| 5 | `carousel/05-assets.png` | Assets |
+| 6 | `carousel/06-design-audit.png` | Design Audit (Rubric) |
+| 7 | `carousel/07-build.png` | Build |
+| 8 | `carousel/08-claude-bridge.png` | Claude bridge, for developers |
+
+The plugin windows in the slides are the real `ui.html` of v19.1.0, rendered
+sharp at 1920 × 1080 in the same states as the screenshots in `screenshots/`
+(Lukas's originals, kept as the reference). The Claude slide shows the
+connected state and the single log line from `screenshots/10-claude.png`.
+
+To render them again after a UI change: see the usage line at the top of
+`make-slides.mjs`.
 
 ## Version notes
 
