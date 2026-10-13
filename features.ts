@@ -866,6 +866,287 @@ async function applyTextStyle(p: any) {
   return { applied: nodes.length, style: s.name };
 }
 
+
+// ─────────────────────────── text styles in bulk ───────────────────────────
+
+function pageNameOf(n: BaseNode): string {
+  let cur: BaseNode | null = n;
+  while (cur && cur.type !== "PAGE") cur = cur.parent;
+  return cur ? cur.name : "?";
+}
+
+async function textNodesIn(p: any): Promise<TextNode[]> {
+  await figma.loadAllPagesAsync();
+  const ids: string[] = p.ids || (p.id ? [p.id] : []);
+  if (!ids.length) return figma.root.findAllWithCriteria({ types: ["TEXT"] });
+  const out: TextNode[] = [];
+  for (const n of await nodesFrom(p)) {
+    if (n.type === "TEXT") out.push(n);
+    else if ("findAllWithCriteria" in n) out.push(...(n as FrameNode).findAllWithCriteria({ types: ["TEXT"] }));
+  }
+  return out;
+}
+
+function lineHeightLabel(t: TextNode): string {
+  const lh = t.lineHeight;
+  if (lh === figma.mixed) return "mixed";
+  if (lh.unit === "AUTO") return "auto";
+  return `${Math.round(lh.value * 100) / 100}${lh.unit === "PERCENT" ? "%" : "px"}`;
+}
+
+/** Count every text layer by font, size, weight and line height, so a type scale can be chosen from facts. */
+async function textInventory(p: any) {
+  const texts = await textNodesIn(p);
+  const groups: { [k: string]: any } = {};
+  let styled = 0, mixed = 0;
+  for (const t of texts) {
+    if (t.textStyleId && t.textStyleId !== figma.mixed) styled++;
+    if (t.fontSize === figma.mixed || t.fontName === figma.mixed) { mixed++; continue; }
+    const fn = t.fontName as FontName;
+    const key = `${fn.family}|${t.fontSize}|${styleWeight(fn.style)}|${lineHeightLabel(t)}`;
+    const g = groups[key] || (groups[key] = { family: fn.family, size: t.fontSize, weight: styleWeight(fn.style), lineHeight: lineHeightLabel(t), count: 0, pages: {}, samples: [] });
+    g.count++;
+    const pg = pageNameOf(t);
+    g.pages[pg] = (g.pages[pg] || 0) + 1;
+    if (g.samples.length < 3) g.samples.push({ id: t.id, text: t.characters.slice(0, 28) });
+  }
+  const list = Object.keys(groups).map((k) => groups[k]).sort((a, b) => b.count - a.count);
+  return { total: texts.length, styled, mixed, groups: list };
+}
+
+/** Create (or, with update:true, redefine) text styles: [{ name, size, weight, family?, lineHeightPercent? | lineHeightPx? }] */
+async function createTextStylesBulk(p: any) {
+  const defs: any[] = p.styles || [];
+  if (!defs.length) throw new Error("Geef styles mee: [{ name, size, weight, lineHeightPercent }]");
+  const existing = await figma.getLocalTextStylesAsync();
+  const made: string[] = [], updated: string[] = [], skipped: string[] = [];
+  for (const d of defs) {
+    let s = existing.find((x) => x.name === d.name);
+    if (s && !p.update) { skipped.push(d.name); continue; }
+    const font = await resolveFont(d.family || "Inter", d.weight || 400, false);
+    await figma.loadFontAsync(font);
+    if (!s) { s = figma.createTextStyle(); s.name = d.name; made.push(`${d.name} (${d.size}px ${font.style})`); }
+    else updated.push(d.name);
+    s.fontName = font;
+    s.fontSize = d.size;
+    if (d.lineHeightPx !== undefined) s.lineHeight = { unit: "PIXELS", value: d.lineHeightPx };
+    else s.lineHeight = { unit: "PERCENT", value: d.lineHeightPercent !== undefined ? d.lineHeightPercent : 150 };
+  }
+  return { made, updated, skipped };
+}
+
+/**
+ * Apply local text styles by matching each text layer on size and weight.
+ * rules: [{ size, weight, style }]  (size within 0.05). dryRun:true only counts; onlyUnstyled:true leaves styled layers alone; limit:N does at most N per call (a call must finish within 60 s), `remaining` says how many are left.
+ * Layers that match no rule, or have mixed fonts, are reported and left alone.
+ */
+async function applyTextStylesAuto(p: any) {
+  const rules: any[] = p.rules || [];
+  if (!rules.length) throw new Error("Geef rules mee: [{ size, weight, style }]");
+  const styles = await figma.getLocalTextStylesAsync();
+  const resolved = rules.map((r) => {
+    const s = styles.find((x) => x.name === r.style || x.id === r.style);
+    if (!s) throw new Error(`Tekststijl "${r.style}" bestaat niet`);
+    return { size: r.size, weight: r.weight, style: s };
+  });
+  const texts = await textNodesIn(p);
+  const applied: { [k: string]: number } = {};
+  const unmatched: { [k: string]: { count: number; sample: string } } = {};
+  let skippedMixed = 0, already = 0, done = 0, more = 0;
+  for (const t of texts) {
+    if (t.fontSize === figma.mixed || t.fontName === figma.mixed) { skippedMixed++; continue; }
+    if (p.skipInstances && insideInstance(t)) continue;
+    if (p.onlyUnstyled && t.textStyleId && t.textStyleId !== figma.mixed) { already++; continue; }
+    const w = styleWeight((t.fontName as FontName).style);
+    const rule = resolved.find((r) => Math.abs(r.size - (t.fontSize as number)) < 0.05 && r.weight === w);
+    if (!rule) {
+      const k = `${t.fontSize}/${w}`;
+      const u = unmatched[k] || (unmatched[k] = { count: 0, sample: t.id });
+      u.count++;
+      continue;
+    }
+    if (t.textStyleId === rule.style.id) { already++; continue; }
+    if (p.limit && done >= p.limit) { more++; continue; }
+    done++;
+    if (!p.dryRun) {
+      await loadAllFontsOf(t);
+      await figma.loadFontAsync(rule.style.fontName);
+      await t.setTextStyleIdAsync(rule.style.id);
+    }
+    applied[rule.style.name] = (applied[rule.style.name] || 0) + 1;
+  }
+  return { dryRun: !!p.dryRun, total: texts.length, applied, already, skippedMixed, unmatched, remaining: more };
+}
+
+
+// ─────────────────────────── layer audit & fixes ───────────────────────────
+
+function insideInstance(n: BaseNode): boolean {
+  let cur: BaseNode | null = n.parent;
+  while (cur && cur.type !== "PAGE" && cur.type !== "DOCUMENT") {
+    if (cur.type === "INSTANCE") return true;
+    cur = cur.parent;
+  }
+  return false;
+}
+
+const GENERIC_NAME = /^(Frame|Rectangle|Group|Vector|Ellipse|Line|Polygon|Star|Boolean|Slice|Section|Component|Instance|Text|Image)( \d+)?$/;
+
+/** Facts for the rubric: generic layer names, frames without auto layout, off-grid spacing and raw colours (layers outside instances only). */
+async function layerAudit(p: any) {
+  await figma.loadAllPagesAsync();
+  const all = figma.root.findAll(() => true);
+  const own = all.filter((n) => !insideInstance(n));
+  const generic: { [k: string]: { count: number; samples: string[]; parents: { [k: string]: number } } } = {};
+  const noAuto: { [k: string]: { count: number; children: number; samples: string[]; pages: { [k: string]: number } } } = {};
+  const offGrid: { id: string; name: string; page: string; values: number[] }[] = [];
+  const raw: { [k: string]: { count: number; pages: { [k: string]: number }; types: { [k: string]: number }; samples: string[] } } = {};
+  for (const n of own) {
+    if (GENERIC_NAME.test(n.name)) {
+      const k = n.type;
+      const g = generic[k] || (generic[k] = { count: 0, samples: [], parents: {} });
+      g.count++;
+      if (g.samples.length < 6) g.samples.push(`${n.id} "${n.name}"`);
+      const pn = n.parent ? n.parent.name : "?";
+      g.parents[pn] = (g.parents[pn] || 0) + 1;
+    }
+    if ((n.type === "FRAME" || n.type === "COMPONENT") && "layoutMode" in n) {
+      const f = n as FrameNode;
+      if (f.layoutMode === "NONE" && f.children.length > 0 && f.name.charAt(0) !== "_") {
+        const k = f.name.replace(/\d+/g, "#");
+        const g = noAuto[k] || (noAuto[k] = { count: 0, children: 0, samples: [], pages: {} });
+        g.count++;
+        g.children += f.children.length;
+        if (g.samples.length < 4) g.samples.push(f.id);
+        const pg = pageNameOf(f);
+        g.pages[pg] = (g.pages[pg] || 0) + 1;
+      }
+      if (f.layoutMode !== "NONE") {
+        const vals = [f.paddingLeft, f.paddingRight, f.paddingTop, f.paddingBottom, f.itemSpacing].concat(f.layoutWrap === "WRAP" ? [f.counterAxisSpacing || 0] : []);
+        const bad = vals.filter((v) => v % GRID !== 0);
+        if (bad.length) offGrid.push({ id: f.id, name: f.name, page: pageNameOf(f), values: vals });
+      }
+    }
+    const paints: { kind: string; paint: Paint }[] = [];
+    if ("fills" in n && Array.isArray((n as GeometryMixin).fills)) ((n as GeometryMixin).fills as Paint[]).forEach((x) => paints.push({ kind: "fill", paint: x }));
+    if ("strokes" in n) (n as GeometryMixin).strokes.forEach((x) => paints.push({ kind: "stroke", paint: x }));
+    for (const { kind, paint } of paints) {
+      if (paint.type !== "SOLID" || paint.visible === false) continue;
+      if (paint.boundVariables && paint.boundVariables.color) continue;
+      if ("fillStyleId" in n && kind === "fill" && (n as any).fillStyleId) continue;
+      const hex = "#" + [paint.color.r, paint.color.g, paint.color.b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("");
+      const g = raw[hex] || (raw[hex] = { count: 0, pages: {}, types: {}, samples: [] });
+      g.count++;
+      const pg = pageNameOf(n);
+      g.pages[pg] = (g.pages[pg] || 0) + 1;
+      g.types[n.type + ":" + kind] = (g.types[n.type + ":" + kind] || 0) + 1;
+      if (g.samples.length < 4) g.samples.push(`${n.id} "${n.name}"`);
+    }
+  }
+  return { nodesOutsideInstances: own.length, generic, noAuto, offGridCount: offGrid.length, offGrid: offGrid.slice(0, p.max || 60), raw };
+}
+
+/** Bind unbound solid fills/strokes of an exact colour to a variable: map { "#999999": "text/muted" } (layers outside instances; limit:N per call). */
+async function bindRawColors(p: any) {
+  await figma.loadAllPagesAsync();
+  const map: { [k: string]: string } = p.map || {};
+  const vars = await figma.variables.getLocalVariablesAsync("COLOR");
+  const byName: { [k: string]: Variable } = {};
+  vars.forEach((v) => (byName[v.name] = v));
+  for (const hex of Object.keys(map)) if (!byName[map[hex]]) throw new Error(`Variabele "${map[hex]}" bestaat niet`);
+  const roots: BaseNode[] = p.ids && p.ids.length ? await nodesFrom(p) : [figma.root];
+  const nodes: SceneNode[] = [];
+  for (const r of roots) {
+    if (r.type !== "DOCUMENT" && r.type !== "PAGE") nodes.push(r as SceneNode);
+    if ("findAll" in r) nodes.push(...(r as ChildrenMixin).findAll(() => true));
+  }
+  const done: { [k: string]: number } = {};
+  let more = 0, count = 0;
+  for (const n of nodes) {
+    if (insideInstance(n)) continue;
+    for (const kind of ["fills", "strokes"] as const) {
+      if (!(kind in n)) continue;
+      const list = (n as any)[kind] as Paint[];
+      if (!Array.isArray(list)) continue;
+      let changed = false;
+      const next = list.map((paint) => {
+        if (paint.type !== "SOLID" || (paint.boundVariables && paint.boundVariables.color)) return paint;
+        const hex = "#" + [paint.color.r, paint.color.g, paint.color.b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("");
+        const target = map[hex];
+        if (!target) return paint;
+        if (p.limit && count >= p.limit) { more++; return paint; }
+        count++;
+        changed = true;
+        done[hex + " -> " + target] = (done[hex + " -> " + target] || 0) + 1;
+        return figma.variables.setBoundVariableForPaint(paint, "color", byName[target]);
+      });
+      if (changed && !p.dryRun) (n as any)[kind] = next;
+    }
+  }
+  return { dryRun: !!p.dryRun, bound: done, remaining: more };
+}
+
+/** Snap off-grid padding and gaps of layers outside instances to the 4 px grid (round half up). */
+async function snapToGrid(p: any) {
+  await figma.loadAllPagesAsync();
+  const roots: BaseNode[] = p.ids && p.ids.length ? await nodesFrom(p) : [figma.root];
+  const nodes: SceneNode[] = [];
+  for (const r of roots) {
+    if (r.type !== "DOCUMENT" && r.type !== "PAGE") nodes.push(r as SceneNode);
+    if ("findAll" in r) nodes.push(...(r as ChildrenMixin).findAll(() => true));
+  }
+  const snap = (v: number) => (v % GRID === 0 ? v : Math.round(v / GRID) * GRID || (v > 0 ? GRID : 0));
+  const changes: { [k: string]: number } = {};
+  let count = 0, more = 0;
+  for (const n of nodes) {
+    if ((n.type !== "FRAME" && n.type !== "COMPONENT" && n.type !== "COMPONENT_SET") || insideInstance(n)) continue;
+    const f = n as FrameNode;
+    if (f.layoutMode === "NONE") continue;
+    const fields = ["paddingLeft", "paddingRight", "paddingTop", "paddingBottom", "itemSpacing"] as const;
+    for (const key of fields) {
+      const v = f[key];
+      if (v % GRID === 0) continue;
+      if (p.limit && count >= p.limit) { more++; continue; }
+      count++;
+      const to = snap(v);
+      changes[`${key}: ${v} -> ${to}`] = (changes[`${key}: ${v} -> ${to}`] || 0) + 1;
+      if (!p.dryRun) f[key] = to;
+    }
+  }
+  return { dryRun: !!p.dryRun, changes, remaining: more };
+}
+
+
+/** Remove duplicate text styles (same name): keep the one used by most layers. */
+async function dedupeTextStyles() {
+  await figma.loadAllPagesAsync();
+  const styles = await figma.getLocalTextStylesAsync();
+  const used: { [id: string]: number } = {};
+  for (const t of figma.root.findAllWithCriteria({ types: ["TEXT"] })) {
+    if (t.textStyleId && t.textStyleId !== figma.mixed) used[t.textStyleId] = (used[t.textStyleId] || 0) + 1;
+  }
+  const byName: { [k: string]: TextStyle[] } = {};
+  styles.forEach((x) => (byName[x.name] = (byName[x.name] || []).concat([x])));
+  const removed: string[] = [];
+  for (const name of Object.keys(byName)) {
+    const group = byName[name];
+    if (group.length < 2) continue;
+    group.sort((a, b) => (used[b.id] || 0) - (used[a.id] || 0));
+    for (const extra of group.slice(1)) {
+      if (used[extra.id]) continue;
+      extra.remove();
+      removed.push(name);
+    }
+  }
+  return { removed };
+}
+
+/** Names of local colour variables (so a binding map can use real names). */
+async function listColorVariables() {
+  const vars = await figma.variables.getLocalVariablesAsync("COLOR");
+  return { names: vars.map((v) => v.name) };
+}
+
 // ─────────────────────────── prototype: hover ───────────────────────────
 
 function describeReaction(r: Reaction) {
@@ -1056,6 +1337,14 @@ async function bridgeCommand(cmd: string, p: any): Promise<any> {
     case "apply_text_style": return applyTextStyle(p);
     case "create_spacing_variables": return { made: await createSpacingVariables() };
     case "create_text_styles": return createTextStyles();
+    case "text_inventory": return textInventory(p);
+    case "create_text_styles_bulk": return createTextStylesBulk(p);
+    case "apply_text_styles_auto": return applyTextStylesAuto(p);
+    case "layer_audit": return layerAudit(p);
+    case "dedupe_text_styles": return dedupeTextStyles();
+    case "list_color_variables": return listColorVariables();
+    case "bind_raw_colors": return bindRawColors(p);
+    case "snap_to_grid": return snapToGrid(p);
     case "import_layout": return importLayout(p.doc, p.options || p);
     case "set_selection": {
       const nodes = await nodesFrom(p);

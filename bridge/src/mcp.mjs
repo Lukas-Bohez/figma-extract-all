@@ -165,6 +165,30 @@ export function createMcpServer(hub, { log = () => {} } = {}) {
   tool('figma_create_spacing_variables', 'Maak de 8px-grid-variabelen space/1..8 (4-64 px) en radius/* aan in een collectie "primitives". Slaat bestaande over.', {}, WRITE,
     async () => text(await cmd('create_spacing_variables')));
 
+  tool('figma_text_inventory', 'Tel alle tekstlagen per lettertype, grootte, gewicht en regelhoogte (plus hoeveel al een stijl hebben).',
+    { ids }, READ,
+    async (a) => text(await cmd('text_inventory', a)));
+
+  tool('figma_create_text_styles_bulk', 'Maak of herdefinieer lokale tekststijlen met gewicht: [{ name, size, weight, lineHeightPercent }].',
+    { styles: z.array(z.object({ name: z.string(), size: z.number(), weight: z.number().optional(), family: z.string().optional(), lineHeightPercent: z.number().optional(), lineHeightPx: z.number().optional() })), update: z.boolean().optional() }, WRITE,
+    async (a) => text(await cmd('create_text_styles_bulk', a)));
+
+  tool('figma_apply_text_styles_auto', 'Pas lokale tekststijlen toe op alle tekstlagen door te matchen op grootte en gewicht: rules [{ size, weight, style }]. dryRun telt enkel.',
+    { rules: z.array(z.object({ size: z.number(), weight: z.number(), style: z.string() })), ids, dryRun: z.boolean().optional(), onlyUnstyled: z.boolean().optional(), skipInstances: z.boolean().optional(), limit: z.number().optional() }, WRITE,
+    async (a) => text(await cmd('apply_text_styles_auto', a)));
+
+  tool('figma_layer_audit', 'Feiten voor de rubric: generieke laagnamen, frames zonder auto layout, spacing buiten het 4 px-raster en kleuren zonder variabele (enkel lagen buiten instanties).',
+    { max: z.number().optional() }, READ,
+    async (a) => text(await cmd('layer_audit', a)));
+
+  tool('figma_bind_raw_colors', 'Koppel ongebonden effen vullingen en randen met een exacte kleur aan een variabele: map { "#999999": "text/muted" }. dryRun telt enkel.',
+    { map: z.record(z.string(), z.string()), ids, dryRun: z.boolean().optional(), limit: z.number().optional() }, WRITE,
+    async (a) => text(await cmd('bind_raw_colors', a)));
+
+  tool('figma_snap_to_grid', 'Rond padding en gap buiten het 4 px-raster af naar het raster (lagen buiten instanties). dryRun telt enkel.',
+    { ids, dryRun: z.boolean().optional(), limit: z.number().optional() }, WRITE,
+    async (a) => text(await cmd('snap_to_grid', a)));
+
   tool('figma_create_text_styles', 'Maak de typeschaal text/xs..text/3xl (12-36 px, Inter) als lokale tekststijlen. Slaat bestaande over.', {}, WRITE,
     async () => text(await cmd('create_text_styles')));
 
