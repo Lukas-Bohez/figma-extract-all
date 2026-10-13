@@ -1147,6 +1147,32 @@ async function listColorVariables() {
   return { names: vars.map((v) => v.name) };
 }
 
+
+/** Give generic layer names ("Frame 12", "Ellipse", "Vector") a meaningful name by role (layers outside instances). */
+async function renameGeneric(p: any) {
+  await figma.loadAllPagesAsync();
+  const nodes = figma.root.findAll((n) => !insideInstance(n) && GENERIC_NAME.test(n.name) && (n.type === "FRAME" || n.type === "ELLIPSE" || n.type === "VECTOR"));
+  const made: { [k: string]: number } = {};
+  for (const n of nodes) {
+    let name = "";
+    if (n.type === "ELLIPSE") name = n.width <= 12 ? "Status dot" : "Circle";
+    else if (n.type === "VECTOR") name = "Icon path";
+    else {
+      const f = n as FrameNode;
+      const text = f.findOne((c) => c.type === "TEXT") as TextNode | null;
+      const kids = f.children;
+      if (kids.length === 0) name = "Spacer";
+      else if (kids.every((c) => c.type === "VECTOR" || c.type === "ELLIPSE" || c.type === "BOOLEAN_OPERATION")) name = "Icon";
+      else if (text && kids.length === 1 && kids[0].type === "TEXT") name = "Label";
+      else if (text) name = (f.layoutMode === "VERTICAL" ? "Stack: " : f.layoutMode === "HORIZONTAL" ? "Row: " : "Group: ") + text.characters.replace(/\s+/g, " ").slice(0, 24);
+      else name = f.layoutMode === "VERTICAL" ? "Stack" : f.layoutMode === "HORIZONTAL" ? "Row" : "Container";
+    }
+    made[name.split(":")[0]] = (made[name.split(":")[0]] || 0) + 1;
+    if (!p.dryRun) n.name = name;
+  }
+  return { dryRun: !!p.dryRun, renamed: nodes.length, byName: made };
+}
+
 // ─────────────────────────── prototype: hover ───────────────────────────
 
 function describeReaction(r: Reaction) {
@@ -1341,6 +1367,7 @@ async function bridgeCommand(cmd: string, p: any): Promise<any> {
     case "create_text_styles_bulk": return createTextStylesBulk(p);
     case "apply_text_styles_auto": return applyTextStylesAuto(p);
     case "layer_audit": return layerAudit(p);
+    case "rename_generic": return renameGeneric(p);
     case "dedupe_text_styles": return dedupeTextStyles();
     case "list_color_variables": return listColorVariables();
     case "bind_raw_colors": return bindRawColors(p);

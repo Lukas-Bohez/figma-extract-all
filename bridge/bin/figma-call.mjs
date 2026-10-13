@@ -14,7 +14,7 @@ if (!cmd) {
 Commando's: status, get_document, get_selection, get_node, screenshot, get_variables,
 get_styles, rubric_check, create, update, delete, create_component, combine_as_variants,
 create_variables, bind_variable, apply_text_style, create_spacing_variables,
-create_text_styles, text_inventory, create_text_styles_bulk, apply_text_styles_auto, layer_audit, dedupe_text_styles, list_color_variables, bind_raw_colors, snap_to_grid, import_layout, set_selection, notify`);
+create_text_styles, text_inventory, create_text_styles_bulk, apply_text_styles_auto, layer_audit, rename_generic, dedupe_text_styles, list_color_variables, bind_raw_colors, snap_to_grid, import_layout, set_selection, notify`);
   process.exit(1);
 }
 try {
