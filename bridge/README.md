@@ -4,7 +4,7 @@ Local tooling around the **Extract All** plugin:
 
 | | What it does |
 |---|---|
-| **MCP server** | 30 tools that let Claude read, check and build in your open Figma file — including *seeing* frames as images |
+| **MCP server** | 42 tools that let Claude read, check and build in your open Figma file — including *seeing* frames as images |
 | **Hub** | the local meeting point (127.0.0.1:3055); also plain HTTP for AIs/scripts that don't speak MCP |
 | **Capture** | render any web page (React, HTML, localhost or online) in a real browser and turn it into editable Figma layers |
 | **Contrast** | measure WCAG contrast of every text layer of a page, against what it actually sits on |
@@ -99,6 +99,24 @@ Claude things like:
 | `figma_set_variable_mode` | show layers in another mode of a variable collection, e.g. the Dark mode of the Semantic variables |
 | `figma_bind_raw_spacing` | bind raw padding, gaps and corner radii to FLOAT variables by value (8px grid), like `bind_raw_colors` does for colours |
 | `figma_cancel` | ask a heavy command that is still running in Figma (after a time-out) to stop with what is done |
+| `figma_build` | build a whole tree of layers in one call (frames with auto layout, shapes, vector paths, arcs, SVG, text) with fills, strokes, radius, spacing and text styles bound to variables **by name**; rolls back if anything fails; `replaceByName` makes it repeatable |
+| `figma_export` | save layers to disk as PNG, JPG, SVG, PDF or REST JSON. A plugin cannot make a `.fig` (use *File → Save local copy*) |
+| `figma_use_file` | several Figma files can be connected at once: list them, choose the one commands go to, or unpin |
+| `figma_set_page` | go to a page by name (optionally create it) |
+| `figma_set_code_syntax`, `figma_delete_variables` | Dev Mode code syntax per variable; delete variables or whole collections |
+
+## Several Figma files at once
+
+Every Figma window with the plugin open and connected is listed by `figma_status` / `figma_use_file`. A command goes to:
+
+1. the file named in the command (`"file": "my file"` in `POST /command`), else
+2. the file you chose with `figma_use_file`, else
+3. the only connected file, else
+4. **nowhere**: with several files connected and none chosen the hub answers `409` with the file names. Nothing is ever
+   built in a guessed file.
+
+The same file connecting again (plugin reopened) replaces its own old window; a different file never does. Each plugin window
+shows in the Claude tab whether it is the file Claude works in.
 
 ---
 
@@ -137,7 +155,8 @@ on screen — useful behind a login, or in a state you clicked your way into.
 ### Honest limitations
 
 - **Not converted:** gradients and background images, `::before`/`::after`
-  content, CSS transforms/rotations, `<canvas>`/`<video>`, iframes. They
+  content, CSS transforms/rotations on HTML boxes (on SVG elements they *are* converted: chart markers keep their
+  position), `<canvas>`/`<video>`, iframes. They
   appear as a warning in the result.
 - **Auto layout comes from flexbox only.** CSS Grid containers keep absolute
   positions (their children are still frames you can edit).

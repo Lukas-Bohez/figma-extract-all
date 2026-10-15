@@ -5,7 +5,8 @@
 //
 //   node test/bridge.test.mjs [url-for-capture-test]
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, existsSync, statSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -28,16 +29,19 @@ const ok = (cond, label, extra) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // A stand-in for ui.html: bridges WebSocket <-> the plugin's code.js.
-function startFakePlugin({ origin = 'null' } = {}) {
+function startFakePlugin({ origin = 'null', fileName } = {}) {
   const m = createFigma();
+  if (fileName) m.figma.root.name = fileName;
+  const targets = [];
   const ctx = vm.createContext({ figma: m.figma, __html__: '', console, setTimeout, clearTimeout, Uint8Array, Uint32Array, DataView, Promise });
   vm.runInContext(CODE, ctx);
   const ws = new WebSocket(`ws://127.0.0.1:${PORT}`, { origin });
   const ready = new Promise((resolve, reject) => {
-    ws.on('open', () => { ws.send(JSON.stringify({ kind: 'hello', fileName: m.figma.root.name, page: 'Page 1', featureVersion: '19.1.0' })); });
+    ws.on('open', () => { ws.send(JSON.stringify({ kind: 'hello', fileName: m.figma.root.name, page: 'Page 1', featureVersion: '19.2.0' })); });
     ws.on('message', async (raw) => {
       const msg = JSON.parse(raw.toString());
       if (msg.kind === 'welcome') resolve();
+      if (msg.kind === 'target') targets.push(msg);
       if (msg.kind === 'cmd') {
         const before = m.posted.length;
         await m.send({ type: 'x:bridge-cmd', id: msg.id, cmd: msg.cmd, params: msg.params });
@@ -48,7 +52,8 @@ function startFakePlugin({ origin = 'null' } = {}) {
     ws.on('unexpected-response', (req, res) => reject(new Error(`HTTP ${res.statusCode}`)));
     ws.on('error', reject);
   });
-  return { m, ws, ready };
+  const closed = new Promise((r) => ws.on('close', (code) => r(code)));
+  return { m, ws, ready, targets, closed };
 }
 
 // ───────────────────────────────────────────── 1. security
@@ -76,10 +81,61 @@ await plugin.ready;
   const st = await hub.status();
   ok(st.plugin && st.fileName === 'Interaction Design', 'hub ziet de plugin en het bestand', JSON.stringify(st));
   const r = await hub.send('status');
-  ok(r.featureVersion === '19.1.0', 'commando rechtstreeks via de hub');
+  ok(r.featureVersion === '19.2.0', 'commando rechtstreeks via de hub');
   const remote = await connectRemote({ port: PORT });
   const r2 = await remote.send('status');
   ok(r2.fileName === 'Interaction Design', 'tweede proces werkt via RemoteHub (HTTP)');
+}
+
+// ───────────────────────────────────────────── 2b. several Figma files at once
+console.log('\n2b. Meerdere Figma-bestanden tegelijk');
+{
+  const second = startFakePlugin({ fileName: 'Advanced Fullstack Development' });
+  await second.ready;
+  await sleep(100);
+  let st = await hub.status();
+  ok(st.files.length === 2 && st.ambiguous === true && st.fileName === null, 'twee bestanden verbonden, geen doel gekozen -> ambiguous', JSON.stringify(st.files.map((f) => f.fileName)));
+  ok(plugin.ws.readyState === 1, 'het tweede bestand gooit het eerste NIET eruit (geen heen-en-weer meer)');
+
+  let err = null;
+  try { await hub.send('status'); } catch (e) { err = e; }
+  ok(err && err.name === 'Error' && /Meerdere Figma-bestanden/.test(err.message) && /Interaction Design/.test(err.message) && /Advanced Fullstack Development/.test(err.message),
+    'opdracht zonder gekozen bestand -> uitleg met beide namen, niets wordt in het verkeerde bestand gebouwd', err && err.message);
+  const http409 = await fetch(`http://127.0.0.1:${PORT}/command`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"cmd":"status"}' });
+  const body409 = await http409.json();
+  ok(http409.status === 409 && body409.ambiguous === true, 'via HTTP: 409 met ambiguous', String(http409.status));
+
+  let r = await hub.send('status', {}, 5000, { file: 'advanced fullstack development' });
+  ok(r.fileName === 'Advanced Fullstack Development', 'een commando kan zelf een bestand kiezen (hoofdletterongevoelig)', JSON.stringify(r));
+  r = await hub.send('hub.use', { file: 'Interaction Design' });
+  ok(r.pinned === 'Interaction Design' && r.fileName === 'Interaction Design', 'hub.use kiest het doelbestand', JSON.stringify(r));
+  r = await hub.send('status');
+  ok(r.fileName === 'Interaction Design', 'daarna gaat alles naar het gekozen bestand');
+  await sleep(100);
+  const lastA = plugin.targets[plugin.targets.length - 1], lastB = second.targets[second.targets.length - 1];
+  ok(lastA && lastA.active === true && lastB && lastB.active === false && lastA.files === 2, 'elk plugin-venster hoort of het het doelbestand is', JSON.stringify([lastA, lastB]));
+
+  const remote = await connectRemote({ port: PORT });
+  r = await remote.send('status', {}, 5000, { file: 'Advanced Fullstack Development' });
+  ok(r.fileName === 'Advanced Fullstack Development', 'ook een tweede proces (RemoteHub) kan een bestand kiezen');
+  err = null;
+  try { await remote.send('hub.use', { file: 'bestaat niet' }); } catch (e) { err = e; }
+  ok(err && /Geen verbonden Figma-bestand/.test(err.message), 'onbekende bestandsnaam -> uitleg met wat er wel verbonden is', err && err.message);
+
+  // the same file connecting again replaces its own window, but only that one
+  const again = startFakePlugin({ fileName: 'Advanced Fullstack Development' });
+  await again.ready;
+  ok((await second.closed) === 4000, 'hetzelfde bestand opnieuw verbonden vervangt het oude venster (code 4000)');
+  st = await hub.status();
+  ok(st.files.length === 2, 'nog steeds twee bestanden, niet drie', String(st.files.length));
+
+  // closing the chosen file clears the choice
+  again.ws.close();
+  await sleep(200);
+  st = await hub.status();
+  ok(st.files.length === 1 && st.ambiguous === false && st.fileName === 'Interaction Design', 'bestand gesloten -> het overgebleven bestand is weer het doel');
+  r = await hub.send('hub.unpin');
+  ok(r.pinned === null, 'hub.unpin wist de keuze');
 }
 
 // ───────────────────────────────────────────── 3. MCP end to end
@@ -135,6 +191,25 @@ await client.connect(transport);
 
   ({ r, data } = await call('figma_rubric_check'));
   ok(!r.isError && data.fillsBound >= 1 && typeof data.frameAuto === 'number', 'figma_rubric_check via MCP');
+
+  // build + export through MCP: a chart bound to variables in one call, saved to disk
+  ({ r, data } = await call('figma_build', {
+    tree: { kind: 'FRAME', name: 'Mini chart', key: 'root', width: 200, height: 100, fillVar: 'semantic/surface',
+      children: [{ kind: 'VECTOR', name: 'lijn', key: 'line', path: 'M0 0 L50 20', stroke: { color: '#000000', weight: 2 } }] },
+  }));
+  ok(!r.isError && data.count === 2 && data.keys.line, 'figma_build via MCP', r.isError && r.content[0].text);
+  const outDir = mkdtempSync(join(tmpdir(), 'figma-export-'));
+  ({ r, data } = await call('figma_export', { ids: [data.roots[0].id], format: 'SVG', dir: outDir }));
+  ok(!r.isError && data.saved.length === 1 && existsSync(data.saved[0].path) && /Mini chart\.svg$/.test(data.saved[0].path), 'figma_export schrijft een SVG naar schijf', r.isError ? r.content[0].text : JSON.stringify(data));
+  ({ r, data } = await call('figma_export', { ids: [cardId], format: 'PNG', scale: 2, dir: outDir }));
+  ok(!r.isError && /Card@2x\.png$/.test(data.saved[0].path) && statSync(data.saved[0].path).size > 0, 'figma_export PNG met schaal in de bestandsnaam');
+  rmSync(outDir, { recursive: true, force: true });
+  ({ r, data } = await call('figma_use_file'));
+  ok(!r.isError && data.files.length === 1 && data.files[0].target === true, 'figma_use_file toont de verbonden bestanden');
+  ({ r, data } = await call('figma_set_code_syntax', { map: { 'semantic/surface': 'var(--color-surface)' } }));
+  ok(!r.isError && data.set === 1, 'figma_set_code_syntax');
+  ({ r, data } = await call('figma_delete_variables', { names: ['semantic/surface'] }));
+  ok(!r.isError && data.removed.includes('semantic/surface'), 'figma_delete_variables');
 
   ({ r } = await call('figma_get_node', { ids: ['nope'] }));
   ok(r.isError && /Geen laag/.test(r.content[0].text), 'fouten komen als isError terug, niet als crash');

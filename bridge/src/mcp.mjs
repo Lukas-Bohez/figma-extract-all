@@ -4,14 +4,16 @@
 import { readFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { NotConnectedError } from './hub.mjs';
+import { resolve } from 'node:path';
+import { NotConnectedError, AmbiguousTargetError } from './hub.mjs';
+import { saveExport } from './export.mjs';
 import { captureUrl } from './capture/cdp.mjs';
 import { auditContrast } from './capture/contrast.mjs';
 
 const text = (obj) => ({ content: [{ type: 'text', text: typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2) }] });
 const fail = (e) => ({
   isError: true,
-  content: [{ type: 'text', text: e instanceof NotConnectedError ? e.message : `Fout: ${e && e.message ? e.message : e}` }],
+  content: [{ type: 'text', text: e instanceof NotConnectedError || e instanceof AmbiguousTargetError ? e.message : `Fout: ${e && e.message ? e.message : e}` }],
 });
 
 const ids = z.array(z.string()).optional().describe('Figma node ids. Leeg = de huidige selectie in Figma.');
@@ -25,8 +27,16 @@ const props = {
   width: z.number().optional(), height: z.number().optional(),
   visible: z.boolean().optional(), opacity: z.number().min(0).max(1).optional(),
   fill: z.string().optional().describe('Kleur als #rrggbb, #rrggbbaa of rgb(). "none" = geen vulling.'),
-  stroke: z.union([z.string(), z.object({ color: z.string(), weight: z.number().optional(), align: z.enum(['INSIDE', 'OUTSIDE', 'CENTER']).optional() })]).optional(),
+  stroke: z.union([z.string(), z.object({
+    color: z.string(), weight: z.number().optional(), align: z.enum(['INSIDE', 'OUTSIDE', 'CENTER']).optional(),
+    cap: z.enum(['NONE', 'ROUND', 'SQUARE']).optional(), join: z.enum(['MITER', 'BEVEL', 'ROUND']).optional(),
+    dash: z.array(z.number()).optional().describe('Streeppatroon, bv. [4, 4].'),
+  })]).optional(),
   cornerRadius: z.number().optional(),
+  rotation: z.number().optional().describe('Graden.'),
+  clip: z.boolean().optional().describe('Inhoud buiten het frame afknippen.'),
+  arc: z.object({ start: z.number(), end: z.number(), inner: z.number().min(0).max(1).optional() }).optional()
+    .describe('Alleen ELLIPSE: begin- en eindhoek in radialen en de binnenstraal (0-1) voor een ring of taartpunt.'),
   layout: z.object({
     mode: z.enum(['HORIZONTAL', 'VERTICAL', 'NONE']).optional(),
     gap: z.number().optional(),
@@ -53,11 +63,21 @@ export function createMcpServer(hub, { log = () => {} } = {}) {
     });
 
   // ── reading ──────────────────────────────────────────────────────────
-  tool('figma_status', 'Is de Figma-plugin verbonden? Toont bestand, pagina en huidige selectie. Begin hier.', {}, READ,
+  tool('figma_status', 'Is de Figma-plugin verbonden? Toont bestand, pagina en huidige selectie. Begin hier. Bij meerdere verbonden bestanden: kies er een met figma_use_file.', {}, READ,
     async () => {
       const st = await hub.status();
       if (!st.plugin) return text({ ...st, hint: 'Open "Extract All" in Figma desktop, tab "Claude", klik Verbinden.' });
+      if (st.ambiguous) return text({ ...st, hint: 'Meerdere Figma-bestanden zijn verbonden en er is er geen gekozen. Gebruik figma_use_file met de naam van het bestand waarin je wil werken.' });
       return text({ ...st, figma: await cmd('status') });
+    });
+
+  tool('figma_use_file',
+    'Meerdere Figma-bestanden kunnen tegelijk verbonden zijn (een plugin-venster per bestand). Zonder argumenten: toon welke. Met file: kies het bestand waar alle volgende opdrachten naartoe gaan. Met unpin: wis de keuze. Doe dit altijd voor je gaat bouwen als er meer dan een bestand openstaat.',
+    { file: z.string().optional().describe('Naam van het Figma-bestand (hoofdletterongevoelig) of de id uit de lijst.'), unpin: z.boolean().optional() }, WRITE,
+    async ({ file, unpin }) => {
+      if (unpin) return text(await cmd('hub.unpin'));
+      if (file) return text(await cmd('hub.use', { file }));
+      return text(await cmd('hub.files'));
     });
 
   tool('figma_get_document', 'Alle pagina\'s en hun lagen op het hoogste niveau (id, naam, type, grootte).', {}, READ,
@@ -94,14 +114,54 @@ export function createMcpServer(hub, { log = () => {} } = {}) {
     {}, READ, async () => text(await cmd('rubric_check', {}, 120000)));
 
   // ── building ─────────────────────────────────────────────────────────
-  tool('figma_create', 'Maak een laag: FRAME, RECTANGLE, ELLIPSE, TEXT of SVG. Geef parentId om in een frame te plaatsen.',
+  tool('figma_create', 'Maak een laag: FRAME, RECTANGLE, ELLIPSE, TEXT, VECTOR of SVG. Geef parentId om in een frame te plaatsen.',
     {
-      kind: z.enum(['FRAME', 'RECTANGLE', 'ELLIPSE', 'TEXT', 'SVG']),
+      kind: z.enum(['FRAME', 'RECTANGLE', 'ELLIPSE', 'TEXT', 'VECTOR', 'SVG']),
       parentId: z.string().optional(),
       svg: z.string().optional().describe('SVG-markup voor kind SVG.'),
+      path: z.string().optional().describe('SVG-padgegevens voor kind VECTOR, bv. "M0 0 L40 20". Lijnen en vlakken, kleur via stroke/fill.'),
+      windingRule: z.enum(['NONZERO', 'EVENODD']).optional(),
       ...props,
     }, WRITE,
     async (a) => text(await cmd('create', a)));
+
+  tool('figma_build',
+    'Bouw een hele boom van lagen in een keer, met kleuren, randen, radius, spacing en tekststijlen gebonden aan variabelen en stijlen op NAAM. Elke node: { kind: FRAME|RECTANGLE|ELLIPSE|TEXT|VECTOR, name, key?, x, y, width, height, layout, sizing, fill/stroke (vaste kleur) of fillVar/strokeVar (variabele, bv. "color/chart/fiets"), vars: {cornerRadius|padding|itemSpacing|strokeWeight: "radius/md"}, textStyle: "title", text, path (VECTOR), arc (ELLIPSE), children: [...] }. Geeft de id van elke node met een key terug. Mislukt iets, dan wordt alles van die build teruggedraaid.',
+    {
+      tree: z.union([z.record(z.string(), z.any()), z.array(z.record(z.string(), z.any()))]).describe('Een node of een lijst nodes (de wortels).'),
+      parentId: z.string().optional().describe('Frame waarin de wortel(s) komen. Leeg = de huidige pagina.'),
+      x: z.number().optional(), y: z.number().optional(),
+      replaceByName: z.boolean().optional().describe('Verwijder eerst lagen met dezelfde naam in de ouder, zodat je een build opnieuw kan draaien.'),
+    }, WRITE,
+    async (a) => text(await cmd('build', a, 300000)));
+
+  tool('figma_set_page', 'Ga naar een pagina van het bestand (op naam of id). Met create wordt ze aangemaakt als ze nog niet bestaat.',
+    { name: z.string(), create: z.boolean().optional() }, WRITE,
+    async (a) => text(await cmd('set_page', a)));
+
+  tool('figma_export',
+    'Exporteer lagen naar bestanden op deze pc: PNG, JPG, SVG, PDF of de REST-JSON van een laag. Een .fig-bestand kan geen plugin maken: dat is Bestand > Lokale kopie opslaan in Figma zelf. Zonder ids: de selectie.',
+    {
+      ids, format: z.enum(['PNG', 'JPG', 'SVG', 'PDF', 'JSON_REST_V1']).optional().describe('Standaard PNG.'),
+      scale: z.number().min(0.1).max(4).optional().describe('Voor PNG en JPG (standaard 2).'),
+      dir: z.string().optional().describe('Map om in op te slaan (wordt aangemaakt). Standaard ./figma-export.'),
+      outlineText: z.boolean().optional().describe('SVG: tekst als paden (standaard ja).'),
+    }, WRITE,
+    async (a) => {
+      const { dir, ...params } = a;
+      const r = await cmd('export', params, 180000);
+      return text({ dir: resolve(dir || 'figma-export'), saved: saveExport(r.files, dir || 'figma-export') });
+    });
+
+  tool('figma_set_code_syntax',
+    'Zet de code syntax (Dev Mode) van variabelen: map { "color/text/low": "var(--color-text-low)" }.',
+    { map: z.record(z.string(), z.string()), platform: z.enum(['WEB', 'ANDROID', 'iOS']).optional() }, WRITE,
+    async (a) => text(await cmd('set_code_syntax', a)));
+
+  tool('figma_delete_variables', 'Verwijder variabelen op naam en/of hele collecties.',
+    { names: z.array(z.string()).optional(), collections: z.array(z.string()).optional() },
+    { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    async (a) => text(await cmd('delete_variables', a)));
 
   tool('figma_update', 'Wijzig eigenschappen van bestaande lagen (naam, maat, positie, vulling, rand, radius, auto layout, sizing, tekst, schaduw).',
     { ids, props: z.object(props) }, WRITE,
@@ -149,13 +209,15 @@ export function createMcpServer(hub, { log = () => {} } = {}) {
         value: z.any().optional().describe('Eén waarde voor de eerste mode.'),
         values: z.record(z.string(), z.any()).optional().describe('Per mode: {"Light": "#fff", "Dark": {"alias": "base/grey/950"}}.'),
         scopes: z.array(z.string()).optional(),
+        codeSyntax: z.string().optional().describe('Web code syntax, bv. "var(--color-text-low)".'),
+        description: z.string().optional(),
       })),
     }, WRITE,
     async (a) => text(await cmd('create_variables', a)));
 
   tool('figma_bind_variable',
     'Koppel een variabele aan een eigenschap, zodat het ontwerp de tokens echt GEBRUIKT. field: "fill", "stroke", of paddingLeft/paddingRight/paddingTop/paddingBottom/itemSpacing/cornerRadius/width/height/opacity/strokeWeight.',
-    { ids, field: z.string(), variable: z.string().describe('Naam of id van de variabele.') }, WRITE,
+    { ids, field: z.string().describe('fill, stroke, cornerRadius, padding of een veld uit de lijst hierboven.'), variable: z.string().describe('Naam of id van de variabele.') }, WRITE,
     async (a) => text(await cmd('bind_variable', a)));
 
   tool('figma_apply_text_style', 'Pas een lokale tekststijl toe op tekstlagen.',

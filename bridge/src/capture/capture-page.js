@@ -227,6 +227,38 @@
   var PAINT_PROPS = ['fill', 'stroke', 'stop-color'];
   var PLAIN_PROPS = ['stroke-width', 'stroke-linecap', 'stroke-linejoin', 'stroke-dasharray',
                      'opacity', 'fill-opacity', 'stroke-opacity', 'stop-opacity', 'fill-rule'];
+  // Figma's importer reads these from attributes, not from the stylesheet
+  var TEXT_PROPS = ['font-weight', 'font-style', 'letter-spacing', 'text-anchor'];
+  var SHAPES = /^(rect|circle|ellipse|path|line|polyline|polygon)$/;
+
+  /* A CSS transform (or the separate `translate` property) on an SVG element is
+     what places things like chart markers, and the old code threw it away with
+     the style attribute: everything landed in the corner. Write the computed
+     result back as a transform attribute (matrix a b c d e f). */
+  function matrixOf(value) {
+    var m = /^matrix(3d)?\(([^)]+)\)$/.exec(value || '');
+    if (!m) return null;
+    var n = m[2].split(',').map(parseFloat);
+    return m[1] ? [n[0], n[1], n[4], n[5], n[12], n[13]] : n;
+  }
+  function multiply(p, q) {
+    return [p[0] * q[0] + p[2] * q[1], p[1] * q[0] + p[3] * q[1], p[0] * q[2] + p[2] * q[3], p[1] * q[2] + p[3] * q[3],
+            p[0] * q[4] + p[2] * q[5] + p[4], p[1] * q[4] + p[3] * q[5] + p[5]];
+  }
+  function svgTransform(cs) {
+    var m = matrixOf(cs.getPropertyValue('transform'));
+    var tr = cs.getPropertyValue('translate');
+    if (tr && tr !== 'none') {
+      var p = tr.split(/\s+/).map(parseFloat);
+      m = multiply([1, 0, 0, 1, p[0] || 0, p[1] || 0], m || [1, 0, 0, 1, 0, 0]);
+    }
+    if (!m) return null;
+    var origin = (cs.getPropertyValue('transform-origin') || '0 0').split(/\s+/).map(parseFloat);
+    var ox = origin[0] || 0, oy = origin[1] || 0;
+    if (ox || oy) m = multiply(multiply([1, 0, 0, 1, ox, oy], m), [1, 0, 0, 1, -ox, -oy]);
+    if (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0) return null;
+    return m.map(function (v) { return Math.round(v * 1e5) / 1e5; });
+  }
 
   function serializeSvg(svg, rect) {
     var clone = svg.cloneNode(true);
@@ -237,7 +269,16 @@
       var s = srcAll[i], d = dstAll[i];
       if (!d || !d.setAttribute) continue;
       var cs = getComputedStyle(s);
-      if (cs.display === 'none') { remove.push(d); continue; }
+      var tag = s.tagName.toLowerCase();
+      if (cs.display === 'none' || tag === 'title' || tag === 'desc') { remove.push(d); continue; }
+      if (SHAPES.test(tag)) {
+        // an invisible hit area (fill transparent, no stroke) is only ballast in Figma
+        var f = cs.getPropertyValue('fill'), st = cs.getPropertyValue('stroke');
+        var fc = toRGBA(f), sc = toRGBA(st);
+        var noFill = f === 'none' || (fc && fc.a === 0);
+        var noStroke = st === 'none' || (sc && sc.a === 0) || parseFloat(cs.getPropertyValue('stroke-width')) === 0;
+        if (noFill && noStroke && !/^url\(/.test(f)) { remove.push(d); continue; }
+      }
       PAINT_PROPS.forEach(function (prop) {
         var v = cs.getPropertyValue(prop);
         if (!v) return;
@@ -261,6 +302,18 @@
         var v = cs.getPropertyValue(prop);
         if (v && v !== 'normal' && v !== 'none' && !(prop === 'opacity' && v === '1')) d.setAttribute(prop, v);
       });
+      if (tag === 'text' || tag === 'tspan') {
+        var family = cs.getPropertyValue('font-family').split(',')[0].replace(/["']/g, '').trim();
+        if (family) d.setAttribute('font-family', family);
+        var size = parseFloat(cs.getPropertyValue('font-size'));
+        if (size) d.setAttribute('font-size', String(round(size)));
+        TEXT_PROPS.forEach(function (prop) {
+          var v = cs.getPropertyValue(prop);
+          if (v && v !== 'normal') d.setAttribute(prop, prop === 'letter-spacing' ? String(parseFloat(v)) : v);
+        });
+      }
+      var matrix = svgTransform(cs);
+      if (matrix) d.setAttribute('transform', 'matrix(' + matrix.join(' ') + ')');
       d.removeAttribute('class');
       d.removeAttribute('style');
     }

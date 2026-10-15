@@ -81,7 +81,7 @@ console.log('\n1. Opstarten en berichtroutering');
   ok(m.figma._shown, 'showUI aangeroepen');
   await m.send({ type: 'x:hello' });
   const info = m.posted.find((p) => p.type === 'x:info');
-  ok(info && info.featureVersion === '19.1.0', 'x:hello -> x:info met featureVersion', JSON.stringify(info));
+  ok(info && info.featureVersion === '19.2.0', 'x:hello -> x:info met featureVersion', JSON.stringify(info));
 
   // The guard: a feature message must NOT reset the ZIP buffer of code.ts.
   vm.runInContext('zipFiles.push({ name: "a.txt", data: new Uint8Array(1) }); cancelRequested = true;', ctx);
@@ -199,7 +199,7 @@ console.log('\n6. Bridge-commando\'s (wat Claude kan doen)');
 {
   const { m, cmd } = boot();
   let r = await cmd('status');
-  ok(r.ok && r.result.fileName === 'Interaction Design' && r.result.featureVersion === '19.1.0', 'status');
+  ok(r.ok && r.result.fileName === 'Interaction Design' && r.result.featureVersion === '19.2.0', 'status');
 
   r = await cmd('create', { kind: 'FRAME', name: 'Button', width: 120, height: 40, fill: '#111827', cornerRadius: 999,
     layout: { mode: 'HORIZONTAL', gap: 8, padding: [8, 16], primary: 'CENTER', counter: 'CENTER' } });
@@ -302,6 +302,94 @@ console.log('\n6. Bridge-commando\'s (wat Claude kan doen)');
   ok(r.ok && r.result.offGrid['itemSpacing=12'] === 1, 'waarden zonder variabele komen in offGrid', JSON.stringify(r.result && r.result.offGrid));
   r = await cmd('bind_raw_spacing', { ids: [spacedId], map: { 16: 'space/zzz' } });
   ok(!r.ok && /bestaat niet/.test(r.error), 'onbekende variabele -> uitleg', r.error);
+
+  // ── build: a whole chart in one command, bound to variables and text styles ──
+  r = await cmd('create_variables', {
+    collection: 'viz', modes: ['Light', 'Dark'],
+    variables: [
+      { name: 'color/surface', type: 'COLOR', values: { Light: '#ffffff', Dark: '#111111' }, codeSyntax: 'var(--color-surface)', description: 'het vlak' },
+      { name: 'color/chart/fiets', type: 'COLOR', values: { Light: '#d55e00', Dark: '#f8a85b' } },
+      { name: 'radius/md', type: 'FLOAT', value: 8 },
+      { name: 'space/200', type: 'FLOAT', value: 16 },
+    ],
+  });
+  ok(r.ok, 'create_variables met codeSyntax en description', r.error);
+  r = await cmd('create_text_styles_bulk', { styles: [{ name: 'title', size: 36, weight: 700, family: 'Inter', lineHeightPercent: 115 }], update: true });
+  ok(r.ok, 'tekststijl title aangemaakt', r.error);
+  r = await cmd('get_variables');
+  const vizVar = r.ok && r.result.collections.find((c) => c.name === 'viz').variables.find((v) => v.name === 'color/surface');
+  ok(vizVar && vizVar.codeSyntax.WEB === 'var(--color-surface)' && vizVar.description === 'het vlak', 'get_variables toont code syntax en omschrijving');
+  r = await cmd('set_code_syntax', { map: { 'radius/md': 'var(--radius-md)' } });
+  ok(r.ok && r.result.set === 1, 'set_code_syntax zet de code syntax van een bestaande variabele', r.error);
+  await cmd('create_variables', { collection: 'scratch', variables: [{ name: 'tmp/x', type: 'FLOAT', value: 1 }] });
+  r = await cmd('delete_variables', { collections: ['scratch'] });
+  ok(r.ok && r.result.removed.includes('collectie scratch'), 'delete_variables verwijdert een collectie', r.error);
+  r = await cmd('get_variables');
+  ok(r.ok && !r.result.collections.some((c) => c.name === 'scratch'), 'de collectie is echt weg');
+
+  const tree = {
+    kind: 'FRAME', name: 'Chart', key: 'root', width: 400, height: 240, fillVar: 'color/surface',
+    layout: { mode: 'VERTICAL', gap: 8, padding: 16 }, vars: { cornerRadius: 'radius/md', itemSpacing: 'space/200' },
+    children: [
+      { kind: 'TEXT', name: 'titel', key: 'title', text: 'Hallo', textStyle: 'title', fillVar: 'color/chart/fiets', width: 300 },
+      {
+        kind: 'FRAME', name: 'plot', key: 'plot', width: 360, height: 120, fill: 'none',
+        children: [
+          { kind: 'VECTOR', name: 'lijn', key: 'line', path: 'M0 0 L100 40', x: 10, y: 10, stroke: { color: '#000000', weight: 2, cap: 'ROUND', dash: [4, 4] }, strokeVar: 'color/chart/fiets' },
+          { kind: 'ELLIPSE', name: 'ring', key: 'ring', width: 60, height: 60, fillVar: 'color/chart/fiets', arc: { start: 0, end: 3.14, inner: 0.6 }, rotation: 15 },
+        ],
+      },
+    ],
+  };
+  r = await cmd('build', { tree });
+  ok(r.ok && r.result.count === 5 && r.result.roots.length === 1, 'build maakt de hele boom in een commando', r.error || JSON.stringify(r.result));
+  const keys = r.ok ? r.result.keys : {};
+  const reg = (id) => m.registry.get(id);
+  ok(reg(keys.root).boundVariables.itemSpacing && reg(keys.root).boundVariables.topLeftRadius && reg(keys.root).boundVariables.bottomRightRadius,
+    'build bindt spacing en radius (alle vier de hoeken) aan variabelen');
+  ok(reg(keys.root).fills[0].boundVariables?.color, 'build bindt de vulling aan een variabele op naam');
+  ok(reg(keys.title).textStyleId && reg(keys.title).fills[0].boundVariables?.color, 'build past een tekststijl toe en bindt de tekstkleur');
+  ok(reg(keys.title).textAutoResize === 'HEIGHT' && reg(keys.title).width === 300, 'tekst met breedte breekt af en groeit in hoogte');
+  ok(reg(keys.line).type === 'VECTOR' && reg(keys.line).vectorPaths[0].data === 'M0 0 L100 40' && reg(keys.line).strokes[0].boundVariables?.color,
+    'build maakt een vectorpad met een gebonden streek');
+  ok(reg(keys.line).strokeCap === 'ROUND' && reg(keys.line).dashPattern.join() === '4,4', 'streekeinde en streeppatroon komen mee');
+  ok(reg(keys.line).strokeAlign === 'CENTER' && reg(keys.plot).strokeAlign !== 'CENTER', 'een vectorlijn heeft standaard een streek in het midden (anders is een rechte lijn onzichtbaar)');
+  ok(reg(keys.ring).arcData.innerRadius === 0.6 && reg(keys.ring).arcData.endingAngle === 3.14 && reg(keys.ring).rotation === 15, 'build maakt een ring met boog en draaiing');
+
+  r = await cmd('build', { tree: { kind: 'SVG', name: 'icoon', key: 'icon', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><path d="M3 3 21 21" stroke="#000" fill="none"/></svg>', strokeVar: 'color/chart/fiets' } });
+  ok(r.ok && reg(r.result.keys.icon).fills.length === 0 && reg(r.result.keys.icon).children[0].strokes[0].boundVariables?.color,
+    'een SVG-laag: de streek binnenin is aan een variabele gebonden, het frame blijft doorzichtig', r.error);
+  r = await cmd('build', { tree: { kind: 'FRAME', name: 'Chart', width: 50, height: 50 }, replaceByName: true });
+  const chartId = r.ok && r.result.roots[0].id;
+  ok(r.ok && m.page.children.filter((c) => c.name === 'Chart').length === 1 && !m.registry.has(keys.root), 'replaceByName vervangt in plaats van te stapelen');
+
+  const before = m.page.children.length;
+  r = await cmd('build', { tree: { kind: 'FRAME', name: 'Broken', width: 100, height: 100, children: [{ kind: 'RECTANGLE', name: 'a', width: 10, height: 10 }, { kind: 'RECTANGLE', name: 'b', width: 10, height: 10, fillVar: 'bestaat/niet' }] } });
+  ok(!r.ok && /Broken/.test(r.error) && /niet gevonden/.test(r.error), 'build met een onbekende variabele noemt de laag en de reden', r.error);
+  ok(m.page.children.length === before && !m.page.children.some((c) => c.name === 'Broken'), 'een mislukte build laat niets half achter');
+  r = await cmd('build', { tree: { kind: 'TEXT', text: 'x', textStyle: 'bestaat-niet' } });
+  ok(!r.ok && /Tekststijl "bestaat-niet"/.test(r.error), 'onbekende tekststijl -> uitleg met de bestaande', r.error);
+
+  // ── export: PNG, SVG, PDF, JSON; a .fig is not something a plugin can make ──
+  const exportable = chartId;
+  r = await cmd('export', { ids: [exportable], format: 'PNG', scale: 3 });
+  ok(r.ok && r.result.files[0].scale === 3 && r.result.files[0].base64.length > 0, 'export PNG op schaal 3', r.error);
+  r = await cmd('export', { ids: [exportable], format: 'svg' });
+  ok(r.ok && Buffer.from(r.result.files[0].base64, 'base64').toString().startsWith('<svg'), 'export SVG', r.error);
+  r = await cmd('export', { ids: [exportable], format: 'PDF' });
+  ok(r.ok && r.result.files[0].format === 'PDF', 'export PDF', r.error);
+  r = await cmd('export', { ids: [exportable], format: 'JSON_REST_V1' });
+  ok(r.ok && r.result.files[0].json && r.result.files[0].json.document, 'export JSON_REST_V1 geeft het object terug', r.error);
+  r = await cmd('export', { ids: [exportable], format: 'FIG' });
+  ok(!r.ok && /Lokale kopie opslaan/.test(r.error), 'export FIG -> eerlijke uitleg waarom dat niet kan', r.error);
+
+  // ── pages ──
+  r = await cmd('set_page', { name: 'taak 4', create: true });
+  ok(r.ok && r.result.name === 'taak 4', 'set_page maakt een pagina aan en gaat erheen', r.error);
+  r = await cmd('status');
+  ok(r.ok && r.result.page === 'taak 4', 'de plugin werkt nu op de nieuwe pagina', JSON.stringify(r.result));
+  r = await cmd('set_page', { name: 'bestaat niet' });
+  ok(!r.ok && /Bestaand:/.test(r.error), 'onbekende pagina -> lijst van bestaande', r.error);
 
   r = await cmd('get_node', { id: 'doesnotexist' });
   ok(!r.ok && /Geen laag/.test(r.error), 'onbekende id -> nette fout, geen crash');

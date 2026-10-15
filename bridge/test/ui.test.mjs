@@ -41,7 +41,7 @@ const RESPONDER = `(() => {
     const m = e.data && e.data.pluginMessage;
     if (!m) return;
     window.__sent.push(m.type);
-    if (m.type === 'x:hello') reply({ type: 'x:info', fileName: 'UI test file', page: 'Page 1', featureVersion: '19.1.0', bridge: null });
+    if (m.type === 'x:hello') reply({ type: 'x:info', fileName: 'UI test file', page: 'Page 1', featureVersion: '19.2.0', bridge: null });
     if (m.type === 'x:bridge-cmd') reply({ type: 'x:bridge-result', id: m.id, ok: true, result: { fileName: 'UI test file', page: 'Page 1', echo: m.cmd } });
     if (m.type === 'x:layout-import') setTimeout(() => reply({ type: 'x:layout-done', result: {
       name: (m.doc.source.title || 'import') + ' (' + m.doc.source.colorScheme + ')', counts: m.doc.counts, warnings: [], width: m.doc.root.w, height: m.doc.root.h } }), 50);
@@ -70,12 +70,14 @@ for (const t of ['build', 'rubric', 'claude', 'import']) {
 
 console.log('\n3. Claude-bridge: echte WebSocket naar de hub');
 await page.evaluate(`document.querySelector('[data-tab=claude]').click(); document.getElementById('xcToggle').click()`);
-const connected = await until(async () => (await hub.status()).plugin);
+// Het UI-bestand kan naast andere Figma-bestanden verbonden zijn (de hub houdt ze naast elkaar): zoek het op naam.
+const uiFile = async () => (await hub.status()).files.find((f) => f.fileName === 'UI test file');
+const connected = await until(async () => Boolean(await uiFile()));
 ok(connected, 'hub ziet de plugin (handshake + origin-check in een echte browser)');
-const st = await hub.status();
-ok(st.fileName === 'UI test file' && st.page === 'Page 1', 'bestandsnaam en pagina doorgegeven');
+const st = await uiFile();
+ok(st && st.fileName === 'UI test file' && st.page === 'Page 1', 'bestandsnaam en pagina doorgegeven');
 ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent.startsWith('Connected')`)), 'UI toont "Verbonden"');
-const r = await hub.send('get_document', {});
+const r = await hub.send('get_document', {}, 60000, { file: 'UI test file' });
 ok(r && r.echo === 'get_document', 'commando van de hub -> UI -> code -> terug naar de hub', JSON.stringify(r));
 ok(await page.evaluate(`document.getElementById('xcLog').textContent.includes('get_document')`), 'activiteit gelogd in de UI');
 
@@ -104,10 +106,10 @@ if (shotDir) writeFileSync(join(shotDir, 'ui-rubric.png'), Buffer.from(await pag
 
 console.log('\n6. Verbreken');
 await page.evaluate(`document.querySelector('[data-tab=claude]').click(); document.getElementById('xcToggle').click()`);
-ok(await until(async () => !(await hub.status()).plugin), 'hub ziet de plugin vertrekken');
+ok(await until(async () => !(await uiFile())), 'hub ziet de plugin vertrekken');
 ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent === 'Not connected'`)), 'UI toont "Niet verbonden" (geen herverbind-lus na handmatig verbreken)');
 await sleep(2500);
-ok(!(await hub.status()).plugin, 'en blijft verbroken');
+ok(!(await uiFile()), 'en blijft verbroken');
 if (shotDir) writeFileSync(join(shotDir, 'ui-claude.png'), Buffer.from(await page.screenshot(), 'base64'));
 
 ok(page.errors.length === 0, 'geen JavaScript-fouten tijdens de hele test', page.errors.slice(0, 3).join(' | '));

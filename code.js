@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "19.1.0";
+const PLUGIN_VERSION = "19.2.0";
 const TE = {
     encode: (s) => {
         const r = new Uint8Array(s.length);
@@ -1065,7 +1065,7 @@ figma.ui.onmessage = async (msg) => {
         return;
     }
 };
-const FEATURE_VERSION = "19.1.0";
+const FEATURE_VERSION = "19.2.0";
 function isFeatureMessage(msg) {
     return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
 }
@@ -1761,11 +1761,24 @@ async function applyProps(n, p) {
             any.strokes = [solid(parseColor(s.color))];
             if (s.weight !== undefined)
                 any.strokeWeight = +s.weight;
-            any.strokeAlign = s.align || "INSIDE";
+            any.strokeAlign = s.align || (n.type === "VECTOR" ? "CENTER" : "INSIDE");
+            if (s.cap)
+                any.strokeCap = String(s.cap).toUpperCase();
+            if (s.join)
+                any.strokeJoin = String(s.join).toUpperCase();
+            if (Array.isArray(s.dash))
+                any.dashPattern = s.dash.map(Number);
         }
     }
     if (p.cornerRadius !== undefined)
         any.cornerRadius = +p.cornerRadius;
+    if (p.rotation !== undefined && "rotation" in n)
+        any.rotation = +p.rotation;
+    if (p.clip !== undefined && "clipsContent" in n)
+        any.clipsContent = !!p.clip;
+    if (p.arc !== undefined && n.type === "ELLIPSE") {
+        n.arcData = { startingAngle: +p.arc.start, endingAngle: +p.arc.end, innerRadius: +(p.arc.inner || 0) };
+    }
     if (p.layout !== undefined) {
         if (!("layoutMode" in n))
             throw new Error(`${n.name} kan geen auto layout krijgen`);
@@ -1827,8 +1840,13 @@ async function createNode(p) {
     }
     else if (kind === "SVG")
         n = figma.createNodeFromSvg(String(p.svg || ""));
+    else if (kind === "VECTOR") {
+        const v = figma.createVector();
+        v.vectorPaths = [{ windingRule: p.windingRule === "EVENODD" ? "EVENODD" : "NONZERO", data: String(p.path || "") }];
+        n = v;
+    }
     else
-        throw new Error(`Onbekend soort laag: ${kind} (FRAME, RECTANGLE, ELLIPSE, TEXT of SVG)`);
+        throw new Error(`Onbekend soort laag: ${kind} (FRAME, RECTANGLE, ELLIPSE, TEXT, VECTOR of SVG)`);
     let parent = figma.currentPage;
     if (p.parentId) {
         const pn = await figma.getNodeByIdAsync(p.parentId);
@@ -1845,6 +1863,195 @@ async function createNode(p) {
         delete props.text;
     await applyProps(n, props);
     return n;
+}
+const CORNER_FIELDS = ["topLeftRadius", "topRightRadius", "bottomLeftRadius", "bottomRightRadius"];
+const PADDING_FIELDS = ["paddingLeft", "paddingRight", "paddingTop", "paddingBottom"];
+function bindPaint(n, prop, v) {
+    const any = n;
+    if (!(prop in n))
+        return false;
+    const current = any[prop] === figma.mixed ? [] : any[prop].slice();
+    const base = current.find((x) => x.type === "SOLID") || { type: "SOLID", color: { r: 0, g: 0, b: 0 } };
+    any[prop] = [figma.variables.setBoundVariableForPaint(base, "color", v)];
+    return true;
+}
+function bindDeep(n, prop, v) {
+    const any = n;
+    if (prop in n && any[prop] !== figma.mixed && any[prop].length)
+        bindPaint(n, prop, v);
+    if ("children" in n)
+        for (const c of n.children)
+            bindDeep(c, prop, v);
+}
+function bindField(n, field, v) {
+    if (!("setBoundVariable" in n))
+        return false;
+    const targets = field === "cornerRadius" || field === "radius" ? CORNER_FIELDS : field === "padding" ? PADDING_FIELDS : [field];
+    for (const f of targets)
+        n.setBoundVariable(f, v);
+    return true;
+}
+function lookupVar(ctx, ref) {
+    const v = ctx.vars.get(ref) || ctx.vars.get(ref.toLowerCase());
+    if (!v)
+        throw new Error(`Variabele "${ref}" niet gevonden`);
+    return v;
+}
+async function buildContext() {
+    const vars = new Map();
+    for (const v of await figma.variables.getLocalVariablesAsync()) {
+        if (!vars.has(v.name))
+            vars.set(v.name, v);
+        if (!vars.has(v.name.toLowerCase()))
+            vars.set(v.name.toLowerCase(), v);
+    }
+    const styles = new Map();
+    for (const s of await figma.getLocalTextStylesAsync())
+        styles.set(s.name, s);
+    return { vars, styles, keys: {}, count: 0, roots: [] };
+}
+async function buildNode(spec, parent, ctx) {
+    const kind = String(spec.kind || (spec.text !== undefined ? "TEXT" : "FRAME")).toUpperCase();
+    const props = Object.assign({}, spec, { kind, parentId: parent.id });
+    for (const k of ["children", "key", "fillVar", "strokeVar", "vars", "textStyle"])
+        delete props[k];
+    let style;
+    if (kind === "TEXT") {
+        if (spec.textStyle) {
+            style = ctx.styles.get(String(spec.textStyle));
+            if (!style)
+                throw new Error(`Tekststijl "${spec.textStyle}" bestaat niet. Bestaand: ${Array.from(ctx.styles.keys()).join(", ") || "geen"}`);
+            await figma.loadFontAsync(style.fontName);
+        }
+        delete props.width;
+        delete props.height;
+    }
+    const n = await createNode(props);
+    ctx.count++;
+    if (spec.key)
+        ctx.keys[String(spec.key)] = n.id;
+    if (n.type === "TEXT") {
+        if (style) {
+            await loadAllFontsOf(n);
+            await n.setTextStyleIdAsync(style.id);
+        }
+        if (spec.width !== undefined) {
+            n.textAutoResize = "HEIGHT";
+            n.resize(+spec.width, n.height);
+        }
+    }
+    if (kind === "SVG") {
+        if (spec.fillVar)
+            bindDeep(n, "fills", lookupVar(ctx, String(spec.fillVar)));
+        if (spec.strokeVar)
+            bindDeep(n, "strokes", lookupVar(ctx, String(spec.strokeVar)));
+    }
+    else {
+        if (spec.fillVar)
+            bindPaint(n, "fills", lookupVar(ctx, String(spec.fillVar)));
+        if (spec.strokeVar)
+            bindPaint(n, "strokes", lookupVar(ctx, String(spec.strokeVar)));
+    }
+    if (spec.vars)
+        for (const f of Object.keys(spec.vars))
+            bindField(n, f, lookupVar(ctx, String(spec.vars[f])));
+    if (Array.isArray(spec.children) && "appendChild" in n) {
+        for (const child of spec.children) {
+            await buildNode(child, n, ctx);
+            if (ctx.count % 150 === 0)
+                await yieldToFigma();
+        }
+    }
+    return n;
+}
+async function buildTree(p) {
+    let parent = figma.currentPage;
+    if (p.parentId) {
+        const pn = await figma.getNodeByIdAsync(p.parentId);
+        if (!pn || !("appendChild" in pn))
+            throw new Error(`Ouder ${p.parentId} kan geen kinderen hebben`);
+        parent = pn;
+    }
+    const trees = Array.isArray(p.tree) ? p.tree : [p.tree];
+    if (!trees.length || !trees[0])
+        throw new Error("Geef een tree mee: { kind, name, children: [...] }.");
+    const ctx = await buildContext();
+    const existing = new Set(parent.children.map((c) => c.id));
+    let currentName = "";
+    try {
+        for (const t of trees) {
+            const spec = Object.assign({}, t);
+            if (spec.x === undefined && p.x !== undefined)
+                spec.x = p.x;
+            if (spec.y === undefined && p.y !== undefined)
+                spec.y = p.y;
+            currentName = String(t.name || t.kind || "?");
+            ctx.roots.push(await buildNode(spec, parent, ctx));
+        }
+    }
+    catch (e) {
+        for (const c of parent.children.slice())
+            if (!existing.has(c.id)) {
+                try {
+                    c.remove();
+                }
+                catch (_) { }
+            }
+        throw new Error(`build mislukt bij "${currentName}" (${ctx.count} lagen teruggedraaid): ${errMsg(e)}`);
+    }
+    if (p.replaceByName) {
+        const fresh = new Set(ctx.roots.map((r) => r.id));
+        const names = new Set(ctx.roots.map((r) => r.name));
+        for (const sib of parent.children.slice())
+            if (!fresh.has(sib.id) && names.has(sib.name))
+                sib.remove();
+    }
+    return { roots: ctx.roots.map((r) => ({ id: r.id, name: r.name, type: r.type })), keys: ctx.keys, count: ctx.count };
+}
+const EXPORT_FORMATS = ["PNG", "JPG", "SVG", "PDF", "JSON_REST_V1"];
+async function exportForBridge(p) {
+    const format = String(p.format || "PNG").toUpperCase();
+    if (EXPORT_FORMATS.indexOf(format) === -1)
+        throw new Error(`Onbekend formaat ${format}. Kies uit: ${EXPORT_FORMATS.join(", ")}. Een .fig-bestand kan een plugin niet maken: gebruik in Figma Bestand > Lokale kopie opslaan.`);
+    const nodes = await nodesFrom(p);
+    const scale = +(p.scale || 2);
+    const files = [];
+    for (const n of nodes.slice(0, 50)) {
+        if (!("exportAsync" in n))
+            continue;
+        const meta = { id: n.id, name: n.name, type: n.type, format };
+        const target = n;
+        if (format === "JSON_REST_V1") {
+            files.push(Object.assign(meta, { json: await target.exportAsync({ format: "JSON_REST_V1" }) }));
+        }
+        else if (format === "SVG") {
+            const bytes = await target.exportAsync({ format: "SVG", svgOutlineText: p.outlineText !== false, svgIdAttribute: !!p.svgIds, svgSimplifyStroke: true });
+            files.push(Object.assign(meta, { base64: figma.base64Encode(bytes) }));
+        }
+        else if (format === "PDF") {
+            files.push(Object.assign(meta, { base64: figma.base64Encode(await target.exportAsync({ format: "PDF" })) }));
+        }
+        else {
+            const bytes = await target.exportAsync({ format: format, constraint: { type: "SCALE", value: scale } });
+            files.push(Object.assign(meta, { scale, base64: figma.base64Encode(bytes) }));
+        }
+    }
+    if (!files.length)
+        throw new Error("Geen enkele van de opgegeven lagen kan geëxporteerd worden.");
+    return { files };
+}
+async function setPage(p) {
+    await figma.loadAllPagesAsync();
+    const ref = String(p.name || p.id || "");
+    let page = figma.root.children.find((pg) => pg.id === ref || pg.name === ref);
+    if (!page && p.create) {
+        page = figma.createPage();
+        page.name = ref;
+    }
+    if (!page)
+        throw new Error(`Pagina "${ref}" niet gevonden. Bestaand: ${figma.root.children.map((pg) => pg.name).join(", ")}`);
+    await figma.setCurrentPageAsync(page);
+    return { id: page.id, name: page.name };
 }
 async function screenshot(p) {
     let nodes;
@@ -1885,7 +2092,7 @@ async function getVariablesDump() {
                 else
                     values[m.name] = val;
             }
-            vars.push({ id: v.id, name: v.name, type: v.resolvedType, values, scopes: v.scopes });
+            vars.push({ id: v.id, name: v.name, type: v.resolvedType, values, scopes: v.scopes, codeSyntax: v.codeSyntax || {}, description: v.description || "" });
         }
         out.push({ id: c.id, name: c.name, modes: c.modes.map((m) => m.name), variables: vars });
     }
@@ -1947,9 +2154,50 @@ async function createVariables(p) {
         }
         if (spec.scopes)
             v.scopes = spec.scopes;
+        if (spec.description)
+            v.description = String(spec.description);
+        if (spec.codeSyntax)
+            v.setVariableCodeSyntax("WEB", String(spec.codeSyntax));
         results.push(`${isNew ? "nieuw" : "bijgewerkt"}: ${v.name}`);
     }
     return { collection: col.name, modes: col.modes.map((m) => m.name), results };
+}
+async function setCodeSyntax(p) {
+    const platform = String(p.platform || "WEB");
+    const map = p.map || {};
+    const vars = await figma.variables.getLocalVariablesAsync();
+    const results = [];
+    for (const v of vars) {
+        const syntax = map[v.name];
+        if (typeof syntax !== "string")
+            continue;
+        v.setVariableCodeSyntax(platform, syntax);
+        results.push(`${v.name} -> ${syntax}`);
+    }
+    return { platform, set: results.length, results };
+}
+async function deleteVariables(p) {
+    const removed = [];
+    if (Array.isArray(p.collections) && p.collections.length) {
+        const cols = await figma.variables.getLocalVariableCollectionsAsync();
+        for (const name of p.collections) {
+            const c = cols.find((x) => x.name === name);
+            if (c) {
+                c.remove();
+                removed.push(`collectie ${name}`);
+            }
+        }
+    }
+    if (Array.isArray(p.names) && p.names.length) {
+        const vars = await figma.variables.getLocalVariablesAsync();
+        for (const v of vars) {
+            if (p.names.indexOf(v.name) !== -1) {
+                v.remove();
+                removed.push(v.name);
+            }
+        }
+    }
+    return { removed };
 }
 async function bindVariable(p) {
     const nodes = await nodesFrom(p);
@@ -1959,18 +2207,11 @@ async function bindVariable(p) {
     for (const n of nodes) {
         const any = n;
         if (field === "fill" || field === "fills" || field === "stroke" || field === "strokes") {
-            const prop = field.indexOf("fill") === 0 ? "fills" : "strokes";
-            if (!(prop in n))
+            if (!bindPaint(n, field.indexOf("fill") === 0 ? "fills" : "strokes", v))
                 continue;
-            const current = any[prop] === figma.mixed ? [] : any[prop].slice();
-            const base = current.find((x) => x.type === "SOLID") || { type: "SOLID", color: { r: 0, g: 0, b: 0 } };
-            any[prop] = [figma.variables.setBoundVariableForPaint(base, "color", v)];
         }
-        else {
-            if (!("setBoundVariable" in n))
-                continue;
-            n.setBoundVariable(field, v);
-        }
+        else if (!bindField(n, field, v))
+            continue;
         done++;
     }
     return { bound: done, variable: v.name, field };
@@ -2682,6 +2923,9 @@ async function runBridgeCommand(cmd, p) {
             const n = await createNode(p);
             return { id: n.id, name: n.name, type: n.type };
         }
+        case "build": return buildTree(p);
+        case "export": return exportForBridge(p);
+        case "set_page": return setPage(p);
         case "update": {
             const nodes = await nodesFrom(p);
             for (const n of nodes)
@@ -2716,6 +2960,8 @@ async function runBridgeCommand(cmd, p) {
         case "duplicate": return duplicateNodes(p);
         case "set_hover": return setHover(p);
         case "create_variables": return createVariables(p);
+        case "set_code_syntax": return setCodeSyntax(p);
+        case "delete_variables": return deleteVariables(p);
         case "bind_variable": return bindVariable(p);
         case "apply_text_style": return applyTextStyle(p);
         case "create_spacing_variables": return { made: await createSpacingVariables() };
@@ -2755,7 +3001,7 @@ figma.ui.on("message", async (msg) => {
     try {
         switch (msg.type) {
             case "x:hello":
-                uiSend("x:info", { featureVersion: FEATURE_VERSION, fileName: figma.root.name, page: figma.currentPage.name, bridge: (await figma.clientStorage.getAsync("bridge")) || null });
+                uiSend("x:info", { featureVersion: FEATURE_VERSION, fileName: figma.root.name, fileKey: figma.fileKey || null, page: figma.currentPage.name, bridge: (await figma.clientStorage.getAsync("bridge")) || null });
                 break;
             case "x:save-bridge":
                 await figma.clientStorage.setAsync("bridge", msg.value || null);

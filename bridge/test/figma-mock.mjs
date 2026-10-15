@@ -37,7 +37,7 @@ export function createFigma({ fonts } = {}) {
     constructor(type) {
       this.id = newId(); this.type = type; this.name = type.toLowerCase();
       this.parent = null; this.x = 0; this.y = 0; this.width = 100; this.height = 100;
-      this.visible = true; this.opacity = 1; this.fills = []; this.strokes = []; this.effects = [];
+      this.visible = true; this.opacity = 1; this.rotation = 0; this.fills = []; this.strokes = []; this.effects = [];
       this.boundVariables = {};
       this._layoutSizingH = 'FIXED'; this._layoutSizingV = 'FIXED'; this._pos = 'AUTO';
       registry.set(this.id, this);
@@ -77,9 +77,23 @@ export function createFigma({ fonts } = {}) {
       this.boundVariables[field] = { type: 'VARIABLE_ALIAS', id: variable.id };
     }
     async exportAsync(settings) {
-      if (!settings || settings.format !== 'PNG') throw new Error('mock only exports PNG');
+      if (!settings) throw new Error('exportAsync needs settings');
       log.exports++;
+      if (settings.format === 'JSON_REST_V1') return { document: { id: this.id, name: this.name, type: this.type } };
+      if (!['PNG', 'JPG', 'SVG', 'PDF'].includes(settings.format)) throw new Error(`mock cannot export ${settings.format}`);
+      if (settings.format === 'SVG') return new Uint8Array(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'));
       return new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]);
+    }
+  }
+
+  class Vector extends Node {
+    constructor() { super('VECTOR'); this._paths = []; this.strokeWeight = 1; }
+    get vectorPaths() { return this._paths; }
+    set vectorPaths(paths) {
+      if (!Array.isArray(paths) || !paths.every((p) => p && typeof p.data === 'string' && p.data.trim() && ['NONZERO', 'EVENODD'].includes(p.windingRule))) {
+        throw new Error('in set_vectorPaths: Invalid path');
+      }
+      this._paths = paths;
     }
   }
 
@@ -177,7 +191,7 @@ export function createFigma({ fonts } = {}) {
     async setTextStyleIdAsync(id) { this.textStyleId = id; }
   }
 
-  const page = new Container('PAGE');
+  let page = new Container('PAGE');
   page.name = 'Page 1';
   page.selection = [];
   const root = new Container('DOCUMENT');
@@ -219,12 +233,16 @@ export function createFigma({ fonts } = {}) {
     createRectangle() { return new Node('RECTANGLE'); },
     createEllipse() { return new Node('ELLIPSE'); },
     createText() { return new Text(); },
+    createVector() { return new Vector(); },
+    createPage() { const p = new Container('PAGE'); p.name = 'Page'; p.selection = []; root.appendChild(p); return p; },
+    async setCurrentPageAsync(p) { if (!root.children.includes(p)) throw new Error('not a page of this document'); page = p; },
     createNodeFromSvg(svg) {
       if (!/^\s*<svg[\s>]/i.test(svg) || !/<\/svg>\s*$|\/>\s*$/i.test(svg)) throw new Error('Unable to parse SVG');
       log.svgs++;
       const f = new Frame(); f.fills = [];
       const w = svg.match(/\swidth="([\d.]+)"/), h = svg.match(/\sheight="([\d.]+)"/);
       f.width = w ? +w[1] : 100; f.height = h ? +h[1] : 100;
+      if (/stroke=/.test(svg)) { const v = new Vector(); v.strokes = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }]; f.appendChild(v); }
       return f;
     },
     createImage(bytes) { if (!(bytes instanceof Uint8Array) || !bytes.length) throw new Error('createImage needs bytes'); log.images++; return { hash: 'img' + bytes.length }; },
@@ -262,6 +280,10 @@ export function createFigma({ fonts } = {}) {
         const col = {
           id: 'VariableCollectionId:' + newId(), name, modes: [{ modeId: newId(), name: 'Mode 1' }], variableIds: [],
           renameMode(id, n) { this.modes.find((m) => m.modeId === id).name = n; },
+          remove() {
+            for (const id of [...this.variableIds]) { const i = variables.findIndex((v) => v.id === id); if (i >= 0) variables.splice(i, 1); }
+            collections.splice(collections.indexOf(this), 1);
+          },
           addMode(n) { const m = { modeId: newId(), name: n }; this.modes.push(m); return m.modeId; },
         };
         collections.push(col); return col;
@@ -270,9 +292,18 @@ export function createFigma({ fonts } = {}) {
         if (typeof col === 'string') throw new Error('createVariable(name, collectionId, ...) is not allowed with documentAccess: dynamic-page');
         const v = {
           id: 'VariableID:' + newId(), name, resolvedType: type, variableCollectionId: col.id, valuesByMode: {}, scopes: ['ALL_SCOPES'],
+          codeSyntax: {}, description: '',
           setValueForMode(m, val) {
             if (!col.modes.some((x) => x.modeId === m)) throw new Error('unknown mode ' + m);
             this.valuesByMode[m] = val;
+          },
+          setVariableCodeSyntax(platform, syntax) {
+            if (!['WEB', 'ANDROID', 'iOS'].includes(platform)) throw new Error('bad platform ' + platform);
+            this.codeSyntax[platform] = syntax;
+          },
+          remove() {
+            variables.splice(variables.indexOf(this), 1);
+            col.variableIds = col.variableIds.filter((x) => x !== this.id);
           },
         };
         col.variableIds.push(v.id); variables.push(v); return v;

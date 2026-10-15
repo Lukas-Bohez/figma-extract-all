@@ -1,7 +1,7 @@
-# Figma Community listing — v19.1.0
+# Figma Community listing — v19.2.0
 
 Copy each field into **Publish new version** in Figma Desktop.
-Every claim below was checked against the code of v19.1.0.
+Every claim below was checked against the code of v19.2.0.
 
 ---
 
@@ -56,7 +56,7 @@ It can also add 8 px spacing variables and a text style scale for you. Nothing i
 Import a captured web page as editable layers: frames with auto layout from flexbox, styled text, SVGs and shadows. Pages are captured with the free capture tool or bookmarklet from the GitHub repository.
 
 **For developers: AI bridge**
-The open-source version on GitHub includes a local MCP server with 25 tools, so Claude or another AI can read, check and build in your open file, capture web pages and set prototype hover interactions. It only works when you run the plugin from its manifest (Plugins → Development); this Community version has no network access.
+The open-source version on GitHub includes a local MCP server with 42 tools, so Claude or another AI can read, check and build in your open file, build whole designs in one call with colours and spacing bound to your variables, export layers as PNG, SVG or PDF, capture web pages and set prototype hover interactions. It works with several open Figma files and always asks which one. It only works when you run the plugin from its manifest (Plugins → Development); this Community version has no network access.
 
 Open source (MIT): https://github.com/Lukas-Bohez/figma-extract-all
 Built and maintained by Lukas Bohez. Bug reports and feature requests are welcome on GitHub.
@@ -100,7 +100,7 @@ To render them again after a UI change: see the usage line at the top of
 ## Version notes
 
 ```
-v19.1.0: Cleaner interface with Lucide icons, fully English Build, Rubric and Claude tabs, and a fixed Bodymovin settings summary.
+v19.2.0: The Claude tab shows which file the AI works in when several files are open, and no longer reconnects in a loop. Developer bridge: build whole designs in one call, export PNG/SVG/PDF, variables with code syntax, SVG charts keep their positions when a web page is imported. Full list in CHANGELOG.md.
 ```
 
 ---

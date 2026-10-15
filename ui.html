@@ -1112,7 +1112,7 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
   var tag = function (state, text) { return '<span class="x-tag x-' + state + '">' + esc(text) + "</span>"; };
 
-  var info = { fileName: "", page: "", featureVersion: "" };
+  var info = { fileName: "", page: "", featureVersion: "", fileKey: null };
   toCode({ type: "x:hello" });
 
   /* ─────────────── Claude bridge ─────────────── */
@@ -1146,12 +1146,17 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
 
     ws.onopen = function () {
       retry = 0;
-      ws.send(JSON.stringify({ kind: "hello", fileName: info.fileName, page: info.page, featureVersion: info.featureVersion }));
+      ws.send(JSON.stringify({ kind: "hello", fileName: info.fileName, page: info.page, featureVersion: info.featureVersion, fileKey: info.fileKey }));
       pingTimer = setInterval(function () { if (ws && ws.readyState === 1) ws.send('{"kind":"ping"}'); }, 20000);
     };
     ws.onmessage = function (ev) {
       var msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
       if (msg.kind === "welcome") { setState("on", "Connected — Claude can now work in “" + info.fileName + "”"); clog("Connected to the bridge", "ok"); }
+      if (msg.kind === "target") {
+        // Several Figma files can be connected at once; the hub says which one Claude works in.
+        if (msg.active) setState("on", "Connected — Claude can now work in “" + info.fileName + "”" + (msg.files > 1 ? " (" + msg.files + " files connected)" : ""));
+        else setState("on", "Connected, but Claude is working in another file (" + msg.files + " connected). Ask Claude to use “" + info.fileName + "”.");
+      }
       if (msg.kind === "cmd") {
         pending[msg.id] = Date.now();
         clog("→ " + msg.cmd, "inf");
@@ -1162,11 +1167,13 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
         msg.ok ? c.resolve(msg.doc) : c.reject(new Error(msg.error));
       }
     };
-    ws.onclose = function () {
+    ws.onclose = function (ev) {
       clearInterval(pingTimer);
       var was = ws; ws = null;
       Object.keys(captures).forEach(function (k) { captures[k].reject(new Error("bridge disconnected")); delete captures[k]; });
       if (manual) { setState("off", "Not connected"); return; }
+      // The same file connected from another window: that one wins. Retrying would make the two fight.
+      if (ev && ev.code === 4000) { setState("off", "This file is connected from another plugin window. Close this one or click Connect to take over."); return; }
       if (!$("xcAuto").checked && was && retry === 0 && !was._everOpen) {
         setState("off", "No bridge on localhost:" + PORT + ". Start Claude (with the figma MCP) or node bridge/bin/figma-hub.mjs. The Community version cannot reach localhost: run the plugin from its manifest.");
         return;
@@ -1316,9 +1323,9 @@ if (typeof exports !== 'undefined') { exports.GifWriter = GifWriter; }
     if (!m || typeof m.type !== "string" || m.type.indexOf("x:") !== 0) return;
     switch (m.type) {
       case "x:info":
-        info = { fileName: m.fileName, page: m.page, featureVersion: m.featureVersion };
+        info = { fileName: m.fileName, page: m.page, featureVersion: m.featureVersion, fileKey: m.fileKey || null };
         // If we connected before this arrived, the hello carried an empty name.
-        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ kind: "info", fileName: info.fileName, page: info.page, featureVersion: info.featureVersion }));
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ kind: "info", fileName: info.fileName, page: info.page, featureVersion: info.featureVersion, fileKey: info.fileKey }));
         if (m.bridge && m.bridge.auto) { $("xcAuto").checked = true; connect(); }
         break;
       case "x:page":
