@@ -67,6 +67,11 @@ export function createFigma({ fonts } = {}) {
       if (!isAuto(this.parent)) throw new Error('layoutPositioning can only be set on children of auto-layout frames');
       this._pos = v;
     }
+    setExplicitVariableModeForCollection(collection, modeId) {
+      if (typeof collection === 'string') throw new Error('pass the collection, not an id');
+      if (!collection.modes.some((m) => m.modeId === modeId)) throw new Error('unknown mode ' + modeId);
+      (this.explicitVariableModes ||= {})[collection.id] = modeId;
+    }
     setBoundVariable(field, variable) {
       if (typeof variable === 'string') throw new Error('setBoundVariable(field, variableId) is not allowed with documentAccess: dynamic-page');
       this.boundVariables[field] = { type: 'VARIABLE_ALIAS', id: variable.id };
@@ -90,6 +95,7 @@ export function createFigma({ fonts } = {}) {
       walk(this); return out;
     }
     findAllWithCriteria({ types }) { return this.findAll((n) => types.includes(n.type)); }
+    findOne(pred) { return this.findAll(pred)[0] || null; }
   }
 
   class Frame extends Container {
@@ -102,6 +108,32 @@ export function createFigma({ fonts } = {}) {
       this.primaryAxisSizingMode = 'AUTO'; this.counterAxisSizingMode = 'AUTO';
       this.layoutWrap = 'NO_WRAP'; this.clipsContent = true; this.cornerRadius = 0;
       this.strokeWeight = 1; this.strokeAlign = 'INSIDE';
+    }
+    get cornerRadius() { return this._radius ?? 0; }
+    set cornerRadius(v) { this._radius = v; this.topLeftRadius = this.topRightRadius = this.bottomLeftRadius = this.bottomRightRadius = v; }
+    async getMainComponentAsync() { return this.mainComponent || null; }
+    get variantProperties() {
+      if (this.type !== 'COMPONENT' || !this.parent || this.parent.type !== 'COMPONENT_SET') return null;
+      const out = {};
+      this.name.split(/,\s*/).forEach((pair) => { const [k, v] = pair.split('='); if (v !== undefined) out[k] = v; });
+      return out;
+    }
+    createInstance() {
+      if (this.type !== 'COMPONENT') throw new Error('createInstance only on components');
+      const copy = (n, parent) => {
+        let c;
+        if (n.type === 'TEXT') { c = new Text(); c._font = n._font; c._chars = n._chars; c.fontSize = n.fontSize; }
+        else if (n.children) { c = new Frame(n.type === 'COMPONENT' ? 'INSTANCE' : n.type); }
+        else return;
+        for (const k of ['name', 'width', 'height', 'fills', 'cornerRadius', 'layoutMode', 'itemSpacing', 'paddingTop', 'paddingRight',
+                         'paddingBottom', 'paddingLeft', 'primaryAxisAlignItems', 'counterAxisAlignItems']) if (k in n && n[k] !== undefined) c[k] = n[k];
+        parent && parent.appendChild(c);
+        (n.children || []).forEach((ch) => copy(ch, c));
+        return c;
+      };
+      const inst = copy(this, null);
+      inst.mainComponent = this;
+      return inst;
     }
     get layoutWrap() { return this._wrap; }
     set layoutWrap(v) {

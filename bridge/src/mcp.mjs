@@ -196,6 +196,33 @@ export function createMcpServer(hub, { log = () => {} } = {}) {
     { ids: z.array(z.string()).min(1), zoom: z.boolean().optional() }, READ,
     async (a) => text(await cmd('set_selection', a)));
 
+  tool('figma_get_components', 'Lijst van de components en component sets in het bestand, met hun varianten en ids. Gebruik dit om figma_create_instance te vullen.', {}, READ,
+    async () => text(await cmd('get_components')));
+
+  tool('figma_create_instance',
+    'Plaats een instance van een component (of van één variant uit een component set) in een frame, met tekst-overrides per laagnaam. Zo gebruik je je components echt in de schermen.',
+    {
+      componentId: z.string().describe('Id van de component of van de component set.'),
+      variant: z.record(z.string(), z.string()).optional().describe('Bij een set: {"variant": "primary", "size": "md"}.'),
+      parentId: z.string().optional().describe('Frame waarin de instance komt. Leeg = de huidige pagina.'),
+      texts: z.record(z.string(), z.string()).optional().describe('{"Label": "Opslaan"}: zet de tekst van de eerste tekstlaag met die naam.'),
+      props: z.object(props).optional().describe('Naam, maat, sizing (bv. FILL), positie.'),
+    }, WRITE,
+    async (a) => text(await cmd('create_instance', a)));
+
+  tool('figma_set_variable_mode',
+    'Toon lagen in een andere mode van een variabelencollectie, bv. de Dark-mode van de Semantic-variabelen op een scherm.',
+    { ids, collection: z.string(), mode: z.string() }, WRITE,
+    async (a) => text(await cmd('set_variable_mode', a)));
+
+  tool('figma_bind_raw_spacing',
+    'Bind ruwe paddings, gaps en hoekradii aan FLOAT-variabelen op waarde, zoals bind_raw_colors dat voor kleuren doet. map {"8": "space/1"}, radiusMap {"8": "radius/sm"}. Waarden zonder variabele komen in offGrid terug.',
+    {
+      ids: z.array(z.string()).optional().describe('Leeg = het hele bestand.'),
+      map: z.record(z.string(), z.string()), radiusMap: z.record(z.string(), z.string()).optional(), dryRun: z.boolean().optional(),
+    }, WRITE,
+    async (a) => text(await cmd('bind_raw_spacing', a, 120000)));
+
   tool('figma_cancel', 'Vraag een lopende zware opdracht in Figma (bv. tekststijlen toepassen) om te stoppen met wat al klaar is. Handig na een time-out: de opdracht loopt in Figma door.', {}, WRITE,
     async () => text(await cmd('cancel')));
 

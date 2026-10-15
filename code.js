@@ -2261,6 +2261,139 @@ async function bindRawColors(p) {
     }
     return { dryRun: !!p.dryRun, bound: done, remaining: more, skippedTransparent: transparentSkipped };
 }
+async function createInstance(p) {
+    const src = await figma.getNodeByIdAsync(p.componentId || p.id);
+    if (!src)
+        throw new Error(`Component ${p.componentId || p.id} niet gevonden`);
+    let comp;
+    if (src.type === "COMPONENT_SET") {
+        const want = p.variant || {};
+        const match = src.children.find((c) => {
+            if (c.type !== "COMPONENT")
+                return false;
+            const have = c.variantProperties || {};
+            return Object.keys(want).every((k) => have[k] === want[k]);
+        });
+        if (!match)
+            throw new Error(`Geen variant ${JSON.stringify(want)} in "${src.name}"`);
+        comp = match;
+    }
+    else if (src.type === "COMPONENT")
+        comp = src;
+    else
+        throw new Error(`${src.name} is geen component (${src.type})`);
+    const inst = comp.createInstance();
+    let parent = figma.currentPage;
+    if (p.parentId) {
+        const pn = await figma.getNodeByIdAsync(p.parentId);
+        if (!pn || !("appendChild" in pn))
+            throw new Error(`Ouder ${p.parentId} kan geen kinderen hebben`);
+        parent = pn;
+    }
+    parent.appendChild(inst);
+    if (p.props)
+        await applyProps(inst, p.props);
+    const set = [];
+    for (const layer of Object.keys(p.texts || {})) {
+        const t = inst.findOne((n) => n.type === "TEXT" && n.name === layer);
+        if (!t)
+            throw new Error(`Geen tekstlaag "${layer}" in ${comp.name}`);
+        await loadAllFontsOf(t);
+        t.characters = String(p.texts[layer]);
+        set.push(layer);
+    }
+    return { id: inst.id, name: inst.name, component: comp.id, textsSet: set };
+}
+async function listComponents() {
+    await figma.loadAllPagesAsync();
+    const out = [];
+    for (const page of figma.root.children) {
+        for (const n of page.findAll((x) => x.type === "COMPONENT_SET" || (x.type === "COMPONENT" && !(x.parent && x.parent.type === "COMPONENT_SET")))) {
+            if (n.type === "COMPONENT_SET") {
+                out.push({
+                    id: n.id, name: n.name, type: n.type, page: page.name,
+                    properties: Object.keys(n.componentPropertyDefinitions || {}),
+                    variants: n.children.map((c) => ({ id: c.id, name: c.name })),
+                });
+            }
+            else
+                out.push({ id: n.id, name: n.name, type: n.type, page: page.name });
+        }
+    }
+    return { components: out };
+}
+async function setVariableMode(p) {
+    const nodes = await nodesFrom(p);
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    const col = collections.find((c) => c.name === p.collection);
+    if (!col)
+        throw new Error(`Collectie "${p.collection}" bestaat niet`);
+    const mode = col.modes.find((m) => m.name === p.mode);
+    if (!mode)
+        throw new Error(`Mode "${p.mode}" bestaat niet in "${col.name}" (${col.modes.map((m) => m.name).join(", ")})`);
+    for (const n of nodes)
+        n.setExplicitVariableModeForCollection(col, mode.modeId);
+    return { set: nodes.map((n) => n.id), collection: col.name, mode: mode.name };
+}
+async function bindRawSpacing(p) {
+    await figma.loadAllPagesAsync();
+    const map = p.map || {};
+    const radiusMap = p.radiusMap || {};
+    const vars = await figma.variables.getLocalVariablesAsync("FLOAT");
+    const byName = {};
+    vars.forEach((v) => (byName[v.name] = v));
+    for (const name of Object.values(map).concat(Object.values(radiusMap)))
+        if (!byName[name])
+            throw new Error(`Variabele "${name}" bestaat niet`);
+    const roots = p.ids && p.ids.length ? await nodesFrom(p) : [figma.root];
+    const nodes = [];
+    for (const r of roots) {
+        if (r.type !== "DOCUMENT" && r.type !== "PAGE")
+            nodes.push(r);
+        if ("findAll" in r)
+            nodes.push(...r.findAll(() => true));
+    }
+    const spacingFields = ["paddingLeft", "paddingRight", "paddingTop", "paddingBottom", "itemSpacing"];
+    const radiusFields = ["topLeftRadius", "topRightRadius", "bottomLeftRadius", "bottomRightRadius"];
+    const bound = {}, offGrid = {};
+    const note = (bag, key) => { bag[key] = (bag[key] || 0) + 1; };
+    for (const n of nodes) {
+        if (insideInstance(n))
+            continue;
+        const any = n;
+        if ("layoutMode" in n && any.layoutMode !== "NONE") {
+            for (const f of spacingFields) {
+                const v = any[f];
+                if (typeof v !== "number" || v <= 0 || (any.boundVariables && any.boundVariables[f]))
+                    continue;
+                const target = map[String(v)];
+                if (!target) {
+                    note(offGrid, `${f}=${v}`);
+                    continue;
+                }
+                if (!p.dryRun)
+                    any.setBoundVariable(f, byName[target]);
+                note(bound, `${v} -> ${target}`);
+            }
+        }
+        if ("topLeftRadius" in n) {
+            for (const f of radiusFields) {
+                const v = any[f];
+                if (typeof v !== "number" || v <= 0 || (any.boundVariables && any.boundVariables[f]))
+                    continue;
+                const target = radiusMap[String(v)];
+                if (!target) {
+                    note(offGrid, `${f}=${v}`);
+                    continue;
+                }
+                if (!p.dryRun)
+                    any.setBoundVariable(f, byName[target]);
+                note(bound, `radius ${v} -> ${target}`);
+            }
+        }
+    }
+    return { dryRun: !!p.dryRun, bound, offGrid };
+}
 async function snapToGrid(p) {
     await figma.loadAllPagesAsync();
     const roots = p.ids && p.ids.length ? await nodesFrom(p) : [figma.root];
@@ -2482,7 +2615,7 @@ async function hoverForSet(set, p, transition) {
     return { set: set.name, id: set.id, property: key, from: fromValue, to: toValue, linked, missing };
 }
 const GUARDED_COMMANDS = new Set([
-    "apply_text_styles_auto", "create_text_styles_bulk", "bind_raw_colors", "snap_to_grid", "rename_generic", "dedupe_text_styles",
+    "apply_text_styles_auto", "create_text_styles_bulk", "bind_raw_colors", "bind_raw_spacing", "snap_to_grid", "rename_generic", "dedupe_text_styles",
 ]);
 const runningCommands = new Map();
 let bridgeCancelRequested = false;
@@ -2595,6 +2728,10 @@ async function runBridgeCommand(cmd, p) {
         case "dedupe_text_styles": return dedupeTextStyles();
         case "list_color_variables": return listColorVariables();
         case "bind_raw_colors": return bindRawColors(p);
+        case "bind_raw_spacing": return bindRawSpacing(p);
+        case "create_instance": return createInstance(p);
+        case "get_components": return listComponents();
+        case "set_variable_mode": return setVariableMode(p);
         case "snap_to_grid": return snapToGrid(p);
         case "import_layout": return importLayout(p.doc, p.options || p);
         case "set_selection": {

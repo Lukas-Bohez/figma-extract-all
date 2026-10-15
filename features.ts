@@ -1102,6 +1102,124 @@ async function bindRawColors(p: any) {
   return { dryRun: !!p.dryRun, bound: done, remaining: more, skippedTransparent: transparentSkipped };
 }
 
+/** Instances of a component or of a variant in a component set, with text overrides. */
+async function createInstance(p: any) {
+  const src = await figma.getNodeByIdAsync(p.componentId || p.id);
+  if (!src) throw new Error(`Component ${p.componentId || p.id} niet gevonden`);
+  let comp: ComponentNode;
+  if (src.type === "COMPONENT_SET") {
+    const want: { [k: string]: string } = p.variant || {};
+    const match = (src as ComponentSetNode).children.find((c) => {
+      if (c.type !== "COMPONENT") return false;
+      const have = (c as ComponentNode).variantProperties || {};
+      return Object.keys(want).every((k) => have[k] === want[k]);
+    });
+    if (!match) throw new Error(`Geen variant ${JSON.stringify(want)} in "${src.name}"`);
+    comp = match as ComponentNode;
+  } else if (src.type === "COMPONENT") comp = src as ComponentNode;
+  else throw new Error(`${src.name} is geen component (${src.type})`);
+
+  const inst = comp.createInstance();
+  let parent: BaseNode & ChildrenMixin = figma.currentPage;
+  if (p.parentId) {
+    const pn = await figma.getNodeByIdAsync(p.parentId);
+    if (!pn || !("appendChild" in pn)) throw new Error(`Ouder ${p.parentId} kan geen kinderen hebben`);
+    parent = pn as BaseNode & ChildrenMixin;
+  }
+  parent.appendChild(inst);
+  if (p.props) await applyProps(inst, p.props);
+  // texts: { "<layer name>": "new text" } sets the first text layer with that name inside the instance
+  const set: string[] = [];
+  for (const layer of Object.keys(p.texts || {})) {
+    const t = inst.findOne((n) => n.type === "TEXT" && n.name === layer) as TextNode | null;
+    if (!t) throw new Error(`Geen tekstlaag "${layer}" in ${comp.name}`);
+    await loadAllFontsOf(t);
+    t.characters = String(p.texts[layer]);
+    set.push(layer);
+  }
+  return { id: inst.id, name: inst.name, component: comp.id, textsSet: set };
+}
+
+/** Components and component sets of the file, with their variants, so a script can pick them. */
+async function listComponents() {
+  await figma.loadAllPagesAsync();
+  const out: any[] = [];
+  for (const page of figma.root.children) {
+    for (const n of page.findAll((x) => x.type === "COMPONENT_SET" || (x.type === "COMPONENT" && !(x.parent && x.parent.type === "COMPONENT_SET")))) {
+      if (n.type === "COMPONENT_SET") {
+        out.push({
+          id: n.id, name: n.name, type: n.type, page: page.name,
+          properties: Object.keys((n as ComponentSetNode).componentPropertyDefinitions || {}),
+          variants: (n as ComponentSetNode).children.map((c) => ({ id: c.id, name: c.name })),
+        });
+      } else out.push({ id: n.id, name: n.name, type: n.type, page: page.name });
+    }
+  }
+  return { components: out };
+}
+
+/** Show layers in another mode of a variable collection, e.g. the Dark mode of the Semantic variables. */
+async function setVariableMode(p: any) {
+  const nodes = await nodesFrom(p);
+  const collections = await figma.variables.getLocalVariableCollectionsAsync();
+  const col = collections.find((c) => c.name === p.collection);
+  if (!col) throw new Error(`Collectie "${p.collection}" bestaat niet`);
+  const mode = col.modes.find((m) => m.name === p.mode);
+  if (!mode) throw new Error(`Mode "${p.mode}" bestaat niet in "${col.name}" (${col.modes.map((m) => m.name).join(", ")})`);
+  for (const n of nodes) (n as any).setExplicitVariableModeForCollection(col, mode.modeId);
+  return { set: nodes.map((n) => n.id), collection: col.name, mode: mode.name };
+}
+
+/**
+ * Bind raw padding, gaps and corner radii to FLOAT variables by their value, like bind_raw_colors does for colours.
+ * map: { "8": "space/1", "16": "space/2" }, radiusMap: { "8": "radius/sm" }. Values without a variable are reported
+ * as offGrid. Layers inside instances are skipped (the component carries the binding).
+ */
+async function bindRawSpacing(p: any) {
+  await figma.loadAllPagesAsync();
+  const map: { [k: string]: string } = p.map || {};
+  const radiusMap: { [k: string]: string } = p.radiusMap || {};
+  const vars = await figma.variables.getLocalVariablesAsync("FLOAT");
+  const byName: { [k: string]: Variable } = {};
+  vars.forEach((v) => (byName[v.name] = v));
+  for (const name of Object.values(map).concat(Object.values(radiusMap))) if (!byName[name]) throw new Error(`Variabele "${name}" bestaat niet`);
+  const roots: BaseNode[] = p.ids && p.ids.length ? await nodesFrom(p) : [figma.root];
+  const nodes: SceneNode[] = [];
+  for (const r of roots) {
+    if (r.type !== "DOCUMENT" && r.type !== "PAGE") nodes.push(r as SceneNode);
+    if ("findAll" in r) nodes.push(...(r as ChildrenMixin).findAll(() => true));
+  }
+  const spacingFields = ["paddingLeft", "paddingRight", "paddingTop", "paddingBottom", "itemSpacing"];
+  const radiusFields = ["topLeftRadius", "topRightRadius", "bottomLeftRadius", "bottomRightRadius"];
+  const bound: { [k: string]: number } = {}, offGrid: { [k: string]: number } = {};
+  const note = (bag: { [k: string]: number }, key: string) => { bag[key] = (bag[key] || 0) + 1; };
+  for (const n of nodes) {
+    if (insideInstance(n)) continue;
+    const any = n as any;
+    if ("layoutMode" in n && any.layoutMode !== "NONE") {
+      for (const f of spacingFields) {
+        const v = any[f];
+        if (typeof v !== "number" || v <= 0 || (any.boundVariables && any.boundVariables[f])) continue;
+        const target = map[String(v)];
+        if (!target) { note(offGrid, `${f}=${v}`); continue; }
+        if (!p.dryRun) any.setBoundVariable(f, byName[target]);
+        note(bound, `${v} -> ${target}`);
+      }
+    }
+    if ("topLeftRadius" in n) {
+      for (const f of radiusFields) {
+        const v = any[f];
+        if (typeof v !== "number" || v <= 0 || (any.boundVariables && any.boundVariables[f])) continue;
+        const target = radiusMap[String(v)];
+        if (!target) { note(offGrid, `${f}=${v}`); continue; }
+        if (!p.dryRun) any.setBoundVariable(f, byName[target]);
+        note(bound, `radius ${v} -> ${target}`);
+      }
+    }
+  }
+  return { dryRun: !!p.dryRun, bound, offGrid };
+}
+
 /** Snap off-grid padding and gaps of layers outside instances to the 4 px grid (round half up). */
 async function snapToGrid(p: any) {
   await figma.loadAllPagesAsync();
@@ -1316,7 +1434,7 @@ async function hoverForSet(set: ComponentSetNode, p: any, transition: Transition
  * behind each other. Now a second call answers at once with { busy: true } instead.
  */
 const GUARDED_COMMANDS = new Set([
-  "apply_text_styles_auto", "create_text_styles_bulk", "bind_raw_colors", "snap_to_grid", "rename_generic", "dedupe_text_styles",
+  "apply_text_styles_auto", "create_text_styles_bulk", "bind_raw_colors", "bind_raw_spacing", "snap_to_grid", "rename_generic", "dedupe_text_styles",
 ]);
 const runningCommands = new Map<string, number>();
 /** Set by the "cancel" command; long loops look at it between layers and stop with what they have */
@@ -1421,6 +1539,10 @@ async function runBridgeCommand(cmd: string, p: any): Promise<any> {
     case "dedupe_text_styles": return dedupeTextStyles();
     case "list_color_variables": return listColorVariables();
     case "bind_raw_colors": return bindRawColors(p);
+    case "bind_raw_spacing": return bindRawSpacing(p);
+    case "create_instance": return createInstance(p);
+    case "get_components": return listComponents();
+    case "set_variable_mode": return setVariableMode(p);
     case "snap_to_grid": return snapToGrid(p);
     case "import_layout": return importLayout(p.doc, p.options || p);
     case "set_selection": {

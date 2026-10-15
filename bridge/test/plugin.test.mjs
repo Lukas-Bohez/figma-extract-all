@@ -261,6 +261,48 @@ console.log('\n6. Bridge-commando\'s (wat Claude kan doen)');
   r = await cmd('delete', { ids: [r.result.rootId] });
   ok(r.ok, 'delete');
 
+  // ── components used as instances, a variable mode, spacing bound to variables ──
+  r = await cmd('create', { kind: 'FRAME', name: 'variant=solid', width: 120, height: 40 });
+  const solidId = r.result.id;
+  await cmd('create', { kind: 'TEXT', name: 'Label', text: 'Go', parentId: solidId });
+  r = await cmd('create', { kind: 'FRAME', name: 'variant=outline', width: 120, height: 40 });
+  const outlineId = r.result.id;
+  await cmd('create', { kind: 'TEXT', name: 'Label', text: 'Go', parentId: outlineId });
+  const solidComp = (await cmd('create_component', { ids: [solidId] })).result.components[0].id;
+  const outlineComp = (await cmd('create_component', { ids: [outlineId] })).result.components[0].id;
+  r = await cmd('combine_as_variants', { ids: [solidComp, outlineComp], name: 'Pill' });
+  const pillSet = r.result.id;
+
+  r = await cmd('get_components');
+  const listed = r.ok && r.result.components.find((c) => c.id === pillSet);
+  ok(listed && listed.variants.length === 2, 'get_components toont de set met zijn varianten', r.error);
+
+  r = await cmd('create', { kind: 'FRAME', name: 'host', width: 300, height: 200 });
+  const hostId = r.result.id;
+  r = await cmd('create_instance', { componentId: pillSet, variant: { variant: 'outline' }, parentId: hostId, texts: { Label: 'Save' }, props: { name: 'Pill/save' } });
+  ok(r.ok && r.result.textsSet.join() === 'Label', 'create_instance met een variant en een tekst-override', r.error);
+  const instId = r.ok && r.result.id;
+  r = await cmd('get_node', { ids: [instId], depth: 3 });
+  ok(r.ok && JSON.stringify(r.result).includes('Save'), 'de instance toont de nieuwe tekst', r.error);
+  r = await cmd('create_instance', { componentId: pillSet, variant: { variant: 'nope' }, parentId: hostId });
+  ok(!r.ok && /Geen variant/.test(r.error), 'onbekende variant -> uitleg', r.error);
+  r = await cmd('create_instance', { componentId: pillSet, variant: { variant: 'solid' }, parentId: hostId, texts: { Nope: 'x' } });
+  ok(!r.ok && /Geen tekstlaag/.test(r.error), 'onbekende tekstlaag -> uitleg', r.error);
+
+  r = await cmd('set_variable_mode', { ids: [hostId], collection: 'tokens', mode: 'Dark' });
+  ok(r.ok && r.result.mode === 'Dark', 'set_variable_mode zet de Dark-mode op een frame', r.error);
+  r = await cmd('set_variable_mode', { ids: [hostId], collection: 'tokens', mode: 'Pink' });
+  ok(!r.ok && /Mode "Pink"/.test(r.error), 'onbekende mode -> uitleg', r.error);
+
+  r = await cmd('create', { kind: 'FRAME', name: 'spaced', width: 200, height: 100, layout: { mode: 'VERTICAL', gap: 12, padding: 16 }, cornerRadius: 8 });
+  const spacedId = r.result.id;
+  r = await cmd('bind_raw_spacing', { ids: [spacedId], map: { 16: 'space/4' }, radiusMap: { 8: 'space/4' } });
+  ok(r.ok && r.result.bound['16 -> space/4'] === 4, 'bind_raw_spacing bindt de vier paddings', r.error || JSON.stringify(r.result));
+  ok(r.ok && r.result.bound['radius 8 -> space/4'] === 4, 'bind_raw_spacing bindt ook de hoekradius', JSON.stringify(r.result));
+  ok(r.ok && r.result.offGrid['itemSpacing=12'] === 1, 'waarden zonder variabele komen in offGrid', JSON.stringify(r.result && r.result.offGrid));
+  r = await cmd('bind_raw_spacing', { ids: [spacedId], map: { 16: 'space/zzz' } });
+  ok(!r.ok && /bestaat niet/.test(r.error), 'onbekende variabele -> uitleg', r.error);
+
   r = await cmd('get_node', { id: 'doesnotexist' });
   ok(!r.ok && /Geen laag/.test(r.error), 'onbekende id -> nette fout, geen crash');
   r = await cmd('frobnicate');
