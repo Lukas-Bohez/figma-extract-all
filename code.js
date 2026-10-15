@@ -2081,6 +2081,16 @@ async function applyTextStylesAuto(p) {
         return { size: r.size, weight: r.weight, style: s };
     });
     const texts = await textNodesIn(p);
+    const started = Date.now();
+    const budget = p.timeBudgetMs === undefined ? 40000 : Number(p.timeBudgetMs);
+    const fontsLoaded = new Set();
+    const ensureFont = async (f) => {
+        const key = f.family + "|" + f.style;
+        if (fontsLoaded.has(key))
+            return;
+        await figma.loadFontAsync(f);
+        fontsLoaded.add(key);
+    };
     const applied = {};
     const unmatched = {};
     let skippedMixed = 0, already = 0, done = 0, more = 0;
@@ -2111,15 +2121,19 @@ async function applyTextStylesAuto(p) {
             more++;
             continue;
         }
+        if (bridgeCancelRequested || (budget > 0 && Date.now() - started > budget)) {
+            more++;
+            continue;
+        }
         done++;
         if (!p.dryRun) {
-            await loadAllFontsOf(t);
-            await figma.loadFontAsync(rule.style.fontName);
+            await ensureFont(t.fontName);
+            await ensureFont(rule.style.fontName);
             await t.setTextStyleIdAsync(rule.style.id);
         }
         applied[rule.style.name] = (applied[rule.style.name] || 0) + 1;
     }
-    return { dryRun: !!p.dryRun, total: texts.length, applied, already, skippedMixed, unmatched, remaining: more };
+    return { dryRun: !!p.dryRun, total: texts.length, applied, already, skippedMixed, unmatched, remaining: more, cancelled: bridgeCancelRequested, ms: Date.now() - started };
 }
 function insideInstance(n) {
     let cur = n.parent;
@@ -2463,7 +2477,35 @@ async function hoverForSet(set, p, transition) {
     }
     return { set: set.name, id: set.id, property: key, from: fromValue, to: toValue, linked, missing };
 }
+const GUARDED_COMMANDS = new Set([
+    "apply_text_styles_auto", "create_text_styles_bulk", "bind_raw_colors", "snap_to_grid", "rename_generic", "dedupe_text_styles",
+]);
+const runningCommands = new Map();
+let bridgeCancelRequested = false;
 async function bridgeCommand(cmd, p) {
+    if (cmd === "cancel") {
+        bridgeCancelRequested = true;
+        return { bridgeCancelRequested: true, running: Array.from(runningCommands.keys()) };
+    }
+    if (!GUARDED_COMMANDS.has(cmd))
+        return runBridgeCommand(cmd, p);
+    const since = runningCommands.get(cmd);
+    if (since !== undefined) {
+        return {
+            busy: true, command: cmd, runningForSeconds: Math.round((Date.now() - since) / 1000),
+            hint: "Dezelfde opdracht loopt nog in Figma. Wacht tot hij klaar is, of stuur het commando cancel.",
+        };
+    }
+    runningCommands.set(cmd, Date.now());
+    bridgeCancelRequested = false;
+    try {
+        return await runBridgeCommand(cmd, p);
+    }
+    finally {
+        runningCommands.delete(cmd);
+    }
+}
+async function runBridgeCommand(cmd, p) {
     var _a, _b;
     switch (cmd) {
         case "status":

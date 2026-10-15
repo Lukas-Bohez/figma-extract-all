@@ -4,7 +4,7 @@ Local tooling around the **Extract All** plugin:
 
 | | What it does |
 |---|---|
-| **MCP server** | 25 tools that let Claude read, check and build in your open Figma file — including *seeing* frames as images |
+| **MCP server** | 26 tools that let Claude read, check and build in your open Figma file — including *seeing* frames as images |
 | **Hub** | the local meeting point (127.0.0.1:3055); also plain HTTP for AIs/scripts that don't speak MCP |
 | **Capture** | render any web page (React, HTML, localhost or online) in a real browser and turn it into editable Figma layers |
 | **Contrast** | measure WCAG contrast of every text layer of a page, against what it actually sits on |
@@ -95,8 +95,20 @@ Claude things like:
 | `figma_capture_webpage` | URL → Figma, `theme: "both"` gives light and dark side by side |
 | `web_contrast_audit` | WCAG AA for every text layer of a page (no Figma needed) |
 | `figma_select`, `figma_notify` | point the user at something |
+| `figma_cancel` | ask a heavy command that is still running in Figma (after a time-out) to stop with what is done |
 
 ---
+
+## Heavy commands: budget, busy and cancel
+
+Commands that change many layers (`apply_text_styles_auto`, `create_text_styles_bulk`, `bind_raw_colors`, `snap_to_grid`,
+`rename_generic`, `dedupe_text_styles`) can take a long time in a large file. The bridge gives up after its time-out, but
+**Figma keeps working**, so calling again used to start a second job that piled up behind the first. Now:
+
+- A second call of a command that is still running answers at once with `{ "busy": true, "runningForSeconds": … }`.
+- `apply_text_styles_auto` has a time budget (`timeBudgetMs`, default 40 000 ms, `0` = none). It returns what it did and
+  `remaining`; call it again until `remaining` is 0. It also reports `ms` and loads each font once, not once per layer.
+- `cancel` (`figma_cancel`) asks the running command to stop with what is done.
 
 ## Capture from the command line
 

@@ -55,7 +55,7 @@ export function startHub({ port = DEFAULT_PORT, host = '127.0.0.1', log = () => 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.delete(id);
-        reject(new Error(`Figma antwoordde niet binnen ${Math.round(timeoutMs / 1000)} s op "${cmd}"`));
+        reject(new Error(`Figma antwoordde niet binnen ${Math.round(timeoutMs / 1000)} s op "${cmd}". De opdracht kan in Figma nog doorlopen: wacht even, of stuur cancel. Zware opdrachten (bv. apply_text_styles_auto) hebben een tijdsbudget en geven "remaining" terug: roep ze dan opnieuw aan.`));
       }, timeoutMs);
       pending.set(id, { resolve, reject, timer, cmd });
       plugin.send(JSON.stringify({ kind: 'cmd', id, cmd, params }));

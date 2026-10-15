@@ -196,6 +196,9 @@ export function createMcpServer(hub, { log = () => {} } = {}) {
     { ids: z.array(z.string()).min(1), zoom: z.boolean().optional() }, READ,
     async (a) => text(await cmd('set_selection', a)));
 
+  tool('figma_cancel', 'Vraag een lopende zware opdracht in Figma (bv. tekststijlen toepassen) om te stoppen met wat al klaar is. Handig na een time-out: de opdracht loopt in Figma door.', {}, WRITE,
+    async () => text(await cmd('cancel')));
+
   tool('figma_notify', 'Toon een korte melding onderaan in Figma.', { message: z.string().max(200) }, READ,
     async (a) => text(await cmd('notify', a)));
 

@@ -937,7 +937,7 @@ async function createTextStylesBulk(p: any) {
 
 /**
  * Apply local text styles by matching each text layer on size and weight.
- * rules: [{ size, weight, style }]  (size within 0.05). dryRun:true only counts; onlyUnstyled:true leaves styled layers alone; limit:N does at most N per call (a call must finish within 60 s), `remaining` says how many are left.
+ * rules: [{ size, weight, style }]  (size within 0.05). timeBudgetMs: stop after this long (default 40000, 0 = no limit) and report `remaining`. dryRun:true only counts; onlyUnstyled:true leaves styled layers alone; limit:N does at most N per call (a call must finish within 60 s), `remaining` says how many are left.
  * Layers that match no rule, or have mixed fonts, are reported and left alone.
  */
 async function applyTextStylesAuto(p: any) {
@@ -950,6 +950,17 @@ async function applyTextStylesAuto(p: any) {
     return { size: r.size, weight: r.weight, style: s };
   });
   const texts = await textNodesIn(p);
+  // A call never runs longer than the budget (default 40 s, 0 = no limit): it returns what is done and
+  // "remaining", so the caller can simply call again. Fonts are loaded once per font, not once per layer.
+  const started = Date.now();
+  const budget = p.timeBudgetMs === undefined ? 40000 : Number(p.timeBudgetMs);
+  const fontsLoaded = new Set<string>();
+  const ensureFont = async (f: FontName) => {
+    const key = f.family + "|" + f.style;
+    if (fontsLoaded.has(key)) return;
+    await figma.loadFontAsync(f);
+    fontsLoaded.add(key);
+  };
   const applied: { [k: string]: number } = {};
   const unmatched: { [k: string]: { count: number; sample: string } } = {};
   let skippedMixed = 0, already = 0, done = 0, more = 0;
@@ -967,15 +978,17 @@ async function applyTextStylesAuto(p: any) {
     }
     if (t.textStyleId === rule.style.id) { already++; continue; }
     if (p.limit && done >= p.limit) { more++; continue; }
+    if (bridgeCancelRequested || (budget > 0 && Date.now() - started > budget)) { more++; continue; }
     done++;
     if (!p.dryRun) {
-      await loadAllFontsOf(t);
-      await figma.loadFontAsync(rule.style.fontName);
+      // layers with mixed fonts were skipped above, so this is one font
+      await ensureFont(t.fontName as FontName);
+      await ensureFont(rule.style.fontName);
       await t.setTextStyleIdAsync(rule.style.id);
     }
     applied[rule.style.name] = (applied[rule.style.name] || 0) + 1;
   }
-  return { dryRun: !!p.dryRun, total: texts.length, applied, already, skippedMixed, unmatched, remaining: more };
+  return { dryRun: !!p.dryRun, total: texts.length, applied, already, skippedMixed, unmatched, remaining: more, cancelled: bridgeCancelRequested, ms: Date.now() - started };
 }
 
 
@@ -1294,7 +1307,41 @@ async function hoverForSet(set: ComponentSetNode, p: any, transition: Transition
   return { set: set.name, id: set.id, property: key, from: fromValue, to: toValue, linked, missing };
 }
 
+/**
+ * Heavy commands that change many layers. A call that the bridge gave up on (timeout) keeps running
+ * in Figma, so a second call of the same command used to start a duplicate job and the jobs piled up
+ * behind each other. Now a second call answers at once with { busy: true } instead.
+ */
+const GUARDED_COMMANDS = new Set([
+  "apply_text_styles_auto", "create_text_styles_bulk", "bind_raw_colors", "snap_to_grid", "rename_generic", "dedupe_text_styles",
+]);
+const runningCommands = new Map<string, number>();
+/** Set by the "cancel" command; long loops look at it between layers and stop with what they have */
+let bridgeCancelRequested = false;
+
 async function bridgeCommand(cmd: string, p: any): Promise<any> {
+  if (cmd === "cancel") {
+    bridgeCancelRequested = true;
+    return { bridgeCancelRequested: true, running: Array.from(runningCommands.keys()) };
+  }
+  if (!GUARDED_COMMANDS.has(cmd)) return runBridgeCommand(cmd, p);
+  const since = runningCommands.get(cmd);
+  if (since !== undefined) {
+    return {
+      busy: true, command: cmd, runningForSeconds: Math.round((Date.now() - since) / 1000),
+      hint: "Dezelfde opdracht loopt nog in Figma. Wacht tot hij klaar is, of stuur het commando cancel.",
+    };
+  }
+  runningCommands.set(cmd, Date.now());
+  bridgeCancelRequested = false;
+  try {
+    return await runBridgeCommand(cmd, p);
+  } finally {
+    runningCommands.delete(cmd);
+  }
+}
+
+async function runBridgeCommand(cmd: string, p: any): Promise<any> {
   switch (cmd) {
     case "status":
       return {
