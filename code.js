@@ -2224,7 +2224,7 @@ async function bindRawColors(p) {
             nodes.push(...r.findAll(() => true));
     }
     const done = {};
-    let more = 0, count = 0;
+    let more = 0, count = 0, transparentSkipped = 0;
     for (const n of nodes) {
         if (insideInstance(n))
             continue;
@@ -2238,6 +2238,10 @@ async function bindRawColors(p) {
             const next = list.map((paint) => {
                 if (paint.type !== "SOLID" || (paint.boundVariables && paint.boundVariables.color))
                     return paint;
+                if (paint.opacity !== undefined && paint.opacity < 1) {
+                    transparentSkipped++;
+                    return paint;
+                }
                 const hex = "#" + [paint.color.r, paint.color.g, paint.color.b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("");
                 const target = map[hex];
                 if (!target)
@@ -2255,7 +2259,7 @@ async function bindRawColors(p) {
                 n[kind] = next;
         }
     }
-    return { dryRun: !!p.dryRun, bound: done, remaining: more };
+    return { dryRun: !!p.dryRun, bound: done, remaining: more, skippedTransparent: transparentSkipped };
 }
 async function snapToGrid(p) {
     await figma.loadAllPagesAsync();

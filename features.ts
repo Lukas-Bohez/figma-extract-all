@@ -1074,7 +1074,7 @@ async function bindRawColors(p: any) {
     if ("findAll" in r) nodes.push(...(r as ChildrenMixin).findAll(() => true));
   }
   const done: { [k: string]: number } = {};
-  let more = 0, count = 0;
+  let more = 0, count = 0, transparentSkipped = 0;
   for (const n of nodes) {
     if (insideInstance(n)) continue;
     for (const kind of ["fills", "strokes"] as const) {
@@ -1084,6 +1084,9 @@ async function bindRawColors(p: any) {
       let changed = false;
       const next = list.map((paint) => {
         if (paint.type !== "SOLID" || (paint.boundVariables && paint.boundVariables.color)) return paint;
+        // A variable holds a colour without transparency: binding a see-through fill (a dark overlay, say) turned it
+        // opaque. Leave those alone and report them.
+        if (paint.opacity !== undefined && paint.opacity < 1) { transparentSkipped++; return paint; }
         const hex = "#" + [paint.color.r, paint.color.g, paint.color.b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("");
         const target = map[hex];
         if (!target) return paint;
@@ -1096,7 +1099,7 @@ async function bindRawColors(p: any) {
       if (changed && !p.dryRun) (n as any)[kind] = next;
     }
   }
-  return { dryRun: !!p.dryRun, bound: done, remaining: more };
+  return { dryRun: !!p.dryRun, bound: done, remaining: more, skippedTransparent: transparentSkipped };
 }
 
 /** Snap off-grid padding and gaps of layers outside instances to the 4 px grid (round half up). */

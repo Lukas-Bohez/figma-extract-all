@@ -109,6 +109,7 @@ Commands that change many layers (`apply_text_styles_auto`, `create_text_styles_
 - `apply_text_styles_auto` has a time budget (`timeBudgetMs`, default 40 000 ms, `0` = none). It returns what it did and
   `remaining`; call it again until `remaining` is 0. It also reports `ms` and loads each font once, not once per layer.
 - `cancel` (`figma_cancel`) asks the running command to stop with what is done.
+- `bind_raw_colors` leaves see-through fills alone (a variable cannot hold transparency, so binding turned a dark overlay opaque) and reports them as `skippedTransparent`.
 
 ## Capture from the command line
 
