@@ -1,7 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outFile": "code.owner.js"
-  },
-  "files": ["code.ts", "features.ts", "owner.key.ts", "owner.ts"]
-}

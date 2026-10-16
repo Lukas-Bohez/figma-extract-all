@@ -11,8 +11,8 @@ const checks = {
   'code: extras-complete msg': c.includes('extras-complete'),
   'code: nodes released': c.includes('workingNodes.length = 0'),
   'code: watchdog': c.includes('armWatchdog'),
-  // The owner commands (owner.ts) must never end up in the public build
-  'code: no owner commands in the public build': !/add_variant|set_variant|owner_status|OWNER_KEY/.test(c),
+  'code: owner commands are in the build': ['add_variant', 'set_variant', 'move_node', 'owner_status'].every((n) => c.includes(n)),
+  'code: owner key is checked': c.includes('extract-all.owner-key'),
   'ui: b64ToU8': h.includes('b64ToU8'),
   'ui: atob decode': h.includes('atob(s)'),
   'ui: zip-chunk uses m.b64': h.includes('handleZipChunk(m.fileName, m.index, m.total, m.b64)'),

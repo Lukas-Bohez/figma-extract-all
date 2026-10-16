@@ -12,5 +12,5 @@
     "declaration": false,
     "removeComments": true
   },
-  "files": ["code.ts", "features.ts"]
+  "files": ["code.ts", "features.ts", "owner.ts"]
 }

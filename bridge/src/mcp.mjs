@@ -9,7 +9,7 @@ import { NotConnectedError, AmbiguousTargetError } from './hub.mjs';
 import { saveExport } from './export.mjs';
 import { captureUrl } from './capture/cdp.mjs';
 import { auditContrast } from './capture/contrast.mjs';
-import { readOwnerKey, withOwnerKey } from './owner.mjs';
+import { ensureOwnerKey, withOwnerKey } from './owner.mjs';
 
 const text = (obj) => ({ content: [{ type: 'text', text: typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2) }] });
 const fail = (e) => ({
@@ -54,7 +54,7 @@ const props = {
   shadow: z.object({ x: z.number().optional(), y: z.number().optional(), blur: z.number().optional(), spread: z.number().optional(), color: z.string().optional() }).nullable().optional(),
 };
 
-export function createMcpServer(hub, { log = () => {}, ownerKey = readOwnerKey() } = {}) {
+export function createMcpServer(hub, { log = () => {}, ownerKey = ensureOwnerKey() } = {}) {
   const server = new McpServer({ name: 'figma-extract-all', version: '1.0.0' });
 
   // The owner key rides along with the owner commands only

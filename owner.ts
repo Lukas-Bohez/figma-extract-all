@@ -1,33 +1,43 @@
 // ═══════════════════════════════════════════════════════════════════
-//  Owner-only commands
+//  Owner commands: move_node, add_variant, set_variant, owner_status
 //
-//  Compiled ONLY into the owner build (`npm run build:owner` → code.owner.js, manifest.owner.json).
-//  The public build (`npm run build` → code.js, what the Community plugin and the releases ship) does not
-//  contain this file: tsconfig.json does not list it, and verify.js checks that the words below are absent.
+//  One plugin, one build (code.js): these commands are part of it. What they add to the other commands: a layer
+//  cannot be moved to another parent, a new variant cannot be added to an existing component set, and an instance
+//  cannot switch variant.
 //
-//  Every command here also demands the owner key (FIGMA_OWNER_KEY, set when the owner build was made and
-//  sent by the bridge with each call), so a copy of code.owner.js that ends up elsewhere does nothing for
-//  someone without the key.
-//
-//  What these commands add to the public ones: a layer cannot be moved to another parent, a new variant
-//  cannot be added to an existing component set, and an instance cannot switch variant.
+//  Every call must carry the owner key (the bridge adds it: FIGMA_OWNER_KEY, or the key file
+//  ~/.figma-extract-all/owner-key that the bridge makes on its first run). The first key an installation sees
+//  is kept in figma.clientStorage and is the only one it accepts after that, so another program on the same
+//  computer cannot use these commands without the key. The Community version has no network access at all,
+//  so it never receives a command in the first place.
 //
 //  What no plugin can do: publish a library or a plugin to Figma. Publishing a library is
 //  Assets → Publish in Figma itself; publishing a plugin is Plugins → Manage plugins → Publish.
-//  Compiled together with code.ts and features.ts (see tsconfig.owner.json).
 // ═══════════════════════════════════════════════════════════════════
 
 const OWNER_COMMAND_NAMES = ["owner_status", "move_node", "add_variant", "set_variant"];
+const OWNER_KEY_STORAGE = "extract-all.owner-key";
 
-/** Refuse unless the call carries the owner key; compares in constant time */
-function requireOwner(p: any): void {
+/** Constant-time comparison of two strings */
+function sameKey(a: string, b: string): boolean {
+  let diff = a.length ^ b.length;
+  const longest = Math.max(a.length, b.length);
+  for (let i = 0; i < longest; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
+/** Refuse unless the call carries the owner key of this installation (the first key it saw) */
+async function requireOwner(p: any): Promise<void> {
   const given: string = p && typeof p.ownerKey === "string" ? p.ownerKey : "";
-  let diff = given.length ^ OWNER_KEY.length;
-  const longest = Math.max(given.length, OWNER_KEY.length);
-  for (let i = 0; i < longest; i++) diff |= (given.charCodeAt(i) || 0) ^ (OWNER_KEY.charCodeAt(i) || 0);
-  if (OWNER_KEY.length === 0 || diff !== 0) {
-    throw new Error("Alleen voor de eigenaar: deze opdracht vraagt de eigenaarssleutel (FIGMA_OWNER_KEY).");
+  if (given.length < 16) {
+    throw new Error("Alleen voor de eigenaar: deze opdracht vraagt de eigenaarssleutel (FIGMA_OWNER_KEY of ~/.figma-extract-all/owner-key).");
   }
+  const stored = await figma.clientStorage.getAsync(OWNER_KEY_STORAGE);
+  if (typeof stored !== "string" || stored.length < 16) {
+    await figma.clientStorage.setAsync(OWNER_KEY_STORAGE, given);
+    return;
+  }
+  if (!sameKey(stored, given)) throw new Error("Alleen voor de eigenaar: dit is niet de sleutel van deze installatie.");
 }
 
 /** "variant=primary, size=md" → { variant: "primary", size: "md" } (the order is kept) */
@@ -45,13 +55,13 @@ function variantName(props: { [k: string]: string }): string {
 }
 
 async function ownerStatus(p: any) {
-  requireOwner(p);
-  return { owner: true, featureVersion: FEATURE_VERSION, commands: OWNER_COMMAND_NAMES, file: figma.root.name };
+  await requireOwner(p);
+  return { owner: true, enrolled: true, featureVersion: FEATURE_VERSION, commands: OWNER_COMMAND_NAMES, file: figma.root.name };
 }
 
 /** Move a layer to another parent (optionally at a position), which `update` cannot do */
 async function ownerMoveNode(p: any) {
-  requireOwner(p);
+  await requireOwner(p);
   const node = await figma.getNodeByIdAsync(String(p.id));
   if (!node || node.type === "DOCUMENT" || node.type === "PAGE") throw new Error(`Geen laag met id ${p.id}`);
   const target = await figma.getNodeByIdAsync(String(p.parentId));
@@ -71,7 +81,7 @@ async function ownerMoveNode(p: any) {
  * properties of the copy can be changed in the same call.
  */
 async function ownerAddVariant(p: any) {
-  requireOwner(p);
+  await requireOwner(p);
   const set = await figma.getNodeByIdAsync(String(p.setId));
   if (!set || set.type !== "COMPONENT_SET") throw new Error(`${p.setId} is geen component set`);
   const change: { [k: string]: string } = {};
@@ -109,7 +119,7 @@ async function ownerAddVariant(p: any) {
 
 /** Switch instances to another variant (or change their other component properties) */
 async function ownerSetVariant(p: any) {
-  requireOwner(p);
+  await requireOwner(p);
   const props: { [k: string]: string } = {};
   Object.keys(p.props || {}).forEach((k) => { props[k] = String(p.props[k]); });
   if (!Object.keys(props).length) throw new Error('Geef props mee, bv. { "variant": "secondary" }.');

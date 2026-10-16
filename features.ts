@@ -1681,8 +1681,8 @@ async function bridgeCommand(cmd: string, p: any): Promise<any> {
 }
 
 /**
- * Extra bridge commands. Empty in the public build (code.js). The owner build (code.owner.js, `npm run build:owner`)
- * compiles owner.ts as well, which fills this in; those commands also demand the owner key on every call.
+ * Extra bridge commands, registered by owner.ts (move_node, add_variant, set_variant, owner_status).
+ * Those demand the owner key on every call.
  */
 const EXTRA_COMMANDS: { [cmd: string]: (p: any) => Promise<any> } = {};
 

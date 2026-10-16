@@ -1,23 +1,22 @@
-// owner.test.mjs — the owner build of the plugin, and the proof that the public build has none of it.
+// owner.test.mjs — the owner commands (move_node, add_variant, set_variant, owner_status) and their key.
 //
 //   node test/owner.test.mjs
 //
-// It builds the owner variant with a throw-away key into test/.tmp (never over a real code.owner.js), then runs it
-// against the same Figma mock as plugin.test.mjs.
+// The plugin is one build: the real compiled code.js runs against the same Figma mock as plugin.test.mjs.
 
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import vm from 'node:vm';
-import { createFigma } from './figma-mock.mjs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMcpServer } from '../src/mcp.mjs';
-import { OWNER_COMMANDS, readOwnerKey, withOwnerKey } from '../src/owner.mjs';
+import { OWNER_COMMANDS, ensureOwnerKey, readOwnerKey, withOwnerKey } from '../src/owner.mjs';
+import { createFigma } from './figma-mock.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
+const CODE = readFileSync(join(ROOT, 'code.js'), 'utf8');
 const KEY = 'test-owner-key-0123456789';
 
 let passed = 0, failed = 0;
@@ -31,40 +30,30 @@ console.log('\n1. De sleutel in de bridge');
 ok(readOwnerKey({}, null) === null, 'zonder FIGMA_OWNER_KEY en zonder bestand is er geen sleutel');
 ok(readOwnerKey({ FIGMA_OWNER_KEY: 'te-kort' }, null) === null, 'een te korte sleutel telt niet');
 ok(readOwnerKey({ FIGMA_OWNER_KEY: `  ${KEY}  ` }, null) === KEY, 'een geldige sleutel wordt gelezen (spaties eraf)');
-mkdirSync(join(HERE, '.tmp'), { recursive: true });
-const keyFile = join(HERE, '.tmp', 'owner-key');
+const tmp = join(HERE, '.tmp');
+mkdirSync(tmp, { recursive: true });
+const keyFile = join(tmp, `owner-key-${process.pid}`);
 writeFileSync(keyFile, `${KEY}\n`);
 ok(readOwnerKey({}, keyFile) === KEY, 'zonder omgevingsvariabele wordt het sleutelbestand gelezen');
 ok(readOwnerKey({ FIGMA_OWNER_KEY: 'een-andere-sleutel-1234' }, keyFile) === 'een-andere-sleutel-1234', 'de omgevingsvariabele wint van het bestand');
-ok(readOwnerKey({}, join(HERE, '.tmp', 'bestaat-niet')) === null, 'een ontbrekend bestand geeft geen sleutel');
+ok(readOwnerKey({}, join(tmp, 'bestaat-niet')) === null, 'een ontbrekend bestand geeft geen sleutel');
+const fresh = join(tmp, `nieuwe-sleutel-${process.pid}`, 'owner-key');
+const made = ensureOwnerKey({}, fresh);
+ok(typeof made === 'string' && made.length >= 32 && existsSync(fresh), 'ensureOwnerKey maakt een sleutel en bewaart hem in het bestand');
+ok(ensureOwnerKey({}, fresh) === made, 'de tweede keer is het dezelfde sleutel');
+ok(ensureOwnerKey({}, join(tmp, 'geen'), { create: false }) === null, 'create: false maakt niets aan');
 ok(withOwnerKey('add_variant', { setId: '1' }, KEY).ownerKey === KEY, 'een eigenaarscommando krijgt de sleutel mee');
 ok(!('ownerKey' in withOwnerKey('update', { id: '1' }, KEY)), 'een gewoon commando krijgt de sleutel NIET mee');
 ok(!('ownerKey' in withOwnerKey('add_variant', { setId: '1' }, null)), 'zonder sleutel gaat er niets mee');
 ok(['owner_status', 'move_node', 'add_variant', 'set_variant'].every((c) => OWNER_COMMANDS.has(c)), 'de eigenaarscommando\'s staan in de lijst');
 
-// ───────────────────────── 2. the public build has nothing of it
-console.log('\n2. De publieke build (code.js)');
-const PUBLIC = readFileSync(join(ROOT, 'code.js'), 'utf8');
-ok(!/add_variant|set_variant|owner_status|OWNER_KEY/.test(PUBLIC), 'code.js bevat geen eigenaarscommando en geen sleutel');
-
-// ───────────────────────── 3. build the owner variant
-console.log('\n3. De eigenaarsbuild');
-mkdirSync(join(HERE, '.tmp'), { recursive: true });
-const OUT = join(HERE, '.tmp', 'code.owner.test.js');
-const noKey = spawnSync(process.execPath, [join(ROOT, 'build-owner.mjs'), '--out', OUT], { env: { ...process.env, FIGMA_OWNER_KEY: '' }, encoding: 'utf8' });
-ok(noKey.status !== 0 && /FIGMA_OWNER_KEY/.test(noKey.stderr), 'zonder sleutel weigert build-owner.mjs te bouwen');
-const built = spawnSync(process.execPath, [join(ROOT, 'build-owner.mjs'), '--out', OUT], { env: { ...process.env, FIGMA_OWNER_KEY: KEY }, encoding: 'utf8', shell: false });
-ok(built.status === 0, 'met sleutel bouwt hij', built.stderr || built.stdout);
-const OWNER = readFileSync(OUT, 'utf8');
-ok(/add_variant/.test(OWNER) && /move_node/.test(OWNER), 'de eigenaarsbuild kent de eigenaarscommando\'s');
-
-function boot(code) {
+function boot() {
   const m = createFigma();
   const ctx = vm.createContext({
     figma: m.figma, __html__: '<html></html>', console,
     setTimeout, clearTimeout, setInterval, clearInterval, Uint8Array, Uint32Array, DataView, Promise,
   });
-  vm.runInContext(code, ctx, { filename: 'code.js' });
+  vm.runInContext(CODE, ctx, { filename: 'code.js' });
   let reqId = 0;
   const cmd = async (name, params = {}) => {
     const id = `t${++reqId}`;
@@ -76,27 +65,29 @@ function boot(code) {
   return { m, cmd };
 }
 
-// ───────────────────────── 4. the public build refuses them
-console.log('\n4. De publieke build weigert eigenaarscommando\'s');
+// ───────────────────────── 2. the plugin asks for the key
+console.log('\n2. De plugin vraagt de sleutel');
 {
-  const { cmd } = boot(PUBLIC);
-  const r = await cmd('add_variant', { setId: '1', set: { variant: 'x' }, ownerKey: KEY });
-  ok(!r.ok && /Onbekend commando/.test(r.error), 'add_variant is onbekend, ook met de sleutel', JSON.stringify(r));
+  const { m, cmd } = boot();
+  const none = await cmd('owner_status', {});
+  ok(!none.ok && /eigenaar/.test(none.error), 'zonder sleutel: geweigerd', JSON.stringify(none));
+  const short = await cmd('owner_status', { ownerKey: 'kort' });
+  ok(!short.ok, 'met een te korte sleutel: geweigerd');
+  ok(!(await m.figma.clientStorage.getAsync('extract-all.owner-key')), 'een geweigerde aanroep bewaart niets');
+  const first = await cmd('owner_status', { ownerKey: KEY });
+  ok(first.ok && first.result.owner === true && first.result.commands.includes('add_variant'), 'de eerste geldige sleutel wordt de sleutel van deze installatie', JSON.stringify(first));
+  ok((await m.figma.clientStorage.getAsync('extract-all.owner-key')) === KEY, 'hij wordt bewaard in clientStorage');
+  const again = await cmd('owner_status', { ownerKey: KEY });
+  ok(again.ok, 'dezelfde sleutel werkt daarna altijd');
+  const other = await cmd('owner_status', { ownerKey: `${KEY}x` });
+  ok(!other.ok && /niet de sleutel/.test(other.error), 'een andere sleutel wordt daarna geweigerd', JSON.stringify(other));
+  const prefix = await cmd('owner_status', { ownerKey: KEY.slice(0, -1) });
+  ok(!prefix.ok, 'een afgekapte sleutel wordt geweigerd');
 }
 
-// ───────────────────────── 5. the owner build, with and without the key
-console.log('\n5. De eigenaarsbuild vraagt de sleutel');
-const { m, cmd } = boot(OWNER);
-{
-  const r = await cmd('owner_status', {});
-  ok(!r.ok && /eigenaar/.test(r.error), 'zonder sleutel: geweigerd', JSON.stringify(r));
-  const wrong = await cmd('owner_status', { ownerKey: KEY + 'x' });
-  ok(!wrong.ok, 'met een verkeerde sleutel: geweigerd');
-  const shorter = await cmd('owner_status', { ownerKey: KEY.slice(0, -1) });
-  ok(!shorter.ok, 'met een te korte sleutel: geweigerd');
-  const good = await cmd('owner_status', { ownerKey: KEY });
-  ok(good.ok && good.result.owner === true && good.result.commands.includes('add_variant'), 'met de sleutel: owner_status werkt', JSON.stringify(good));
-}
+// ───────────────────────── 3. the commands
+const { m, cmd } = boot();
+await cmd('owner_status', { ownerKey: KEY });
 
 // A small design system: a Button set with variant and size, the way the Figma file has it
 async function makeButtonSet() {
@@ -117,7 +108,7 @@ async function makeButtonSet() {
   return { set, made };
 }
 
-console.log('\n6. add_variant: een variant toevoegen aan een bestaande set');
+console.log('\n3. add_variant: een variant toevoegen aan een bestaande set');
 {
   const { set, made } = await makeButtonSet();
   const add = await cmd('add_variant', { ownerKey: KEY, setId: set.id, from: { variant: 'secondary', size: 'md' }, set: { variant: 'ghost' }, texts: { Label: 'Ghost' } });
@@ -142,9 +133,9 @@ console.log('\n6. add_variant: een variant toevoegen aan een bestaande set');
   ok(!noKey.ok && set.children.length === 4, 'zonder sleutel verandert er niets');
 }
 
-console.log('\n7. set_variant: een instance op een andere variant zetten');
+console.log('\n4. set_variant: een instance op een andere variant zetten');
 {
-  const { set, made } = await makeButtonSet();
+  const { made } = await makeButtonSet();
   const inst = made[0].createInstance();
   m.page.appendChild(inst);
   const text = m.figma.createText();
@@ -157,10 +148,9 @@ console.log('\n7. set_variant: een instance op een andere variant zetten');
   ok(bad.ok && bad.result.skipped.length === 1 && bad.result.updated.length === 0, 'een ongeldige waarde komt in skipped, zonder crash');
   const none = await cmd('set_variant', { ownerKey: KEY, ids: [inst.id], props: {} });
   ok(!none.ok && /Geef props mee/.test(none.error), 'zonder props wordt het geweigerd');
-  void set;
 }
 
-console.log('\n8. move_node: een laag naar een andere ouder');
+console.log('\n5. move_node: een laag naar een andere ouder');
 {
   const a = m.figma.createFrame(); a.name = 'A'; m.page.appendChild(a);
   const b = m.figma.createFrame(); b.name = 'B'; m.page.appendChild(b);
@@ -179,7 +169,8 @@ console.log('\n8. move_node: een laag naar een andere ouder');
   ok(!noKey.ok && c1.parent === b, 'zonder sleutel blijft alles staan');
 }
 
-console.log('\n9. De MCP-tools: alleen met sleutel, en de sleutel gaat enkel mee met eigenaarscommando\'s');
+// ───────────────────────── 6. the MCP tools
+console.log('\n6. De MCP-tools: enkel met sleutel, en de sleutel gaat enkel mee met eigenaarscommando\'s');
 async function mcpWith(ownerKey) {
   const sent = [];
   const hub = { send: async (name, params) => { sent.push({ name, params }); return { ok: true }; }, status: async () => ({ plugin: true }) };

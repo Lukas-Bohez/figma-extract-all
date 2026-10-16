@@ -7,15 +7,15 @@ versions follow the `featureVersion` shown in the plugin's Claude tab and in `fi
 
 ### Added
 
-- **Owner build (not in the public plugin).** `npm run build:owner` compiles `owner.ts` into a separate `code.owner.js`
-  (with `manifest.owner.json`) that adds four commands which need a secret key: `move_node` (reparent a layer),
-  `add_variant` (add a variant to an existing component set by copying one), `set_variant` (switch instances to
-  another variant) and `owner_status`. The public `code.js` does not contain them (`verify.js` checks that), the
-  bridge sends the key only with these commands, and the MCP tools `figma_move_node`, `figma_add_variant`,
-  `figma_set_variant` and `figma_owner_status` only exist where a key exists (`FIGMA_OWNER_KEY` or
-  `~/.figma-extract-all/owner-key`). Publishing to Figma is not possible from a plugin; the README says what to click.
+- **Owner commands** `move_node` (reparent a layer), `add_variant` (add a variant to an existing component set by copying
+  one), `set_variant` (switch instances to another variant) and `owner_status`. They are part of the one build (`code.js`):
+  nothing extra to install. Every call needs the owner key, which the bridge adds (`FIGMA_OWNER_KEY` or the file
+  `~/.figma-extract-all/owner-key`, made by the bridge on its first run); the plugin keeps the first key it sees in
+  `figma.clientStorage` and accepts only that one afterwards. The MCP tools `figma_move_node`, `figma_add_variant`,
+  `figma_set_variant` and `figma_owner_status` exist where a key exists. Publishing to Figma is not possible from a
+  plugin; the README says what to click.
 - `figma-call` knows the owner commands and adds the key to them.
-- The test mock has `clone`, `insertChild` and `setProperties`; 47 new tests (`bridge/test/owner.test.mjs`, run by `npm test`).
+- The test mock has `clone`, `insertChild` and `setProperties`; 49 new tests (`bridge/test/owner.test.mjs`, run by `npm test`).
 
 ## [19.2.0] - 2026-10-15
 
