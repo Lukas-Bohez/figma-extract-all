@@ -1835,7 +1835,7 @@ async function createNode(p) {
     else if (kind === "TEXT") {
         const t = figma.createText();
         t.fontName = await resolveFont(p.fontFamily || "Inter", p.fontWeight || 400, false);
-        t.characters = String(p.text || "Text");
+        t.characters = p.text === undefined || p.text === null ? "Text" : String(p.text);
         n = t;
     }
     else if (kind === "SVG")

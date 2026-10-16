@@ -735,7 +735,8 @@ async function createNode(p: any): Promise<SceneNode> {
   else if (kind === "TEXT") {
     const t = figma.createText();
     t.fontName = await resolveFont(p.fontFamily || "Inter", p.fontWeight || 400, false);
-    t.characters = String(p.text || "Text");
+    // Only a missing text becomes "Text": an empty string stays empty (an empty table cell is not a label that says "Text")
+    t.characters = p.text === undefined || p.text === null ? "Text" : String(p.text);
     n = t;
   } else if (kind === "SVG") n = figma.createNodeFromSvg(String(p.svg || ""));
   else if (kind === "VECTOR") {

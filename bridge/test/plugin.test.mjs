@@ -207,6 +207,10 @@ console.log('\n6. Bridge-commando\'s (wat Claude kan doen)');
   const btnId = r.result && r.result.id;
   r = await cmd('create', { kind: 'TEXT', parentId: btnId, text: 'Deploy', fontSize: 14, fontWeight: 500, fill: '#ffffff', sizing: { h: 'HUG', v: 'HUG' } });
   ok(r.ok, 'create TEXT in de knop (font eerst geladen)', r.error);
+  r = await cmd('create', { kind: 'TEXT', parentId: btnId, text: '' });
+  ok(r.ok && m.registry.get(r.result.id).characters === '', 'create TEXT met een lege tekst blijft leeg', r.error);
+  r = await cmd('create', { kind: 'TEXT', parentId: btnId });
+  ok(r.ok && m.registry.get(r.result.id).characters === 'Text', 'create TEXT zonder tekst krijgt "Text"', r.error);
   const btn = m.registry.get(btnId);
   ok(btn && btn.paddingLeft === 16 && btn.paddingTop === 8, 'padding [8,16] -> t/b 8, l/r 16');
 
