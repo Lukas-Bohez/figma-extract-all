@@ -9,6 +9,7 @@ import { NotConnectedError, AmbiguousTargetError } from './hub.mjs';
 import { saveExport } from './export.mjs';
 import { captureUrl } from './capture/cdp.mjs';
 import { auditContrast } from './capture/contrast.mjs';
+import { readOwnerKey, withOwnerKey } from './owner.mjs';
 
 const text = (obj) => ({ content: [{ type: 'text', text: typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2) }] });
 const fail = (e) => ({
@@ -53,10 +54,11 @@ const props = {
   shadow: z.object({ x: z.number().optional(), y: z.number().optional(), blur: z.number().optional(), spread: z.number().optional(), color: z.string().optional() }).nullable().optional(),
 };
 
-export function createMcpServer(hub, { log = () => {} } = {}) {
+export function createMcpServer(hub, { log = () => {}, ownerKey = readOwnerKey() } = {}) {
   const server = new McpServer({ name: 'figma-extract-all', version: '1.0.0' });
 
-  const cmd = (name, params, timeoutMs) => hub.send(name, params, timeoutMs);
+  // The owner key rides along with the owner commands only
+  const cmd = (name, params, timeoutMs) => hub.send(name, withOwnerKey(name, params, ownerKey), timeoutMs);
   const tool = (name, description, inputSchema, annotations, handler) =>
     server.registerTool(name, { description, inputSchema, annotations }, async (args) => {
       try { return await handler(args || {}); } catch (e) { log(`${name}: ${e.message}`); return fail(e); }
@@ -284,6 +286,33 @@ export function createMcpServer(hub, { log = () => {} } = {}) {
       map: z.record(z.string(), z.string()), radiusMap: z.record(z.string(), z.string()).optional(), dryRun: z.boolean().optional(),
     }, WRITE,
     async (a) => text(await cmd('bind_raw_spacing', a, 120000)));
+
+  // ── owner only: offered when FIGMA_OWNER_KEY is set, and executed only by the owner build of the plugin ──
+  if (ownerKey) {
+    tool('figma_owner_status', 'Eigenaarsversie: is de plugin de eigenaarsbuild en klopt de sleutel? Geeft de lijst met eigenaarscommandos terug.', {}, READ,
+      async () => text(await cmd('owner_status')));
+
+    tool('figma_move_node',
+      'Eigenaarsversie: verplaats een laag naar een andere ouder (en eventueel een plek in de volgorde). Dat kan figma_update niet.',
+      { id: z.string(), parentId: z.string(), index: z.number().int().min(0).optional().describe('Plek in de nieuwe ouder. Leeg = achteraan.') }, WRITE,
+      async (a) => text(await cmd('move_node', a)));
+
+    tool('figma_add_variant',
+      'Eigenaarsversie: voeg een variant toe aan een bestaande component set door er één te kopiëren. set geeft de nieuwe waarde van een bestaande eigenschap ({"variant": "ghost"}), from kiest de variant om te kopiëren (leeg = de eerste). texts en props passen de kopie meteen aan.',
+      {
+        setId: z.string().describe('Id van de component set.'),
+        set: z.record(z.string(), z.string()).describe('{"variant": "ghost"}: de nieuwe waarde van een eigenschap die de set al heeft.'),
+        from: z.record(z.string(), z.string()).optional().describe('{"variant": "secondary", "size": "md"}: welke variant wordt gekopieerd.'),
+        texts: z.record(z.string(), z.string()).optional().describe('{"Label": "Label"}: tekst van de eerste laag met die naam in de kopie.'),
+        props: z.object(props).optional(),
+      }, WRITE,
+      async (a) => text(await cmd('add_variant', a)));
+
+    tool('figma_set_variant',
+      'Eigenaarsversie: zet instances op een andere variant (of verander hun andere component-eigenschappen), bv. {"variant": "secondary"}.',
+      { ids, props: z.record(z.string(), z.string()).describe('Eigenschap en nieuwe waarde.') }, WRITE,
+      async (a) => text(await cmd('set_variant', a)));
+  }
 
   tool('figma_cancel', 'Vraag een lopende zware opdracht in Figma (bv. tekststijlen toepassen) om te stoppen met wat al klaar is. Handig na een time-out: de opdracht loopt in Figma door.', {}, WRITE,
     async () => text(await cmd('cancel')));

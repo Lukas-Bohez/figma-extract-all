@@ -3,6 +3,20 @@
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
 
+## [Unreleased]
+
+### Added
+
+- **Owner build (not in the public plugin).** `npm run build:owner` compiles `owner.ts` into a separate `code.owner.js`
+  (with `manifest.owner.json`) that adds four commands which need a secret key: `move_node` (reparent a layer),
+  `add_variant` (add a variant to an existing component set by copying one), `set_variant` (switch instances to
+  another variant) and `owner_status`. The public `code.js` does not contain them (`verify.js` checks that), the
+  bridge sends the key only with these commands, and the MCP tools `figma_move_node`, `figma_add_variant`,
+  `figma_set_variant` and `figma_owner_status` only exist where a key exists (`FIGMA_OWNER_KEY` or
+  `~/.figma-extract-all/owner-key`). Publishing to Figma is not possible from a plugin; the README says what to click.
+- `figma-call` knows the owner commands and adds the key to them.
+- The test mock has `clone`, `insertChild` and `setProperties`; 47 new tests (`bridge/test/owner.test.mjs`, run by `npm test`).
+
 ## [19.2.0] - 2026-10-15
 
 > **For Figma Community users:** the Lottie Import, AI Export, After Effects Export, Assets, Rubric and Build tabs work

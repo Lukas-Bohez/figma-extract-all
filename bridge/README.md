@@ -105,6 +105,15 @@ Claude things like:
 | `figma_set_page` | go to a page by name (optionally create it) |
 | `figma_set_code_syntax`, `figma_delete_variables` | Dev Mode code syntax per variable; delete variables or whole collections |
 
+## Owner tools (only with an owner key)
+
+With the owner build of the plugin (`npm run build:owner`, see the main README) and a key on this computer
+(`FIGMA_OWNER_KEY` or `~/.figma-extract-all/owner-key`), four more tools appear: `figma_owner_status`,
+`figma_move_node` (reparent a layer), `figma_add_variant` (add a variant to a component set by copying one) and
+`figma_set_variant` (switch instances to another variant). Without a key they are not offered, and the bridge never
+sends the key along with any other command. From the command line:
+`node bin/figma-call.mjs add_variant '{"setId":"1:2","set":{"variant":"ghost"}}'`.
+
 ## Several Figma files at once
 
 Every Figma window with the plugin open and connected is listed by `figma_status` / `figma_use_file`. A command goes to:

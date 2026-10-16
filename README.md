@@ -161,6 +161,8 @@ figma-extract-all/
 ├── ui.html                ← Plugin UI (self-contained HTML/CSS/JS)
 ├── package.json           ← NPM config & scripts
 ├── tsconfig.json          ← TypeScript compiler config
+├── owner.ts               ← owner-only commands (only in the owner build, see below)
+├── build-owner.mjs        ← builds code.owner.js with the owner key
 ├── README.md              ← This file — the AI navigation map
 ├── LICENSE                ← MIT license
 ├── .gitignore             ← Git ignore rules
@@ -175,6 +177,40 @@ npm run build      # Compile code.ts + features.ts → code.js
 npm test           # build, verify.js, and the plugin + bridge test suites
 npm run watch      # Watch mode for development
 ```
+
+### Owner build (only for the owner, never in the public plugin)
+
+Besides the public plugin (`code.js`, what the Community version and the releases ship) there is an **owner build**
+(`code.owner.js`) with commands that rewrite a design file in ways the public plugin cannot:
+
+| Command | What it does |
+|---|---|
+| `move_node` | Move a layer to another parent, at a chosen position (`update` cannot reparent) |
+| `add_variant` | Add a variant to an existing component set by copying one, with the new value of one of its properties, new texts and layer properties in the same call |
+| `set_variant` | Put instances on another variant (or change their other component properties) |
+| `owner_status` | Is this the owner build, and does the key match? |
+
+How it stays out of other people's hands:
+
+- **Not in the public build.** `owner.ts` is not part of `tsconfig.json`, so `npm run build` leaves it out, and
+  `verify.js` fails the build if one of its command names shows up in `code.js`.
+- **Needs a key.** `npm run build:owner` makes a random key (kept in `~/.figma-extract-all/owner-key`, or take your own
+  from `FIGMA_OWNER_KEY`), compiles it into `code.owner.js` and removes the generated source again. The bridge sends the
+  key only along with the four commands above, and offers the matching MCP tools (`figma_move_node`,
+  `figma_add_variant`, `figma_set_variant`, `figma_owner_status`) only where a key exists. A copy of `code.owner.js` on
+  another computer refuses every call without the key.
+- **Not in git.** `owner.key.ts`, `code.owner.js` and the key file are ignored.
+
+```bash
+npm run build:owner      # once, and again after a change to the plugin
+```
+
+Then in Figma desktop: *Plugins → Development → Import plugin from manifest → `manifest.owner.json`* and open
+**Extract All (owner)** instead of the public plugin (not both in the same file). Check with `owner_status`.
+
+**What no plugin can do:** publish. Figma has no API for publishing a library, a component or a plugin. A library is
+published in Figma itself (*Assets → Library → Publish*), a plugin under *Plugins → Manage plugins → Publish*. The
+owner commands change the file; publishing it stays a click in Figma.
 
 ---
 

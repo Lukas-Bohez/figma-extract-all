@@ -76,6 +76,22 @@ export function createFigma({ fonts } = {}) {
       if (typeof variable === 'string') throw new Error('setBoundVariable(field, variableId) is not allowed with documentAccess: dynamic-page');
       this.boundVariables[field] = { type: 'VARIABLE_ALIAS', id: variable.id };
     }
+    /** A copy that lands right after the original, in the same parent (as in Figma) */
+    clone() {
+      const copy = (n) => {
+        const c = n.type === 'TEXT' ? new Text() : n.children ? new Frame(n.type) : new Node(n.type);
+        for (const k of ['name', 'x', 'y', 'width', 'height', 'fills', 'strokes', 'effects', 'opacity', 'cornerRadius', 'layoutMode',
+                         'itemSpacing', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'primaryAxisAlignItems',
+                         'counterAxisAlignItems', 'fontSize']) if (k in n && n[k] !== undefined) c[k] = n[k];
+        if (n.type === 'TEXT') { c._font = n._font; c._chars = n._chars; }
+        (n.children || []).forEach((ch) => c.appendChild(copy(ch)));
+        return c;
+      };
+      const c = copy(this);
+      const parent = this.parent;
+      if (parent) parent.insertChild(parent.children.indexOf(this) + 1, c);
+      return c;
+    }
     async exportAsync(settings) {
       if (!settings) throw new Error('exportAsync needs settings');
       log.exports++;
@@ -103,6 +119,10 @@ export function createFigma({ fonts } = {}) {
       if (c.parent) c.parent.children = c.parent.children.filter((x) => x !== c);
       this.children.push(c); c.parent = this;
     }
+    insertChild(index, c) {
+      if (c.parent) c.parent.children = c.parent.children.filter((x) => x !== c);
+      this.children.splice(index, 0, c); c.parent = this;
+    }
     findAll(pred = () => true) {
       const out = [];
       const walk = (n) => { for (const c of n.children || []) { if (pred(c)) out.push(c); walk(c); } };
@@ -126,6 +146,15 @@ export function createFigma({ fonts } = {}) {
     get cornerRadius() { return this._radius ?? 0; }
     set cornerRadius(v) { this._radius = v; this.topLeftRadius = this.topRightRadius = this.bottomLeftRadius = this.bottomRightRadius = v; }
     async getMainComponentAsync() { return this.mainComponent || null; }
+    setProperties(props) {
+      if (this.type !== 'INSTANCE') throw new Error('setProperties only on instances');
+      const defs = this.mainComponent && this.mainComponent.parent && this.mainComponent.parent.componentPropertyDefinitions;
+      for (const k of Object.keys(props)) {
+        if (defs && !defs[k]) throw new Error(`Could not find a component property with name: ${k}`);
+        if (defs && defs[k].variantOptions && !defs[k].variantOptions.includes(props[k])) throw new Error(`Invalid value "${props[k]}" for property ${k}`);
+      }
+      this.componentProperties = Object.assign({}, this.componentProperties, Object.fromEntries(Object.entries(props).map(([k, v]) => [k, { value: v }])));
+    }
     get variantProperties() {
       if (this.type !== 'COMPONENT' || !this.parent || this.parent.type !== 'COMPONENT_SET') return null;
       const out = {};

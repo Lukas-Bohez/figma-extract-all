@@ -5,3 +5,8 @@ Thumbs.db
 *.zip
 *.fig
 dist/
+
+# The owner build: the key and what it was compiled with never go into git
+owner.key.ts
+code.owner.js
+bridge/test/.tmp/

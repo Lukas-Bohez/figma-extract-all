@@ -2883,6 +2883,7 @@ async function bridgeCommand(cmd, p) {
         runningCommands.delete(cmd);
     }
 }
+const EXTRA_COMMANDS = {};
 async function runBridgeCommand(cmd, p) {
     var _a, _b;
     switch (cmd) {
@@ -2991,6 +2992,8 @@ async function runBridgeCommand(cmd, p) {
             figma.notify(String(p.message || "").slice(0, 200));
             return { ok: true };
         default:
+            if (EXTRA_COMMANDS[cmd])
+                return EXTRA_COMMANDS[cmd](p);
             throw new Error(`Onbekend commando "${cmd}"`);
     }
 }
