@@ -3,11 +3,16 @@
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
 
-## [19.3.0] - 2026-10-17
+## [19.3.1] - 2026-10-17
 
-> **For Figma Community users:** nothing changes for you in this version. Everything below needs the developer bridge,
-> which only exists when you run the plugin from its manifest (Plugins → Development → Import plugin from manifest); the
-> published Community plugin has no network access by design.
+### Changed
+
+- **The published plugin can reach the bridge.** `manifest.json` now lists `http://localhost:3055` and `ws://localhost:3055` in
+  `allowedDomains` (they were only in `devAllowedDomains`), so everybody who runs the bridge on their own computer can use
+  the Claude tab and all commands with the plugin from the Figma Community, not only with a plugin imported from the
+  manifest. Nothing else is reachable: no external servers.
+
+## [19.3.0] - 2026-10-17
 
 ### Added
 

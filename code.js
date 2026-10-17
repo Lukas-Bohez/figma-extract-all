@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "19.3.0";
+const PLUGIN_VERSION = "19.3.1";
 const TE = {
     encode: (s) => {
         const r = new Uint8Array(s.length);
@@ -1065,7 +1065,7 @@ figma.ui.onmessage = async (msg) => {
         return;
     }
 };
-const FEATURE_VERSION = "19.3.0";
+const FEATURE_VERSION = "19.3.1";
 function isFeatureMessage(msg) {
     return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
 }
