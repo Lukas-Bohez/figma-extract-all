@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch",
     "release": "npm run build && node verify.js && git add -A && git commit -m 'Release v19.2.0' && git tag v19.2.0 && git push origin master --tags",
-    "test": "npm run build && node verify.js && cd bridge && node test/plugin.test.mjs && node test/bridge.test.mjs"
+    "test": "npm run build && node verify.js && cd bridge && node test/plugin.test.mjs && node test/bridge.test.mjs && node test/owner.test.mjs"
   },
   "keywords": [
     "auto-layout",

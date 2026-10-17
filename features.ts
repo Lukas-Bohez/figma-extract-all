@@ -1680,6 +1680,12 @@ async function bridgeCommand(cmd: string, p: any): Promise<any> {
   }
 }
 
+/**
+ * Extra bridge commands, registered by owner.ts (move_node, add_variant, set_variant, owner_status).
+ * Those demand the owner key on every call.
+ */
+const EXTRA_COMMANDS: { [cmd: string]: (p: any) => Promise<any> } = {};
+
 async function runBridgeCommand(cmd: string, p: any): Promise<any> {
   switch (cmd) {
     case "status":
@@ -1776,6 +1782,8 @@ async function runBridgeCommand(cmd: string, p: any): Promise<any> {
     }
     case "notify": figma.notify(String(p.message || "").slice(0, 200)); return { ok: true };
     default:
+      // Commands that only exist in the owner build (owner.ts registers them); the public build has none
+      if (EXTRA_COMMANDS[cmd]) return EXTRA_COMMANDS[cmd](p);
       throw new Error(`Onbekend commando "${cmd}"`);
   }
 }

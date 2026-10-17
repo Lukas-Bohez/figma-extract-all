@@ -7,6 +7,7 @@
 //   node bin/figma-call.mjs rubric_check
 
 import { connectRemote, DEFAULT_PORT } from '../src/hub.mjs';
+import { OWNER_COMMANDS, ensureOwnerKey, withOwnerKey } from '../src/owner.mjs';
 
 const [cmd, json] = process.argv.slice(2);
 if (!cmd) {
@@ -14,12 +15,13 @@ if (!cmd) {
 Commando's: status, get_document, get_selection, get_node, screenshot, get_variables,
 get_styles, rubric_check, create, update, delete, create_component, combine_as_variants,
 create_variables, bind_variable, apply_text_style, create_spacing_variables,
-create_text_styles, text_inventory, create_text_styles_bulk, apply_text_styles_auto, cancel, create_instance, get_components, set_variable_mode, bind_raw_spacing, layer_audit, rename_generic, dedupe_text_styles, list_color_variables, bind_raw_colors, snap_to_grid, import_layout, set_selection, notify`);
+create_text_styles, text_inventory, create_text_styles_bulk, apply_text_styles_auto, cancel, create_instance, get_components, set_variable_mode, bind_raw_spacing, layer_audit, rename_generic, dedupe_text_styles, list_color_variables, bind_raw_colors, snap_to_grid, import_layout, set_selection, notify
+Eigenaarscommando's (de sleutel maakt de bridge zelf aan): owner_status, move_node, add_variant, set_variant`);
   process.exit(1);
 }
 try {
   const hub = await connectRemote({ port: DEFAULT_PORT });
-  const result = await hub.send(cmd, json ? JSON.parse(json) : {});
+  const result = await hub.send(cmd, withOwnerKey(cmd, json ? JSON.parse(json) : {}, OWNER_COMMANDS.has(cmd) ? ensureOwnerKey() : null));
   console.log(JSON.stringify(result, null, 2));
 } catch (e) {
   console.error(e.message.includes('fetch failed') ? 'Geen bridge actief. Start er een met: node bin/figma-hub.mjs' : e.message);

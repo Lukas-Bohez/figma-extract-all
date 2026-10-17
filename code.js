@@ -2883,6 +2883,7 @@ async function bridgeCommand(cmd, p) {
         runningCommands.delete(cmd);
     }
 }
+const EXTRA_COMMANDS = {};
 async function runBridgeCommand(cmd, p) {
     var _a, _b;
     switch (cmd) {
@@ -2991,6 +2992,8 @@ async function runBridgeCommand(cmd, p) {
             figma.notify(String(p.message || "").slice(0, 200));
             return { ok: true };
         default:
+            if (EXTRA_COMMANDS[cmd])
+                return EXTRA_COMMANDS[cmd](p);
             throw new Error(`Onbekend commando "${cmd}"`);
     }
 }
@@ -3037,3 +3040,127 @@ figma.ui.on("message", async (msg) => {
         uiSend("x:error", { message: errMsg(e), during: msg.type });
     }
 });
+const OWNER_COMMAND_NAMES = ["owner_status", "move_node", "add_variant", "set_variant"];
+const OWNER_KEY_STORAGE = "extract-all.owner-key";
+function sameKey(a, b) {
+    let diff = a.length ^ b.length;
+    const longest = Math.max(a.length, b.length);
+    for (let i = 0; i < longest; i++)
+        diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+    return diff === 0;
+}
+async function requireOwner(p) {
+    const given = p && typeof p.ownerKey === "string" ? p.ownerKey : "";
+    if (given.length < 16) {
+        throw new Error("Alleen voor de eigenaar: deze opdracht vraagt de eigenaarssleutel (FIGMA_OWNER_KEY of ~/.figma-extract-all/owner-key).");
+    }
+    const stored = await figma.clientStorage.getAsync(OWNER_KEY_STORAGE);
+    if (typeof stored !== "string" || stored.length < 16) {
+        await figma.clientStorage.setAsync(OWNER_KEY_STORAGE, given);
+        return;
+    }
+    if (!sameKey(stored, given))
+        throw new Error("Alleen voor de eigenaar: dit is niet de sleutel van deze installatie.");
+}
+function parseVariantName(name) {
+    const out = {};
+    name.split(/,\s*/).forEach((pair) => {
+        const at = pair.indexOf("=");
+        if (at > 0)
+            out[pair.slice(0, at).trim()] = pair.slice(at + 1).trim();
+    });
+    return out;
+}
+function variantName(props) {
+    return Object.keys(props).map((k) => k + "=" + props[k]).join(", ");
+}
+async function ownerStatus(p) {
+    await requireOwner(p);
+    return { owner: true, enrolled: true, featureVersion: FEATURE_VERSION, commands: OWNER_COMMAND_NAMES, file: figma.root.name };
+}
+async function ownerMoveNode(p) {
+    await requireOwner(p);
+    const node = await figma.getNodeByIdAsync(String(p.id));
+    if (!node || node.type === "DOCUMENT" || node.type === "PAGE")
+        throw new Error(`Geen laag met id ${p.id}`);
+    const target = await figma.getNodeByIdAsync(String(p.parentId));
+    if (!target || !("appendChild" in target))
+        throw new Error(`Ouder ${p.parentId} kan geen kinderen hebben`);
+    for (let up = target; up; up = up.parent) {
+        if (up.id === node.id)
+            throw new Error("Een laag kan niet in zichzelf of in een van zijn kinderen.");
+    }
+    const parent = target;
+    if (p.index === undefined || p.index === null)
+        parent.appendChild(node);
+    else
+        parent.insertChild(Math.max(0, Math.floor(+p.index)), node);
+    return { id: node.id, parentId: parent.id, index: parent.children.indexOf(node) };
+}
+async function ownerAddVariant(p) {
+    await requireOwner(p);
+    const set = await figma.getNodeByIdAsync(String(p.setId));
+    if (!set || set.type !== "COMPONENT_SET")
+        throw new Error(`${p.setId} is geen component set`);
+    const change = {};
+    Object.keys(p.set || {}).forEach((k) => { change[k] = String(p.set[k]); });
+    if (!Object.keys(change).length)
+        throw new Error('Geef set mee: de nieuwe waarde van een eigenschap, bv. { "variant": "ghost" }.');
+    const want = p.from || {};
+    const source = set.children.find((c) => {
+        if (c.type !== "COMPONENT")
+            return false;
+        const have = parseVariantName(c.name);
+        return Object.keys(want).every((k) => have[k] === String(want[k]));
+    });
+    if (!source)
+        throw new Error(`Geen variant ${JSON.stringify(want)} in "${set.name}" om te kopiëren`);
+    const base = parseVariantName(source.name);
+    for (const k of Object.keys(change)) {
+        if (!(k in base))
+            throw new Error(`"${set.name}" heeft geen eigenschap "${k}" (wel: ${Object.keys(base).join(", ")}). Een nieuwe eigenschap maak je in Figma zelf.`);
+    }
+    const name = variantName(Object.assign({}, base, change));
+    if (set.children.some((c) => c.name === name))
+        throw new Error(`De variant ${name} bestaat al.`);
+    const copy = source.clone();
+    copy.name = name;
+    if (p.props)
+        await applyProps(copy, p.props);
+    const textsSet = [];
+    for (const layer of Object.keys(p.texts || {})) {
+        const t = copy.findOne((n) => n.type === "TEXT" && n.name === layer);
+        if (!t)
+            throw new Error(`Geen tekstlaag "${layer}" in ${name}`);
+        await loadAllFontsOf(t);
+        t.characters = String(p.texts[layer]);
+        textsSet.push(layer);
+    }
+    return { id: copy.id, name, setId: set.id, copiedFrom: source.id, textsSet };
+}
+async function ownerSetVariant(p) {
+    await requireOwner(p);
+    const props = {};
+    Object.keys(p.props || {}).forEach((k) => { props[k] = String(p.props[k]); });
+    if (!Object.keys(props).length)
+        throw new Error('Geef props mee, bv. { "variant": "secondary" }.');
+    const updated = [], skipped = [];
+    for (const n of await nodesFrom(p)) {
+        if (n.type !== "INSTANCE") {
+            skipped.push({ id: n.id, reason: `is een ${n.type}, geen instance` });
+            continue;
+        }
+        try {
+            n.setProperties(props);
+            updated.push(n.id);
+        }
+        catch (e) {
+            skipped.push({ id: n.id, reason: errMsg(e) });
+        }
+    }
+    return { updated, skipped };
+}
+EXTRA_COMMANDS["owner_status"] = ownerStatus;
+EXTRA_COMMANDS["move_node"] = ownerMoveNode;
+EXTRA_COMMANDS["add_variant"] = ownerAddVariant;
+EXTRA_COMMANDS["set_variant"] = ownerSetVariant;

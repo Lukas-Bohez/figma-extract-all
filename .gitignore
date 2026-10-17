@@ -5,3 +5,6 @@ Thumbs.db
 *.zip
 *.fig
 dist/
+
+# Throw-away files of the owner tests
+bridge/test/.tmp/
