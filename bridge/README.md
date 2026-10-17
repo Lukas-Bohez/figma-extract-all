@@ -95,7 +95,8 @@ Claude things like:
 | `figma_capture_webpage` | URL → Figma, `theme: "both"` gives light and dark side by side |
 | `web_contrast_audit` | WCAG AA for every text layer of a page (no Figma needed) |
 | `figma_select`, `figma_notify` | point the user at something |
-| `figma_get_components`, `figma_create_instance` | list the components, and place **instances** of a component or variant with text overrides (so a design really uses its components) |
+| `figma_get_components`, `figma_create_instance` | list the components, and place **instances** of a component or variant with text overrides (so a design really uses its components); `index` puts the instance at a place in its parent |
+| `figma_swap_component` | make instances show another component or variant, keeping place, size and text overrides |
 | `figma_set_variable_mode` | show layers in another mode of a variable collection, e.g. the Dark mode of the Semantic variables |
 | `figma_bind_raw_spacing` | bind raw padding, gaps and corner radii to FLOAT variables by value (8px grid), like `bind_raw_colors` does for colours |
 | `figma_cancel` | ask a heavy command that is still running in Figma (after a time-out) to stop with what is done |

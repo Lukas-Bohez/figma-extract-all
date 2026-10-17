@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "19.2.0";
+const PLUGIN_VERSION = "19.3.0";
 const TE = {
     encode: (s) => {
         const r = new Uint8Array(s.length);
@@ -1065,7 +1065,7 @@ figma.ui.onmessage = async (msg) => {
         return;
     }
 };
-const FEATURE_VERSION = "19.2.0";
+const FEATURE_VERSION = "19.3.0";
 function isFeatureMessage(msg) {
     return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
 }
@@ -1820,6 +1820,13 @@ async function applyProps(n, p) {
             }];
     }
 }
+function placeInParent(parent, node, index) {
+    if (typeof index === "number" && Number.isFinite(index)) {
+        parent.insertChild(Math.max(0, Math.min(Math.trunc(index), parent.children.length)), node);
+    }
+    else
+        parent.appendChild(node);
+}
 async function createNode(p) {
     const kind = String(p.kind || p.type || "FRAME").toUpperCase();
     let n;
@@ -1854,11 +1861,12 @@ async function createNode(p) {
             throw new Error(`Ouder ${p.parentId} kan geen kinderen hebben`);
         parent = pn;
     }
-    parent.appendChild(n);
+    placeInParent(parent, n, p.index);
     const props = Object.assign({}, p);
     delete props.text;
     delete props.fontFamily;
     delete props.fontWeight;
+    delete props.index;
     if (kind === "TEXT" && p.text === undefined)
         delete props.text;
     await applyProps(n, props);
@@ -2502,11 +2510,10 @@ async function bindRawColors(p) {
     }
     return { dryRun: !!p.dryRun, bound: done, remaining: more, skippedTransparent: transparentSkipped };
 }
-async function createInstance(p) {
+async function resolveComponent(p) {
     const src = await figma.getNodeByIdAsync(p.componentId || p.id);
     if (!src)
         throw new Error(`Component ${p.componentId || p.id} niet gevonden`);
-    let comp;
     if (src.type === "COMPONENT_SET") {
         const want = p.variant || {};
         const match = src.children.find((c) => {
@@ -2517,12 +2524,25 @@ async function createInstance(p) {
         });
         if (!match)
             throw new Error(`Geen variant ${JSON.stringify(want)} in "${src.name}"`);
-        comp = match;
+        return match;
     }
-    else if (src.type === "COMPONENT")
-        comp = src;
-    else
-        throw new Error(`${src.name} is geen component (${src.type})`);
+    if (src.type === "COMPONENT")
+        return src;
+    throw new Error(`${src.name} is geen component (${src.type})`);
+}
+async function swapComponentOf(p) {
+    const comp = await resolveComponent(p);
+    const swapped = [];
+    for (const n of await nodesFrom(p)) {
+        if (n.type !== "INSTANCE")
+            throw new Error(`${n.name} is geen instance (${n.type})`);
+        n.swapComponent(comp);
+        swapped.push({ id: n.id, name: n.name, component: comp.id });
+    }
+    return { swapped };
+}
+async function createInstance(p) {
+    const comp = await resolveComponent(p);
     const inst = comp.createInstance();
     let parent = figma.currentPage;
     if (p.parentId) {
@@ -2531,7 +2551,7 @@ async function createInstance(p) {
             throw new Error(`Ouder ${p.parentId} kan geen kinderen hebben`);
         parent = pn;
     }
-    parent.appendChild(inst);
+    placeInParent(parent, inst, p.index);
     if (p.props)
         await applyProps(inst, p.props);
     const set = [];
@@ -2744,7 +2764,9 @@ async function duplicateNodes(p) {
     for (const n of await nodesFrom(p)) {
         const c = n.clone();
         const props = Object.assign({}, p.props || {});
-        if (props.x === undefined && props.y === undefined && "width" in n)
+        const parent = n.parent;
+        const inFlow = !!parent && typeof parent.layoutMode === "string" && parent.layoutMode !== "NONE";
+        if (!inFlow && props.x === undefined && props.y === undefined && "width" in n)
             props.x = n.x + n.width + 24;
         await applyProps(c, props);
         out.push({ id: c.id, name: c.name, type: c.type });
@@ -2977,6 +2999,7 @@ async function runBridgeCommand(cmd, p) {
         case "bind_raw_colors": return bindRawColors(p);
         case "bind_raw_spacing": return bindRawSpacing(p);
         case "create_instance": return createInstance(p);
+        case "swap_component": return swapComponentOf(p);
         case "get_components": return listComponents();
         case "set_variable_mode": return setVariableMode(p);
         case "snap_to_grid": return snapToGrid(p);

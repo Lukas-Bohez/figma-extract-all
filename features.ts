@@ -15,7 +15,7 @@
 //  Compiled together with code.ts into code.js (see tsconfig.json).
 // ═══════════════════════════════════════════════════════════════════
 
-const FEATURE_VERSION = "19.2.0";
+const FEATURE_VERSION = "19.3.0";
 
 function isFeatureMessage(msg: any): boolean {
   return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
@@ -726,6 +726,13 @@ async function applyProps(n: SceneNode, p: any) {
   }
 }
 
+/** Puts a layer in a parent: at the end, or at `index` (0 = the first place) so a layer can take the place of another one */
+function placeInParent(parent: BaseNode & ChildrenMixin, node: SceneNode, index?: unknown) {
+  if (typeof index === "number" && Number.isFinite(index)) {
+    parent.insertChild(Math.max(0, Math.min(Math.trunc(index), parent.children.length)), node);
+  } else parent.appendChild(node);
+}
+
 async function createNode(p: any): Promise<SceneNode> {
   const kind = String(p.kind || p.type || "FRAME").toUpperCase();
   let n: SceneNode;
@@ -751,9 +758,9 @@ async function createNode(p: any): Promise<SceneNode> {
     if (!pn || !("appendChild" in pn)) throw new Error(`Ouder ${p.parentId} kan geen kinderen hebben`);
     parent = pn as BaseNode & ChildrenMixin;
   }
-  parent.appendChild(n);
+  placeInParent(parent, n, p.index);
   const props = Object.assign({}, p);
-  delete props.text; delete props.fontFamily; delete props.fontWeight; // already applied
+  delete props.text; delete props.fontFamily; delete props.fontWeight; delete props.index; // already applied
   if (kind === "TEXT" && p.text === undefined) delete props.text;
   await applyProps(n, props);
   return n;
@@ -1320,11 +1327,10 @@ async function bindRawColors(p: any) {
   return { dryRun: !!p.dryRun, bound: done, remaining: more, skippedTransparent: transparentSkipped };
 }
 
-/** Instances of a component or of a variant in a component set, with text overrides. */
-async function createInstance(p: any) {
+/** The component behind an id: a component, or one variant of a component set (`variant`: { property: value }) */
+async function resolveComponent(p: any): Promise<ComponentNode> {
   const src = await figma.getNodeByIdAsync(p.componentId || p.id);
   if (!src) throw new Error(`Component ${p.componentId || p.id} niet gevonden`);
-  let comp: ComponentNode;
   if (src.type === "COMPONENT_SET") {
     const want: { [k: string]: string } = p.variant || {};
     const match = (src as ComponentSetNode).children.find((c) => {
@@ -1333,9 +1339,30 @@ async function createInstance(p: any) {
       return Object.keys(want).every((k) => have[k] === want[k]);
     });
     if (!match) throw new Error(`Geen variant ${JSON.stringify(want)} in "${src.name}"`);
-    comp = match as ComponentNode;
-  } else if (src.type === "COMPONENT") comp = src as ComponentNode;
-  else throw new Error(`${src.name} is geen component (${src.type})`);
+    return match as ComponentNode;
+  }
+  if (src.type === "COMPONENT") return src as ComponentNode;
+  throw new Error(`${src.name} is geen component (${src.type})`);
+}
+
+/**
+ * Switches instances to another component (or another component set): the layout is kept, texts and other overrides
+ * stay where a layer with the same name exists. `ids` are the instances; `componentId` (and `variant` for a set) is the target.
+ */
+async function swapComponentOf(p: any) {
+  const comp = await resolveComponent(p);
+  const swapped: { id: string; name: string; component: string }[] = [];
+  for (const n of await nodesFrom(p)) {
+    if (n.type !== "INSTANCE") throw new Error(`${n.name} is geen instance (${n.type})`);
+    (n as InstanceNode).swapComponent(comp);
+    swapped.push({ id: n.id, name: n.name, component: comp.id });
+  }
+  return { swapped };
+}
+
+/** Instances of a component or of a variant in a component set, with text overrides. `index` puts it at a place in the parent. */
+async function createInstance(p: any) {
+  const comp = await resolveComponent(p);
 
   const inst = comp.createInstance();
   let parent: BaseNode & ChildrenMixin = figma.currentPage;
@@ -1344,7 +1371,7 @@ async function createInstance(p: any) {
     if (!pn || !("appendChild" in pn)) throw new Error(`Ouder ${p.parentId} kan geen kinderen hebben`);
     parent = pn as BaseNode & ChildrenMixin;
   }
-  parent.appendChild(inst);
+  placeInParent(parent, inst, p.index);
   if (p.props) await applyProps(inst, p.props);
   // texts: { "<layer name>": "new text" } sets the first text layer with that name inside the instance
   const set: string[] = [];
@@ -1541,7 +1568,10 @@ async function duplicateNodes(p: any) {
   for (const n of await nodesFrom(p)) {
     const c = (n as any).clone() as SceneNode;
     const props = Object.assign({}, p.props || {});
-    if (props.x === undefined && props.y === undefined && "width" in n) props.x = n.x + (n as any).width + 24;
+    // In an auto layout the copy lands right after the original, in the flow; elsewhere it goes next to it
+    const parent = n.parent as (BaseNode & { layoutMode?: string }) | null;
+    const inFlow = !!parent && typeof parent.layoutMode === "string" && parent.layoutMode !== "NONE";
+    if (!inFlow && props.x === undefined && props.y === undefined && "width" in n) props.x = n.x + (n as any).width + 24;
     await applyProps(c, props);
     out.push({ id: c.id, name: c.name, type: c.type });
   }
@@ -1770,6 +1800,7 @@ async function runBridgeCommand(cmd: string, p: any): Promise<any> {
     case "bind_raw_colors": return bindRawColors(p);
     case "bind_raw_spacing": return bindRawSpacing(p);
     case "create_instance": return createInstance(p);
+    case "swap_component": return swapComponentOf(p);
     case "get_components": return listComponents();
     case "set_variable_mode": return setVariableMode(p);
     case "snap_to_grid": return snapToGrid(p);

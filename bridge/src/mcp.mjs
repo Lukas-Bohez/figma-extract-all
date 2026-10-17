@@ -120,6 +120,7 @@ export function createMcpServer(hub, { log = () => {}, ownerKey = ensureOwnerKey
     {
       kind: z.enum(['FRAME', 'RECTANGLE', 'ELLIPSE', 'TEXT', 'VECTOR', 'SVG']),
       parentId: z.string().optional(),
+      index: z.number().int().min(0).optional().describe('Plek in de ouder (0 = eerste). Leeg = achteraan.'),
       svg: z.string().optional().describe('SVG-markup voor kind SVG.'),
       path: z.string().optional().describe('SVG-padgegevens voor kind VECTOR, bv. "M0 0 L40 20". Lijnen en vlakken, kleur via stroke/fill.'),
       windingRule: z.enum(['NONZERO', 'EVENODD']).optional(),
@@ -269,10 +270,20 @@ export function createMcpServer(hub, { log = () => {}, ownerKey = ensureOwnerKey
       componentId: z.string().describe('Id van de component of van de component set.'),
       variant: z.record(z.string(), z.string()).optional().describe('Bij een set: {"variant": "primary", "size": "md"}.'),
       parentId: z.string().optional().describe('Frame waarin de instance komt. Leeg = de huidige pagina.'),
+      index: z.number().int().min(0).optional().describe('Plek in dat frame (0 = eerste). Leeg = achteraan. Zo vervang je een veld op dezelfde plek.'),
       texts: z.record(z.string(), z.string()).optional().describe('{"Label": "Opslaan"}: zet de tekst van de eerste tekstlaag met die naam.'),
       props: z.object(props).optional().describe('Naam, maat, sizing (bv. FILL), positie.'),
     }, WRITE,
     async (a) => text(await cmd('create_instance', a)));
+
+  tool('figma_swap_component',
+    'Laat instances een andere component (of een andere variant uit een andere set) tonen, zonder ze opnieuw te plaatsen: de plek, de grootte en de tekst-overrides met dezelfde laagnaam blijven. Zo maak je van een tekstveld een dropdown op dezelfde plek.',
+    {
+      ids: z.array(z.string()).optional().describe('De instances. Leeg = de huidige selectie.'),
+      componentId: z.string().describe('Id van de nieuwe component of van de nieuwe component set.'),
+      variant: z.record(z.string(), z.string()).optional().describe('Bij een set: {"state": "closed", "hint": "yes"}.'),
+    }, WRITE,
+    async (a) => text(await cmd('swap_component', a)));
 
   tool('figma_set_variable_mode',
     'Toon lagen in een andere mode van een variabelencollectie, bv. de Dark-mode van de Semantic-variabelen op een scherm.',

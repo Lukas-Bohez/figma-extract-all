@@ -178,6 +178,18 @@ export function createFigma({ fonts } = {}) {
       inst.mainComponent = this;
       return inst;
     }
+    /** Shows another component: the layers are made again from it, texts with the same layer name keep what they say */
+    swapComponent(component) {
+      if (this.type !== 'INSTANCE') throw new Error('swapComponent only on instances');
+      if (!component || component.type !== 'COMPONENT') throw new Error('swapComponent needs a component');
+      const kept = {};
+      (this.findAll ? this.findAll((n) => n.type === 'TEXT') : []).forEach((t) => { kept[t.name] = t._chars; });
+      const fresh = component.createInstance();
+      this.children = [];
+      (fresh.children || []).forEach((c) => this.appendChild(c));
+      this.findAll((n) => n.type === 'TEXT').forEach((t) => { if (kept[t.name] !== undefined) t._chars = kept[t.name]; });
+      this.mainComponent = component;
+    }
     get layoutWrap() { return this._wrap; }
     set layoutWrap(v) {
       if (v === 'WRAP' && this.layoutMode !== 'HORIZONTAL') throw new Error('layoutWrap WRAP requires HORIZONTAL layoutMode');
