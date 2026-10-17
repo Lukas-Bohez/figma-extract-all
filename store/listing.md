@@ -1,7 +1,7 @@
-# Figma Community listing — v19.2.0
+# Figma Community listing — v19.3.0
 
 Copy each field into **Publish new version** in Figma Desktop.
-Every claim below was checked against the code of v19.2.0.
+Every claim below was checked against the code of v19.3.0.
 
 ---
 
@@ -100,7 +100,7 @@ To render them again after a UI change: see the usage line at the top of
 ## Version notes
 
 ```
-v19.2.0: The Claude tab shows which file the AI works in when several files are open, and no longer reconnects in a loop. Developer bridge: build whole designs in one call, export PNG/SVG/PDF, variables with code syntax, SVG charts keep their positions when a web page is imported. Full list in CHANGELOG.md.
+v19.3.0: Developer bridge only (the Community version is unchanged): new layers and instances can be placed at a position in their parent, instances can be switched to another component or variant without placing them again, and a duplicated layer in an auto layout stays in the flow. Owner commands (move layers, add and switch variants) are part of the single build. Full list in CHANGELOG.md.
 ```
 
 ---

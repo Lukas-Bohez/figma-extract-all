@@ -3,10 +3,21 @@
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
 
-## [Unreleased]
+## [19.3.0] - 2026-10-17
+
+> **For Figma Community users:** nothing changes for you in this version. Everything below needs the developer bridge,
+> which only exists when you run the plugin from its manifest (Plugins → Development → Import plugin from manifest); the
+> published Community plugin has no network access by design.
 
 ### Added
 
+- **`index` on `create` and `create_instance`** (`figma_create`, `figma_create_instance`): puts the new layer at a place in
+  its parent (0 = first) instead of always at the end. A layer in the middle of a card can now be replaced on the same
+  spot without making the layers after it again. An index beyond the end puts it last.
+- **`swap_component` command / `figma_swap_component` tool.** Makes instances show another component, or a variant of
+  another component set, without placing them again: the place, the size and the text overrides of layers with the same
+  name stay. Turns, for example, a text field into a dropdown on the same spot. Refuses a layer that is not an instance
+  and an unknown variant, with an explanation.
 - **Owner commands** `move_node` (reparent a layer), `add_variant` (add a variant to an existing component set by copying
   one), `set_variant` (switch instances to another variant) and `owner_status`. They are part of the one build (`code.js`):
   nothing extra to install. Every call needs the owner key, which the bridge adds (`FIGMA_OWNER_KEY` or the file
@@ -15,7 +26,15 @@ versions follow the `featureVersion` shown in the plugin's Claude tab and in `fi
   `figma_set_variant` and `figma_owner_status` exist where a key exists. Publishing to Figma is not possible from a
   plugin; the README says what to click.
 - `figma-call` knows the owner commands and adds the key to them.
-- The test mock has `clone`, `insertChild` and `setProperties`; 49 new tests (`bridge/test/owner.test.mjs`, run by `npm test`).
+- The test mock has `clone`, `insertChild`, `setProperties` and `swapComponent`; 49 new tests for the owner commands
+  (`bridge/test/owner.test.mjs`) and 8 for the three changes in this version (`bridge/test/plugin.test.mjs`), all run by `npm test`.
+
+### Changed
+
+- `duplicate` keeps the copy of a layer in an auto layout in the flow, right after the original, instead of giving it a
+  position next to it (which a layer in an auto layout cannot use: the copy ended up out of place). Outside an auto layout
+  the copy still goes next to the original.
+- `package.json` and `featureVersion` are 19.3.0.
 
 ## [19.2.0] - 2026-10-15
 

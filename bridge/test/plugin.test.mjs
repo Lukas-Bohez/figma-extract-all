@@ -81,7 +81,7 @@ console.log('\n1. Opstarten en berichtroutering');
   ok(m.figma._shown, 'showUI aangeroepen');
   await m.send({ type: 'x:hello' });
   const info = m.posted.find((p) => p.type === 'x:info');
-  ok(info && info.featureVersion === '19.2.0', 'x:hello -> x:info met featureVersion', JSON.stringify(info));
+  ok(info && info.featureVersion === '19.3.0', 'x:hello -> x:info met featureVersion', JSON.stringify(info));
 
   // The guard: a feature message must NOT reset the ZIP buffer of code.ts.
   vm.runInContext('zipFiles.push({ name: "a.txt", data: new Uint8Array(1) }); cancelRequested = true;', ctx);
@@ -199,7 +199,7 @@ console.log('\n6. Bridge-commando\'s (wat Claude kan doen)');
 {
   const { m, cmd } = boot();
   let r = await cmd('status');
-  ok(r.ok && r.result.fileName === 'Interaction Design' && r.result.featureVersion === '19.2.0', 'status');
+  ok(r.ok && r.result.fileName === 'Interaction Design' && r.result.featureVersion === '19.3.0', 'status');
 
   r = await cmd('create', { kind: 'FRAME', name: 'Button', width: 120, height: 40, fill: '#111827', cornerRadius: 999,
     layout: { mode: 'HORIZONTAL', gap: 8, padding: [8, 16], primary: 'CENTER', counter: 'CENTER' } });
@@ -292,6 +292,41 @@ console.log('\n6. Bridge-commando\'s (wat Claude kan doen)');
   ok(!r.ok && /Geen variant/.test(r.error), 'onbekende variant -> uitleg', r.error);
   r = await cmd('create_instance', { componentId: pillSet, variant: { variant: 'solid' }, parentId: hostId, texts: { Nope: 'x' } });
   ok(!r.ok && /Geen tekstlaag/.test(r.error), 'onbekende tekstlaag -> uitleg', r.error);
+
+  // A layer can be put at a place in its parent (index), and an instance can show another component
+  r = await cmd('create', { kind: 'FRAME', name: 'row', width: 300, height: 100 });
+  const rowId = r.result.id;
+  await cmd('create', { kind: 'RECTANGLE', name: 'first', parentId: rowId });
+  await cmd('create', { kind: 'RECTANGLE', name: 'second', parentId: rowId });
+  r = await cmd('create', { kind: 'RECTANGLE', name: 'inserted', parentId: rowId, index: 1 });
+  ok(r.ok, 'create met een index', r.error);
+  r = await cmd('create', { kind: 'RECTANGLE', name: 'at-the-start', parentId: rowId, index: 0 });
+  r = await cmd('create', { kind: 'RECTANGLE', name: 'too-far', parentId: rowId, index: 99 });
+  r = await cmd('get_node', { ids: [rowId], depth: 1 });
+  const order = r.ok && r.result.nodes[0].children.map((c) => c.name).join();
+  ok(order === 'at-the-start,first,inserted,second,too-far', 'de lagen staan op hun plek (een te grote index komt achteraan): ' + order, r.error);
+  r = await cmd('create_instance', { componentId: pillSet, variant: { variant: 'solid' }, parentId: rowId, index: 2, props: { name: 'Pill/in-the-middle' } });
+  r = await cmd('get_node', { ids: [rowId], depth: 1 });
+  ok(r.ok && r.result.nodes[0].children[2].name === 'Pill/in-the-middle', 'create_instance met een index', r.error);
+
+  r = await cmd('swap_component', { ids: [instId], componentId: pillSet, variant: { variant: 'solid' } });
+  ok(r.ok && r.result.swapped.length === 1, 'swap_component laat een instance een andere variant tonen', r.error);
+  r = await cmd('get_node', { ids: [instId], depth: 3 });
+  ok(r.ok && JSON.stringify(r.result).includes('Save'), 'de tekst-override blijft bij een swap', r.error);
+  r = await cmd('swap_component', { ids: [hostId], componentId: pillSet, variant: { variant: 'solid' } });
+  ok(!r.ok && /geen instance/.test(r.error), 'swap_component op iets dat geen instance is -> uitleg', r.error);
+  r = await cmd('swap_component', { ids: [instId], componentId: pillSet, variant: { variant: 'nope' } });
+  ok(!r.ok && /Geen variant/.test(r.error), 'swap_component met een onbekende variant -> uitleg', r.error);
+
+  // A copy in an auto layout stays in the flow, right after the original
+  r = await cmd('create', { kind: 'FRAME', name: 'flow', width: 200, height: 100, layout: { mode: 'VERTICAL' } });
+  const flowId = r.result.id;
+  await cmd('create', { kind: 'RECTANGLE', name: 'a', parentId: flowId });
+  const b = (await cmd('create', { kind: 'RECTANGLE', name: 'b', parentId: flowId })).result.id;
+  await cmd('create', { kind: 'RECTANGLE', name: 'c', parentId: flowId });
+  r = await cmd('duplicate', { ids: [b], props: { name: 'b-copy' } });
+  r = await cmd('get_node', { ids: [flowId], depth: 1 });
+  ok(r.ok && r.result.nodes[0].children.map((c) => c.name).join() === 'a,b,b-copy,c', 'duplicate laat de kopie in de auto layout, na het origineel', r.error);
 
   r = await cmd('set_variable_mode', { ids: [hostId], collection: 'tokens', mode: 'Dark' });
   ok(r.ok && r.result.mode === 'Dark', 'set_variable_mode zet de Dark-mode op een frame', r.error);
