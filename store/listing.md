@@ -1,7 +1,7 @@
-# Figma Community listing — v19.3.0
+# Figma Community listing — v19.3.1
 
 Copy each field into **Publish new version** in Figma Desktop.
-Every claim below was checked against the code of v19.3.0.
+Every claim below was checked against the code of v19.3.1.
 
 ---
 
@@ -19,7 +19,7 @@ Place Lottie as GIFs, export SVGs, variables and text for AI coding tools, and a
 
 ## Description
 
-Extract All gets things in and out of Figma: Lottie animations in, everything an AI coding tool or After Effects needs out, and a design audit on top. It runs entirely inside Figma, with no network access, and the larger exports download as a single ZIP.
+Extract All gets things in and out of Figma: Lottie animations in, everything an AI coding tool or After Effects needs out, and a design audit on top. It runs inside Figma, reaches no external server (the only address it may contact is the bridge on your own computer, localhost:3055), and the larger exports download as a single ZIP.
 
 **Lottie Import**
 Drop a Lottie or Bodymovin JSON file and see what is inside before you use it:
@@ -56,7 +56,7 @@ It can also add 8 px spacing variables and a text style scale for you. Nothing i
 Import a captured web page as editable layers: frames with auto layout from flexbox, styled text, SVGs and shadows. Pages are captured with the free capture tool or bookmarklet from the GitHub repository.
 
 **For developers: AI bridge**
-The open-source version on GitHub includes a local MCP server with 42 tools, so Claude or another AI can read, check and build in your open file, build whole designs in one call with colours and spacing bound to your variables, export layers as PNG, SVG or PDF, capture web pages and set prototype hover interactions. It works with several open Figma files and always asks which one. It only works when you run the plugin from its manifest (Plugins → Development); this Community version has no network access.
+The open-source Extract All bridge (GitHub) is a local MCP server with 42 tools, so Claude or another AI can read, check and build in your open file, build whole designs in one call with colours and spacing bound to your variables, export layers as PNG, SVG or PDF, capture web pages and set prototype hover interactions. It works with several open Figma files and always asks which one. Run the bridge on your own computer and the Claude tab of this Community plugin connects to it (localhost:3055 only).
 
 Open source (MIT): https://github.com/Lukas-Bohez/figma-extract-all
 Built and maintained by Lukas Bohez. Bug reports and feature requests are welcome on GitHub.
@@ -100,7 +100,7 @@ To render them again after a UI change: see the usage line at the top of
 ## Version notes
 
 ```
-v19.3.0: Developer bridge only (the Community version is unchanged): new layers and instances can be placed at a position in their parent, instances can be switched to another component or variant without placing them again, and a duplicated layer in an auto layout stays in the flow. Owner commands (move layers, add and switch variants) are part of the single build. Full list in CHANGELOG.md.
+v19.3.1: The Claude tab now works with this Community plugin: run the open-source Extract All bridge on your computer and the plugin connects to it (localhost only). New for everyone who uses it with an AI assistant: place layers and instances at an exact position, switch an instance to another component or variant in place, duplicates stay in the auto layout, and owner commands to move layers and add or switch variants. Full list in CHANGELOG.md.
 ```
 
 ---

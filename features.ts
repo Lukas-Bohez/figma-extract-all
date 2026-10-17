@@ -15,7 +15,7 @@
 //  Compiled together with code.ts into code.js (see tsconfig.json).
 // ═══════════════════════════════════════════════════════════════════
 
-const FEATURE_VERSION = "19.3.0";
+const FEATURE_VERSION = "19.3.1";
 
 function isFeatureMessage(msg: any): boolean {
   return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;

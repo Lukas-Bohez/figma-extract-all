@@ -41,7 +41,7 @@ const RESPONDER = `(() => {
     const m = e.data && e.data.pluginMessage;
     if (!m) return;
     window.__sent.push(m.type);
-    if (m.type === 'x:hello') reply({ type: 'x:info', fileName: 'UI test file', page: 'Page 1', featureVersion: '19.3.0', bridge: null });
+    if (m.type === 'x:hello') reply({ type: 'x:info', fileName: 'UI test file', page: 'Page 1', featureVersion: '19.3.1', bridge: null });
     if (m.type === 'x:bridge-cmd') reply({ type: 'x:bridge-result', id: m.id, ok: true, result: { fileName: 'UI test file', page: 'Page 1', echo: m.cmd } });
     if (m.type === 'x:layout-import') setTimeout(() => reply({ type: 'x:layout-done', result: {
       name: (m.doc.source.title || 'import') + ' (' + m.doc.source.colorScheme + ')', counts: m.doc.counts, warnings: [], width: m.doc.root.w, height: m.doc.root.h } }), 50);

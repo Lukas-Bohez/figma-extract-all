@@ -1,12 +1,12 @@
 {
   "name": "figma-extract-all",
-  "version": "19.3.0",
+  "version": "19.3.1",
   "description": "Extract everything from Figma, rebuild web pages as Figma layers, check a design rubric, and let Claude or other LLMs work in Figma through a local MCP bridge.",
   "main": "code.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch",
-    "release": "npm run build && node verify.js && git add -A && git commit -m 'Release v19.3.0' && git tag v19.3.0 && git push origin master --tags",
+    "release": "npm run build && node verify.js && git add -A && git commit -m 'Release v19.3.1' && git tag v19.3.1 && git push origin master --tags",
     "test": "npm run build && node verify.js && cd bridge && node test/plugin.test.mjs && node test/bridge.test.mjs && node test/owner.test.mjs"
   },
   "keywords": [

@@ -96,9 +96,9 @@ For Lottie work, the UI can also import Bodymovin JSON, analyze it, render it to
 
 This plugin requests `documentAccess: "dynamic-page"` because it needs to read the active Figma document, inspect the current page and selection, and export data from the nodes you choose. In practice, that means it can access the current page tree, local styles, local variables, components, and node export output inside the file you have open.
 
-**Network:** `allowedDomains` is `["none"]`. The UI is fully self-contained — lottie-web and the GIF encoder are bundled into `ui.html`, nothing is loaded from a CDN. (Earlier versions of this README said lottie was loaded from cdnjs; that is no longer true.)
+**Network:** `allowedDomains` holds only `http://localhost:3055` and `ws://localhost:3055`: the bridge that you run on your own computer. The UI is fully self-contained — lottie-web and the GIF encoder are bundled into `ui.html`, nothing is loaded from a CDN. (Earlier versions of this README said lottie was loaded from cdnjs; that is no longer true.)
 
-The only other entry is `devAllowedDomains: ws://localhost:3055` (and `http://`), used by the **Claude** tab to reach the bridge running on your own machine. Figma honours `devAllowedDomains` only for plugins loaded from their manifest in development mode, so a published build stays completely offline.
+The only other entry is `devAllowedDomains: ws://localhost:3055` (and `http://`), used by the **Claude** tab to reach the bridge running on your own machine. The same two addresses are in `devAllowedDomains`, so the published plugin and one loaded from the manifest behave the same: the Claude tab connects to your own bridge when it runs, and the plugin reaches no other server.
 
 The GitHub link shown in the UI is just a normal external link for convenience; it is not used by the plugin to process or transmit design data.
 
