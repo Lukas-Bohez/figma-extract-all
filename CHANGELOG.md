@@ -3,6 +3,38 @@
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
 
+## [19.4.0] - 2026-10-22
+
+### Added
+
+- **`set_prototype` command / `figma_set_prototype` tool.** Puts prototype links between frames: click (or drag, or after a
+  timeout) on one frame and go to another, with smart animate. The hover variants that `set_hover` makes are for inside one
+  component; this is between screens, so a whole app flow can be shown in Figma. It replaces an existing reaction with the
+  same trigger on the same frame and reports per link what it made, or why not.
+
+### Fixed
+
+- **A single-line label no longer breaks in two.** Text that the browser measured as one line now hugs its own width in
+  Figma, and centred text is shifted back to the middle of the box the browser measured. A button label like *Pauze* used to
+  be rendered as *Pauz / e*, because Figma's Inter is slightly wider than the font the page used. Wrapped text is unchanged.
+
+## [19.3.2] - 2026-10-22
+
+### Fixed
+
+- **Importing a real page no longer fails on an absolutely positioned layer.** The importer marked nodes it had to place
+  absolutely by writing `__abs` on the Figma node. Figma nodes are not extensible, so as soon as a page had one such layer
+  (a skip-link, a floating badge, a pinned button) the whole import stopped with
+  `Could not build the root. FRAME "…": object is not extensible`. The marker is now a `WeakSet` next to the tree, which
+  also removes the `delete` on a node property.
+- **A single-line label no longer breaks in two.** Text that the browser measured as one line and that is left-aligned now
+  hugs its own width in Figma instead of keeping the browser's box. A button label like *Pauze* used to be rendered as
+  *Pauz / e*, because Figma's Inter is slightly wider than the font the page used. Wrapped and centred text is unchanged.
+
+### Changed
+
+- `bridge/test/figma-mock.mjs` still does not model node extensibility; the fix above was found by importing a real page.
+
 ## [19.3.1] - 2026-10-17
 
 ### Changed

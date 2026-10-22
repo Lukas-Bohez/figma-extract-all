@@ -201,6 +201,21 @@ export function createMcpServer(hub, { log = () => {}, ownerKey = ensureOwnerKey
     }, WRITE,
     async (a) => text(await cmd('set_hover', a)));
 
+  tool('figma_set_prototype',
+    'Prototype-links tussen frames: klik (of sleep, of na een tijd) op het ene frame en ga naar het andere, met smart animate. Zo laat je de overgangen van een app in Figma zien: twee frames naast elkaar (voor en na) en een klik ertussen. Zet eerst de frames neer (bv. met figma_import_layout) en geef dan hun ids. Een bestaande reactie met dezelfde trigger op hetzelfde frame wordt vervangen.',
+    {
+      links: z.array(z.object({
+        from: z.string().describe('Id van het frame waar je klikt.'),
+        to: z.string().describe('Id van het frame waar je naartoe gaat.'),
+        trigger: z.enum(['ON_CLICK', 'ON_DRAG', 'ON_PRESS', 'AFTER_TIMEOUT']).optional().describe('Standaard ON_CLICK.'),
+        timeout: z.number().optional().describe('Seconden, alleen bij AFTER_TIMEOUT (standaard 2).'),
+        transition: z.enum(['smart', 'dissolve', 'instant']).optional().describe('Standaard smart animate.'),
+        duration: z.number().min(0).max(5000).optional().describe('Milliseconden (standaard 300).'),
+        easing: z.enum(['EASE_OUT', 'EASE_IN', 'EASE_IN_AND_OUT', 'LINEAR', 'GENTLE', 'QUICK']).optional(),
+      })).describe('Eén regel per overgang.'),
+    }, WRITE,
+    async (a) => text(await cmd('set_prototype', a)));
+
   tool('figma_create_variables',
     'Maak of werk variabelen bij in een collectie, met modes (bv. Light en Dark). Een waarde {"alias": "base/grey/950"} maakt een alias: zo bouw je de tweede, semantische laag.',
     {

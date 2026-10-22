@@ -1,6 +1,6 @@
 {
   "name": "figma-extract-all",
-  "version": "19.3.1",
+  "version": "19.4.0",
   "description": "Extract everything from Figma, rebuild web pages as Figma layers, check a design rubric, and let Claude or other LLMs work in Figma through a local MCP bridge.",
   "main": "code.js",
   "scripts": {

@@ -17,6 +17,8 @@ import { startHub, connectRemote } from '../src/hub.mjs';
 import { createFigma } from './figma-mock.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+/* Het versienummer uit package.json, zodat een release de tests niet breekt. */
+const VERSIE = JSON.parse(readFileSync(join(HERE, '..', '..', 'package.json'), 'utf8')).version;
 const CODE = readFileSync(join(HERE, '..', '..', 'code.js'), 'utf8');
 const PORT = 3155; // not the default, so a real running bridge is never touched
 const captureUrlArg = process.argv[2];
@@ -37,7 +39,7 @@ function startFakePlugin({ origin = 'null', fileName } = {}) {
   vm.runInContext(CODE, ctx);
   const ws = new WebSocket(`ws://127.0.0.1:${PORT}`, { origin });
   const ready = new Promise((resolve, reject) => {
-    ws.on('open', () => { ws.send(JSON.stringify({ kind: 'hello', fileName: m.figma.root.name, page: 'Page 1', featureVersion: '19.3.1' })); });
+    ws.on('open', () => { ws.send(JSON.stringify({ kind: 'hello', fileName: m.figma.root.name, page: 'Page 1', featureVersion: VERSIE })); });
     ws.on('message', async (raw) => {
       const msg = JSON.parse(raw.toString());
       if (msg.kind === 'welcome') resolve();
@@ -81,7 +83,7 @@ await plugin.ready;
   const st = await hub.status();
   ok(st.plugin && st.fileName === 'Interaction Design', 'hub ziet de plugin en het bestand', JSON.stringify(st));
   const r = await hub.send('status');
-  ok(r.featureVersion === '19.3.1', 'commando rechtstreeks via de hub');
+  ok(r.featureVersion === VERSIE, 'commando rechtstreeks via de hub');
   const remote = await connectRemote({ port: PORT });
   const r2 = await remote.send('status');
   ok(r2.fileName === 'Interaction Design', 'tweede proces werkt via RemoteHub (HTTP)');

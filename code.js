@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "19.3.1";
+const PLUGIN_VERSION = "19.4.0";
 const TE = {
     encode: (s) => {
         const r = new Uint8Array(s.length);
@@ -1065,7 +1065,7 @@ figma.ui.onmessage = async (msg) => {
         return;
     }
 };
-const FEATURE_VERSION = "19.3.1";
+const FEATURE_VERSION = "19.4.0";
 function isFeatureMessage(msg) {
     return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
 }
@@ -1322,6 +1322,8 @@ async function importLayout(doc, opts = {}) {
     const warn = (m) => { if (warnings.length < 50)
         warnings.push(m); };
     let made = 0;
+    const absoluteNodes = new WeakSet();
+    const middenUitlijnen = new WeakSet();
     const needed = {};
     (function collect(n) {
         if (n.type === "TEXT") {
@@ -1367,9 +1369,12 @@ async function importLayout(doc, opts = {}) {
         if (!node)
             return null;
         counts[n.type]++;
-        node.__abs = n.absolute || !parentAuto;
+        if (n.absolute || !parentAuto)
+            absoluteNodes.add(node);
         node.x = n.x - parentX;
         node.y = n.y - parentY;
+        if (middenUitlijnen.has(node))
+            node.x += (n.w - node.width) / 2;
         return node;
     }
     async function buildFrame(n) {
@@ -1441,7 +1446,7 @@ async function importLayout(doc, opts = {}) {
                 continue;
             f.appendChild(child);
             if (useAuto) {
-                if (child.__abs) {
+                if (absoluteNodes.has(child)) {
                     child.layoutPositioning = "ABSOLUTE";
                     child.x = c.x - n.x;
                     child.y = c.y - n.y;
@@ -1454,7 +1459,6 @@ async function importLayout(doc, opts = {}) {
                     catch (e) { }
                 }
             }
-            delete child.__abs;
         }
         return f;
     }
@@ -1497,12 +1501,16 @@ async function importLayout(doc, opts = {}) {
                 at = end;
             }
         }
-        if (n.wrap || (n.align && n.align !== "LEFT")) {
+        const regelhoogte = base.lineHeight || base.size * 1.2;
+        const eenRegel = n.h <= regelhoogte * 1.6;
+        if (!eenRegel && (n.wrap || (n.align && n.align !== "LEFT"))) {
             t.textAutoResize = "HEIGHT";
             t.resize(Math.max(n.w, 1), Math.max(n.h, 1));
         }
         else {
             t.textAutoResize = "WIDTH_AND_HEIGHT";
+            if (eenRegel && n.align === "CENTER")
+                middenUitlijnen.add(t);
         }
         return t;
     }
@@ -2877,6 +2885,53 @@ async function hoverForSet(set, p, transition) {
     }
     return { set: set.name, id: set.id, property: key, from: fromValue, to: toValue, linked, missing };
 }
+async function setPrototype(p) {
+    const links = Array.isArray(p.links) ? p.links : [];
+    if (!links.length) {
+        return { fout: 'Geef links mee: [{ from, to, trigger?, timeout?, transition?, duration?, easing? }].' };
+    }
+    const result = [];
+    for (const link of links) {
+        const van = await figma.getNodeByIdAsync(String(link.from));
+        const naar = await figma.getNodeByIdAsync(String(link.to));
+        if (!van) {
+            result.push({ from: link.from, error: 'niet gevonden' });
+            continue;
+        }
+        if (!naar) {
+            result.push({ from: link.from, to: link.to, error: 'doel niet gevonden' });
+            continue;
+        }
+        if (!("setReactionsAsync" in van)) {
+            result.push({ from: van.name, error: `${van.type} kan geen prototype-reactie krijgen` });
+            continue;
+        }
+        const soort = String(link.trigger || "ON_CLICK").toUpperCase();
+        const trigger = soort === "AFTER_TIMEOUT" ? { type: "AFTER_TIMEOUT", timeout: link.timeout !== undefined ? +link.timeout : 2 } :
+            soort === "ON_DRAG" ? { type: "ON_DRAG" } :
+                soort === "ON_PRESS" ? { type: "ON_PRESS" } :
+                    { type: "ON_CLICK" };
+        const ms = link.duration !== undefined ? +link.duration : 300;
+        const overgang = String(link.transition || "smart").toLowerCase();
+        const transition = overgang === "instant" ? null : {
+            type: overgang === "dissolve" ? "DISSOLVE" : "SMART_ANIMATE",
+            easing: { type: String(link.easing || "EASE_OUT").toUpperCase() },
+            duration: ms / 1000,
+        };
+        try {
+            const bestaand = (van.reactions || []).filter((r) => !(r.trigger && r.trigger.type === trigger.type));
+            await van.setReactionsAsync([...bestaand, {
+                    trigger,
+                    actions: [{ type: "NODE", destinationId: naar.id, navigation: "NAVIGATE", transition, preserveScrollPosition: false }],
+                }]);
+            result.push({ van: van.name, naar: naar.name, trigger: trigger.type, overgang, ms });
+        }
+        catch (e) {
+            result.push({ van: van.name, naar: naar.name, error: e.message });
+        }
+    }
+    return { links: result };
+}
 const GUARDED_COMMANDS = new Set([
     "apply_text_styles_auto", "create_text_styles_bulk", "bind_raw_colors", "bind_raw_spacing", "snap_to_grid", "rename_generic", "dedupe_text_styles",
 ]);
@@ -2982,6 +3037,7 @@ async function runBridgeCommand(cmd, p) {
         }
         case "duplicate": return duplicateNodes(p);
         case "set_hover": return setHover(p);
+        case "set_prototype": return setPrototype(p);
         case "create_variables": return createVariables(p);
         case "set_code_syntax": return setCodeSyntax(p);
         case "delete_variables": return deleteVariables(p);

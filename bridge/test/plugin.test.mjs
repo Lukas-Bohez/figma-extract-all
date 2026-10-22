@@ -12,6 +12,8 @@ import { createFigma } from './figma-mock.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CODE = readFileSync(join(HERE, '..', '..', 'code.js'), 'utf8');
+/* Het versienummer uit package.json, zodat een release de tests niet breekt. */
+const VERSIE = JSON.parse(readFileSync(join(HERE, '..', '..', 'package.json'), 'utf8')).version;
 
 let passed = 0, failed = 0;
 const ok = (cond, label, extra) => {
@@ -81,7 +83,7 @@ console.log('\n1. Opstarten en berichtroutering');
   ok(m.figma._shown, 'showUI aangeroepen');
   await m.send({ type: 'x:hello' });
   const info = m.posted.find((p) => p.type === 'x:info');
-  ok(info && info.featureVersion === '19.3.1', 'x:hello -> x:info met featureVersion', JSON.stringify(info));
+  ok(info && info.featureVersion === VERSIE, 'x:hello -> x:info met featureVersion', JSON.stringify(info));
 
   // The guard: a feature message must NOT reset the ZIP buffer of code.ts.
   vm.runInContext('zipFiles.push({ name: "a.txt", data: new Uint8Array(1) }); cancelRequested = true;', ctx);
@@ -199,7 +201,7 @@ console.log('\n6. Bridge-commando\'s (wat Claude kan doen)');
 {
   const { m, cmd } = boot();
   let r = await cmd('status');
-  ok(r.ok && r.result.fileName === 'Interaction Design' && r.result.featureVersion === '19.3.1', 'status');
+  ok(r.ok && r.result.fileName === 'Interaction Design' && r.result.featureVersion === VERSIE, 'status');
 
   r = await cmd('create', { kind: 'FRAME', name: 'Button', width: 120, height: 40, fill: '#111827', cornerRadius: 999,
     layout: { mode: 'HORIZONTAL', gap: 8, padding: [8, 16], primary: 'CENTER', counter: 'CENTER' } });

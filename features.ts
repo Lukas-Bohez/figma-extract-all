@@ -15,7 +15,7 @@
 //  Compiled together with code.ts into code.js (see tsconfig.json).
 // ═══════════════════════════════════════════════════════════════════
 
-const FEATURE_VERSION = "19.3.1";
+const FEATURE_VERSION = "19.4.0";
 
 function isFeatureMessage(msg: any): boolean {
   return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
@@ -310,6 +310,14 @@ async function importLayout(doc: LayoutDoc, opts: ImportOptions = {}) {
   const warn = (m: string) => { if (warnings.length < 50) warnings.push(m); };
   let made = 0;
 
+  /* Figma-nodes zijn niet uitbreidbaar: je kan er geen eigen eigenschap op zetten
+     (dat gaf "object is not extensible" en dan viel de hele import om). Deze set
+     onthoudt per node wat we tijdens het bouwen moeten weten. */
+  const absoluteNodes = new WeakSet<SceneNode>();
+  /* Tekst van één regel die gecentreerd stond: die krijgt zijn eigen breedte, dus
+     build() schuift hem naar het midden van de box die de browser mat. */
+  const middenUitlijnen = new WeakSet<SceneNode>();
+
   // Fonts first, all at once: a text layer cannot be edited before its font is loaded.
   const needed: { [k: string]: LayoutFont } = {};
   (function collect(n: LayoutNode) {
@@ -345,9 +353,10 @@ async function importLayout(doc: LayoutDoc, opts: ImportOptions = {}) {
     }
     if (!node) return null;
     counts[n.type]++;
-    (node as any).__abs = n.absolute || !parentAuto;
+    if (n.absolute || !parentAuto) absoluteNodes.add(node);
     node.x = n.x - parentX;
     node.y = n.y - parentY;
+    if (middenUitlijnen.has(node)) node.x += (n.w - node.width) / 2;
     return node;
   }
 
@@ -406,7 +415,7 @@ async function importLayout(doc: LayoutDoc, opts: ImportOptions = {}) {
       if (!child) continue;
       f.appendChild(child);
       if (useAuto) {
-        if ((child as any).__abs) {
+        if (absoluteNodes.has(child)) {
           (child as any).layoutPositioning = "ABSOLUTE";
           child.x = c.x - n.x;
           child.y = c.y - n.y;
@@ -415,7 +424,6 @@ async function importLayout(doc: LayoutDoc, opts: ImportOptions = {}) {
           try { (child as any).layoutSizingHorizontal = "FIXED"; (child as any).layoutSizingVertical = "FIXED"; } catch (e) { /* not supported on this node */ }
         }
       }
-      delete (child as any).__abs;
     }
     return f;
   }
@@ -455,13 +463,17 @@ async function importLayout(doc: LayoutDoc, opts: ImportOptions = {}) {
       }
     }
 
-    // Wrapping or centred text keeps the browser's width, so the lines
-    // break and align in the same places. Short left-aligned text hugs.
-    if (n.wrap || (n.align && n.align !== "LEFT")) {
+    // Wrapping text keeps the browser's width, so the lines break and align in the
+    // same places. Eén regel kan niet afbreken: daar neemt Figma de eigen maat,
+    // anders brak een label als "Pauze" af op Figma's bredere letterbreedte.
+    const regelhoogte = base.lineHeight || base.size * 1.2;
+    const eenRegel = n.h <= regelhoogte * 1.6;
+    if (!eenRegel && (n.wrap || (n.align && n.align !== "LEFT"))) {
       t.textAutoResize = "HEIGHT";
       t.resize(Math.max(n.w, 1), Math.max(n.h, 1));
     } else {
       t.textAutoResize = "WIDTH_AND_HEIGHT";
+      if (eenRegel && n.align === "CENTER") middenUitlijnen.add(t);
     }
     return t;
   }
@@ -1676,6 +1688,61 @@ async function hoverForSet(set: ComponentSetNode, p: any, transition: Transition
   return { set: set.name, id: set.id, property: key, from: fromValue, to: toValue, linked, missing };
 }
 
+/* ─────────────────────────── prototype: navigeren ─────────────────────────── */
+
+/**
+ * Prototype-links tussen frames: klik (of sleep, of na een tijd) op het ene frame
+ * en ga naar het andere, met smart animate. Dit is wat een overgang van een app in
+ * Figma laat zien: twee frames naast elkaar (voor en na) en een klik ertussen.
+ * De hover-varianten hierboven zijn voor binnen één component; dit is tussen
+ * schermen.
+ */
+async function setPrototype(p: any) {
+  const links: any[] = Array.isArray(p.links) ? p.links : [];
+  if (!links.length) {
+    return { fout: 'Geef links mee: [{ from, to, trigger?, timeout?, transition?, duration?, easing? }].' };
+  }
+  const result: any[] = [];
+
+  for (const link of links) {
+    const van = await figma.getNodeByIdAsync(String(link.from));
+    const naar = await figma.getNodeByIdAsync(String(link.to));
+    if (!van) { result.push({ from: link.from, error: 'niet gevonden' }); continue; }
+    if (!naar) { result.push({ from: link.from, to: link.to, error: 'doel niet gevonden' }); continue; }
+    if (!("setReactionsAsync" in van)) {
+      result.push({ from: van.name, error: `${van.type} kan geen prototype-reactie krijgen` });
+      continue;
+    }
+
+    const soort = String(link.trigger || "ON_CLICK").toUpperCase();
+    const trigger: any =
+      soort === "AFTER_TIMEOUT" ? { type: "AFTER_TIMEOUT", timeout: link.timeout !== undefined ? +link.timeout : 2 } :
+      soort === "ON_DRAG" ? { type: "ON_DRAG" } :
+      soort === "ON_PRESS" ? { type: "ON_PRESS" } :
+      { type: "ON_CLICK" };
+
+    const ms = link.duration !== undefined ? +link.duration : 300;
+    const overgang = String(link.transition || "smart").toLowerCase();
+    const transition: any = overgang === "instant" ? null : {
+      type: overgang === "dissolve" ? "DISSOLVE" : "SMART_ANIMATE",
+      easing: { type: String(link.easing || "EASE_OUT").toUpperCase() },
+      duration: ms / 1000,
+    };
+
+    try {
+      const bestaand = ((van as any).reactions || []).filter((r: any) => !(r.trigger && r.trigger.type === trigger.type));
+      await (van as any).setReactionsAsync([...bestaand, {
+        trigger,
+        actions: [{ type: "NODE", destinationId: naar.id, navigation: "NAVIGATE", transition, preserveScrollPosition: false }],
+      }]);
+      result.push({ van: van.name, naar: naar.name, trigger: trigger.type, overgang, ms });
+    } catch (e: any) {
+      result.push({ van: van.name, naar: naar.name, error: e.message });
+    }
+  }
+  return { links: result };
+}
+
 /**
  * Heavy commands that change many layers. A call that the bridge gave up on (timeout) keeps running
  * in Figma, so a second call of the same command used to start a duplicate job and the jobs piled up
@@ -1783,6 +1850,7 @@ async function runBridgeCommand(cmd: string, p: any): Promise<any> {
     }
     case "duplicate": return duplicateNodes(p);
     case "set_hover": return setHover(p);
+    case "set_prototype": return setPrototype(p);
     case "create_variables": return createVariables(p);
     case "set_code_syntax": return setCodeSyntax(p);
     case "delete_variables": return deleteVariables(p);
