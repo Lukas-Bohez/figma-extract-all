@@ -3,6 +3,16 @@
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
 
+## [19.5.0] - 2026-10-22
+
+### Added
+
+- **`set_image_fill` command / `figma_set_image_fill` tool.** Puts an image as the fill of layers: a screenshot in a card, a
+  cover on a tile. The bridge reads a path on this PC, an http(s) URL or a data-URI and sends it on, because the plugin itself
+  cannot touch the disk or the network.
+- **`set_layout_grid` command / `figma_set_layout_grid` tool.** Puts a column and/or row layout grid on frames (four columns,
+  24 px margin, 16 px gutter by default), so a frame can be aligned in Figma the way the page aligns in the browser.
+
 ## [19.4.0] - 2026-10-22
 
 ### Added

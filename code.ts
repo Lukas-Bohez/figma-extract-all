@@ -203,7 +203,7 @@ interface BMCheckResult {
   settingsOK: boolean;
 }
 
-const PLUGIN_VERSION = "19.4.0";
+const PLUGIN_VERSION = "19.5.0";
 const TE = {
   encode: (s: string) => {
     const r = new Uint8Array(s.length);

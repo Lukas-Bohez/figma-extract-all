@@ -1,5 +1,5 @@
 "use strict";
-const PLUGIN_VERSION = "19.4.0";
+const PLUGIN_VERSION = "19.5.0";
 const TE = {
     encode: (s) => {
         const r = new Uint8Array(s.length);
@@ -1065,7 +1065,7 @@ figma.ui.onmessage = async (msg) => {
         return;
     }
 };
-const FEATURE_VERSION = "19.4.0";
+const FEATURE_VERSION = "19.5.0";
 function isFeatureMessage(msg) {
     return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
 }
@@ -2932,6 +2932,61 @@ async function setPrototype(p) {
     }
     return { links: result };
 }
+async function setImageFill(p) {
+    const bron = String(p.data || '');
+    const m = bron.match(/^data:image\/[a-z0-9+.-]+;base64,(.+)$/i);
+    if (!m)
+        return { fout: 'Geef een data-URI mee: data:image/png;base64,...' };
+    const bytes = figma.base64Decode(m[1]);
+    const plaatje = figma.createImage(bytes);
+    const schaal = String(p.scaleMode || 'FILL').toUpperCase() === 'FIT' ? 'FIT' : 'FILL';
+    const uit = [];
+    for (const id of p.ids || []) {
+        const laag = await figma.getNodeByIdAsync(String(id));
+        if (!laag || !('fills' in laag)) {
+            uit.push({ id, error: 'deze laag kan geen vulling krijgen' });
+            continue;
+        }
+        try {
+            laag.fills = [{ type: 'IMAGE', imageHash: plaatje.hash, scaleMode: schaal }];
+            uit.push({ id, naam: laag.name, ok: true });
+        }
+        catch (e) {
+            uit.push({ id, error: e.message });
+        }
+    }
+    return { naam: p.name || 'afbeelding', bytes: bytes.length, schaal, lagen: uit };
+}
+async function setLayoutGrid(p) {
+    const kolommen = p.columns === undefined ? 4 : +p.columns;
+    const rijen = p.rows === undefined ? 0 : +p.rows;
+    const marge = p.margin === undefined ? 24 : +p.margin;
+    const goot = p.gutter === undefined ? 16 : +p.gutter;
+    const lijnkleur = { r: 0.66, g: 0.28, b: 0, a: 0.12 };
+    const uit = [];
+    for (const id of p.ids || []) {
+        const laag = await figma.getNodeByIdAsync(String(id));
+        if (!laag || !('layoutGrids' in laag)) {
+            uit.push({ id, error: 'deze laag kan geen layout grid krijgen' });
+            continue;
+        }
+        try {
+            const rasters = [];
+            if (kolommen > 0) {
+                rasters.push({ pattern: 'COLUMNS', alignment: 'STRETCH', count: kolommen, gutterSize: goot, offset: marge, visible: true, color: lijnkleur });
+            }
+            if (rijen > 0) {
+                rasters.push({ pattern: 'ROWS', alignment: 'STRETCH', count: rijen, gutterSize: goot, offset: marge, visible: true, color: lijnkleur });
+            }
+            laag.layoutGrids = rasters;
+            uit.push({ id, naam: laag.name, kolommen, rijen, marge, goot });
+        }
+        catch (e) {
+            uit.push({ id, error: e.message });
+        }
+    }
+    return { rasters: uit };
+}
 const GUARDED_COMMANDS = new Set([
     "apply_text_styles_auto", "create_text_styles_bulk", "bind_raw_colors", "bind_raw_spacing", "snap_to_grid", "rename_generic", "dedupe_text_styles",
 ]);
@@ -3038,6 +3093,8 @@ async function runBridgeCommand(cmd, p) {
         case "duplicate": return duplicateNodes(p);
         case "set_hover": return setHover(p);
         case "set_prototype": return setPrototype(p);
+        case "set_image_fill": return setImageFill(p);
+        case "set_layout_grid": return setLayoutGrid(p);
         case "create_variables": return createVariables(p);
         case "set_code_syntax": return setCodeSyntax(p);
         case "delete_variables": return deleteVariables(p);

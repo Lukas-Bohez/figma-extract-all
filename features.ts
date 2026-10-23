@@ -15,7 +15,7 @@
 //  Compiled together with code.ts into code.js (see tsconfig.json).
 // ═══════════════════════════════════════════════════════════════════
 
-const FEATURE_VERSION = "19.4.0";
+const FEATURE_VERSION = "19.5.0";
 
 function isFeatureMessage(msg: any): boolean {
   return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
@@ -1743,6 +1743,74 @@ async function setPrototype(p: any) {
   return { links: result };
 }
 
+/* ─────────────────────────── afbeelding als vulling ─────────────────────────── */
+
+/**
+ * Een afbeelding als vulling op lagen zetten: een schermafbeelding in een kaart,
+ * een hoes op een tegel. De afbeelding komt als data-URI binnen; het bestand lezen
+ * of van een URL halen doet de bridge (de plugin mag niet bij schijf of netwerk).
+ */
+async function setImageFill(p: any) {
+  const bron = String(p.data || '');
+  const m = bron.match(/^data:image\/[a-z0-9+.-]+;base64,(.+)$/i);
+  if (!m) return { fout: 'Geef een data-URI mee: data:image/png;base64,...' };
+  const bytes = figma.base64Decode(m[1]);
+  const plaatje = figma.createImage(bytes);
+  const schaal = String(p.scaleMode || 'FILL').toUpperCase() === 'FIT' ? 'FIT' : 'FILL';
+  const uit: any[] = [];
+  for (const id of p.ids || []) {
+    const laag = await figma.getNodeByIdAsync(String(id));
+    if (!laag || !('fills' in laag)) {
+      uit.push({ id, error: 'deze laag kan geen vulling krijgen' });
+      continue;
+    }
+    try {
+      (laag as any).fills = [{ type: 'IMAGE', imageHash: plaatje.hash, scaleMode: schaal }];
+      uit.push({ id, naam: laag.name, ok: true });
+    } catch (e: any) {
+      uit.push({ id, error: e.message });
+    }
+  }
+  return { naam: p.name || 'afbeelding', bytes: bytes.length, schaal, lagen: uit };
+}
+
+/* ─────────────────────────── layout grid ─────────────────────────── */
+
+/**
+ * Een layout grid op frames zetten: het kolom- en rijdenraster dat je in Figma
+ * gebruikt om uit te lijnen. De kleur van de lijnen is een hulpmiddel van Figma
+ * zelf, geen token van het ontwerp; amber zodat het bij het product past.
+ */
+async function setLayoutGrid(p: any) {
+  const kolommen = p.columns === undefined ? 4 : +p.columns;
+  const rijen = p.rows === undefined ? 0 : +p.rows;
+  const marge = p.margin === undefined ? 24 : +p.margin;
+  const goot = p.gutter === undefined ? 16 : +p.gutter;
+  const lijnkleur = { r: 0.66, g: 0.28, b: 0, a: 0.12 };
+  const uit: any[] = [];
+  for (const id of p.ids || []) {
+    const laag = await figma.getNodeByIdAsync(String(id));
+    if (!laag || !('layoutGrids' in laag)) {
+      uit.push({ id, error: 'deze laag kan geen layout grid krijgen' });
+      continue;
+    }
+    try {
+      const rasters: any[] = [];
+      if (kolommen > 0) {
+        rasters.push({ pattern: 'COLUMNS', alignment: 'STRETCH', count: kolommen, gutterSize: goot, offset: marge, visible: true, color: lijnkleur });
+      }
+      if (rijen > 0) {
+        rasters.push({ pattern: 'ROWS', alignment: 'STRETCH', count: rijen, gutterSize: goot, offset: marge, visible: true, color: lijnkleur });
+      }
+      (laag as any).layoutGrids = rasters;
+      uit.push({ id, naam: laag.name, kolommen, rijen, marge, goot });
+    } catch (e: any) {
+      uit.push({ id, error: e.message });
+    }
+  }
+  return { rasters: uit };
+}
+
 /**
  * Heavy commands that change many layers. A call that the bridge gave up on (timeout) keeps running
  * in Figma, so a second call of the same command used to start a duplicate job and the jobs piled up
@@ -1851,6 +1919,8 @@ async function runBridgeCommand(cmd: string, p: any): Promise<any> {
     case "duplicate": return duplicateNodes(p);
     case "set_hover": return setHover(p);
     case "set_prototype": return setPrototype(p);
+    case "set_image_fill": return setImageFill(p);
+    case "set_layout_grid": return setLayoutGrid(p);
     case "create_variables": return createVariables(p);
     case "set_code_syntax": return setCodeSyntax(p);
     case "delete_variables": return deleteVariables(p);

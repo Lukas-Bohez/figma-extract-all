@@ -216,6 +216,48 @@ export function createMcpServer(hub, { log = () => {}, ownerKey = ensureOwnerKey
     }, WRITE,
     async (a) => text(await cmd('set_prototype', a)));
 
+  /** Een afbeelding van schijf of van het net als data-URI: de plugin mag daar zelf niet bij. */
+  async function leesAfbeelding(bron) {
+    const tekst = String(bron || '');
+    if (/^data:image\//i.test(tekst)) return { data: tekst, naam: 'afbeelding' };
+    if (/^https?:\/\//i.test(tekst)) {
+      const antwoord = await fetch(tekst);
+      if (!antwoord.ok) throw new Error(`De afbeelding ophalen mislukte (${antwoord.status}).`);
+      const soort = (antwoord.headers.get('content-type') || 'image/png').split(';')[0];
+      const buffer = Buffer.from(await antwoord.arrayBuffer());
+      return { data: `data:${soort};base64,${buffer.toString('base64')}`, naam: tekst.split('/').pop() || 'afbeelding' };
+    }
+    let bytes;
+    try { bytes = readFileSync(tekst); }
+    catch { throw new Error(`Ik kan dit bestand niet lezen: ${tekst}`); }
+    const eind = tekst.toLowerCase().split('.').pop();
+    const soort = eind === 'jpg' || eind === 'jpeg' ? 'image/jpeg' : eind === 'gif' ? 'image/gif' : eind === 'webp' ? 'image/webp' : 'image/png';
+    return { data: `data:${soort};base64,${bytes.toString('base64')}`, naam: tekst.split(/[\\/]/).pop() || 'afbeelding' };
+  }
+
+  tool('figma_set_image_fill',
+    'Zet een afbeelding als vulling op lagen: een schermafbeelding in een kaart, een hoes op een tegel. image is een pad op deze pc, een http(s)-URL of een data-URI; de bridge leest hem en stuurt hem door naar de plugin.',
+    {
+      ids,
+      image: z.string().describe('Pad, URL of data-URI.'),
+      scaleMode: z.enum(['FILL', 'FIT']).optional().describe('FILL vult en snijdt af, FIT past binnen (standaard FILL).'),
+    }, WRITE,
+    async ({ ids: lagen, image, scaleMode }) => {
+      const { data, naam } = await leesAfbeelding(image);
+      return text(await cmd('set_image_fill', { ids: lagen, data, scaleMode, name: naam }));
+    });
+
+  tool('figma_set_layout_grid',
+    'Zet een layout grid op frames: het kolom- en rijdenraster dat je in Figma gebruikt om uit te lijnen. Standaard vier kolommen, 24 px marge en 16 px goot, zonder rijdenraster.',
+    {
+      ids,
+      columns: z.number().min(0).max(24).optional().describe('Aantal kolommen (standaard 4; 0 = geen).'),
+      rows: z.number().min(0).max(24).optional().describe('Aantal rijen (standaard 0 = geen).'),
+      margin: z.number().min(0).max(400).optional().describe('Marge links en rechts in px (standaard 24).'),
+      gutter: z.number().min(0).max(200).optional().describe('Ruimte tussen de kolommen in px (standaard 16).'),
+    }, WRITE,
+    async (a) => text(await cmd('set_layout_grid', a)));
+
   tool('figma_create_variables',
     'Maak of werk variabelen bij in een collectie, met modes (bv. Light en Dark). Een waarde {"alias": "base/grey/950"} maakt een alias: zo bouw je de tweede, semantische laag.',
     {
