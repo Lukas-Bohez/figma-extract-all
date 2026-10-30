@@ -138,8 +138,8 @@ export function createMcpServer(hub, { log = () => {}, ownerKey = ensureOwnerKey
     }, WRITE,
     async (a) => text(await cmd('build', a, 300000)));
 
-  tool('figma_set_page', 'Ga naar een pagina van het bestand (op naam of id). Met create wordt ze aangemaakt als ze nog niet bestaat.',
-    { name: z.string(), create: z.boolean().optional() }, WRITE,
+  tool('figma_set_page', 'Ga naar een pagina van het bestand (op naam of id). Met create wordt ze aangemaakt als ze nog niet bestaat. Met rename krijgt ze een nieuwe naam. Met remove wordt een lege pagina verwijderd (een pagina met lagen wordt nooit verwijderd).',
+    { name: z.string(), create: z.boolean().optional(), rename: z.string().optional(), remove: z.boolean().optional() }, WRITE,
     async (a) => text(await cmd('set_page', a)));
 
   tool('figma_export',

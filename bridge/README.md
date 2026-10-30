@@ -103,7 +103,7 @@ Claude things like:
 | `figma_build` | build a whole tree of layers in one call (frames with auto layout, shapes, vector paths, arcs, SVG, text) with fills, strokes, radius, spacing and text styles bound to variables **by name**; rolls back if anything fails; `replaceByName` makes it repeatable |
 | `figma_export` | save layers to disk as PNG, JPG, SVG, PDF or REST JSON. A plugin cannot make a `.fig` (use *File → Save local copy*) |
 | `figma_use_file` | several Figma files can be connected at once: list them, choose the one commands go to, or unpin |
-| `figma_set_page` | go to a page by name (optionally create it) |
+| `figma_set_page` | go to a page by name (optionally create it), rename it, or remove an empty page |
 | `figma_set_code_syntax`, `figma_delete_variables` | Dev Mode code syntax per variable; delete variables or whole collections |
 
 ## Owner tools

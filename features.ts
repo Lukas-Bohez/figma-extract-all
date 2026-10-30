@@ -951,6 +951,16 @@ async function setPage(p: any) {
   let page = figma.root.children.find((pg) => pg.id === ref || pg.name === ref);
   if (!page && p.create) { page = figma.createPage(); page.name = ref; }
   if (!page) throw new Error(`Pagina "${ref}" niet gevonden. Bestaand: ${figma.root.children.map((pg) => pg.name).join(", ")}`);
+  if (p.rename) page.name = String(p.rename);
+  if (p.remove) {
+    await page.loadAsync();
+    if (page.children.length) throw new Error(`Pagina "${page.name}" is niet leeg (${page.children.length} lagen) en wordt niet verwijderd.`);
+    if (figma.root.children.length < 2) throw new Error("Het laatste paginablad kan niet verwijderd worden.");
+    const removed = { id: page.id, name: page.name };
+    if (figma.currentPage === page) await figma.setCurrentPageAsync(figma.root.children.find((pg) => pg !== page)!);
+    page.remove();
+    return { removed };
+  }
   await figma.setCurrentPageAsync(page);
   return { id: page.id, name: page.name };
 }

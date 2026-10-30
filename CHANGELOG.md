@@ -3,6 +3,14 @@
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
 
+## [Unreleased]
+
+### Added
+
+- **`set_page` can rename and remove pages.** `rename` gives the page a new name, `remove` deletes a page, but only when it
+  has no layers: a page with content is refused with an error, and the last page of a file is never removed. Handy after moving
+  a design to another page, to tidy up the empty one. Both work through `figma_set_page` and `figma-call set_page`.
+
 ## [19.5.0] - 2026-10-22
 
 ### Added
