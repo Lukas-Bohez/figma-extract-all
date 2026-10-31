@@ -3,9 +3,17 @@
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
 
-## [Unreleased]
+## [19.6.0] - 2026-10-31
 
 ### Added
+
+- **"Let Claude set it up" in the Claude tab.** One button, *Copy prompt*, puts a ready-made prompt on the clipboard. Pasted into
+  Claude Code or Claude Desktop, it makes Claude check Node and git, clone the bridge, run `npm install`, register the `figma`
+  MCP server, start the hub and verify with `figma_status`, and then hand the user the three steps only they can do (open the
+  file in Figma, import or run the plugin, click Connect). Consent is explicit and limited: the prompt lists what Claude may do
+  without asking again, and tells it to stop and ask for anything else, including admin rights, other settings and changes to
+  the Figma file. It does not and cannot switch off the approval dialogs of Claude Code or Claude Desktop. *Show prompt* shows
+  the full text first. If the clipboard is blocked, the text is selected so Ctrl+C works.
 
 - **`set_page` can rename and remove pages.** `rename` gives the page a new name, `remove` deletes a page, but only when it
   has no layers: a page with content is refused with an error, and the last page of a file is never removed. Handy after moving

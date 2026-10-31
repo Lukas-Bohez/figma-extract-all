@@ -100,6 +100,8 @@ To render them again after a UI change: see the usage line at the top of
 ## Version notes
 
 ```
+v19.6.0: Connecting Claude is now one click. The Claude tab has a Copy prompt button: paste the prompt into Claude Code or Claude Desktop and Claude installs the local bridge, connects itself and tells you the few steps that are left for you (it only does what the prompt lists and asks before anything else). Also: set_page can rename pages and remove empty ones, and the outdated note that the Community version cannot reach the bridge is gone. Full list in CHANGELOG.md.
+
 v19.3.1: The Claude tab now works with this Community plugin: run the open-source Extract All bridge on your computer and the plugin connects to it (localhost only). New for everyone who uses it with an AI assistant: place layers and instances at an exact position, switch an instance to another component or variant in place, duplicates stay in the auto layout, and owner commands to move layers and add or switch variants. Full list in CHANGELOG.md.
 ```
 

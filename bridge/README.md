@@ -30,10 +30,18 @@ Needs Node 22+ and Edge or Chrome (for capture/contrast). Then in Figma
 (desktop app): **Plugins → Development → Import plugin from manifest…** →
 `manifest.json` in the folder above this one.
 
-> The bridge only works when the plugin is loaded **from its manifest**
-> (development mode): `localhost:3055` is allowed via `devAllowedDomains`,
-> which Figma ignores for published plugins. That is deliberate — the
-> published plugin stays network-free.
+> The bridge works with the plugin from the Figma Community and with a copy
+> imported from the manifest: `localhost:3055` is listed in both
+> `allowedDomains` and `devAllowedDomains`. It is the only address the plugin
+> may reach.
+
+**Shortcut:** open **Extract All**, tab **Claude**, click **Copy prompt** and
+paste it into Claude Code or Claude Desktop. Claude then does the setup below
+itself (clone, `npm install`, register the MCP server, start the hub, check
+`figma_status`) and tells you the three steps only you can do in Figma. The
+prompt lives in `ui.html` (`SETUP_PROMPT`) and lists exactly what Claude may do
+without asking again; it cannot switch off the approval dialogs of Claude
+itself.
 
 ### Claude Code
 
@@ -65,7 +73,7 @@ and body `{"cmd": "status", "params": {}}`.
 
 ### Connect
 
-In Figma: open **Extract All**, tab **Claude**, click **Verbinden**. Then ask
+In Figma: open **Extract All**, tab **Claude**, click **Connect**. Then ask
 Claude things like:
 
 - *"Check my Figma file against the rubric and fix what you can."*
