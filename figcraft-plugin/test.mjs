@@ -1,4 +1,5 @@
-// End-to-end test: the built plugin, in the REAL FigCraft (its headless CLI), on real design files.
+// End-to-end test: the plugin as committed (figcraft-plugin/manifest.json + rubric_audit.wasm, the
+// files you import in FigCraft), in the REAL FigCraft (its headless CLI), on real design files.
 //
 //   node build.mjs
 //   node test.mjs <figcraft-cli> <design.figcraft> [more designs]
@@ -13,7 +14,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const plugin = join(here, 'dist', 'rubric-audit').split(String.fromCharCode(92)).join('/');
+// What FigCraft's import dialog is given: the manifest.json next to the module, straight from the folder.
+const plugin = join(here, 'manifest.json').split(String.fromCharCode(92)).join('/');
 const ID = 'io.github.lukas-bohez.rubric-audit';
 const args = process.argv.slice(2);
 const cli = process.env.FIGCRAFT_CLI || args.shift();
@@ -22,7 +24,7 @@ if (!cli || !docs.length || !existsSync(cli)) {
   console.log('Usage: node test.mjs <path to figcraft-cli> <design file> [more design files]   (or set FIGCRAFT_CLI)');
   process.exit(2);
 }
-if (!existsSync(join(plugin, 'rubric_audit.wasm'))) {
+if (!existsSync(join(here, 'rubric_audit.wasm'))) {
   console.log('Build first: node build.mjs');
   process.exit(2);
 }

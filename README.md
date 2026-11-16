@@ -19,6 +19,8 @@
 | Written in | TypeScript (`code.ts`, `features.ts`, `ui.html`) | Rust compiled to WebAssembly ([`figcraft-plugin/`](figcraft-plugin/)) |
 | Docs | this README | [`figcraft-plugin/README.md`](figcraft-plugin/README.md) |
 
+In FigCraft, import `figcraft-plugin/manifest.json` (it sits next to the built `rubric_audit.wasm`). The `manifest.json` in the repository root is the Figma one and FigCraft refuses it.
+
 They share the rubric, not the code: Figma plugins are JavaScript and FigCraft runs only sandboxed WebAssembly, so
 the checks were rewritten for the commands of FigCraft. The Claude bridge is not needed there: FigCraft has its own MCP server.
 

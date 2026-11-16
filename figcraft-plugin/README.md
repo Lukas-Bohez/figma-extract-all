@@ -16,9 +16,14 @@ the two variants can be compared on the same design.
 
 ## Install
 
-1. Download `rubric-audit-figcraft-v0.1.0.zip` from the [latest release](https://github.com/Lukas-Bohez/figma-extract-all/releases/latest) and unzip it.
-2. In FigCraft: **Plugins ▸ Development ▸ Import plugin from manifest…** and pick `figcraft-plugin.json` in the unzipped folder.
+1. Get the plugin folder: download `rubric-audit-figcraft-v0.1.0.zip` from the [latest release](https://github.com/Lukas-Bohez/figma-extract-all/releases/latest) and unzip it, **or** use this folder, `figcraft-plugin/`, straight from a clone: the built module is committed.
+2. In FigCraft: **Plugins ▸ Development ▸ Import plugin from manifest…** and pick **`manifest.json` in that folder**, the one next to `rubric_audit.wasm`.
 3. Run **Plugins ▸ Rubric audit…** (a plugin with a single command shows up as one item in the Plugins menu).
+
+> **Not the `manifest.json` in the repository root.** That one belongs to the Figma plugin, and FigCraft refuses it
+> (*"`main` must be a relative path to a .wasm file"*). The FigCraft one is in this folder, next to the module.
+> `manifest.json` and `figcraft-plugin.json` are the same file: `figcraft-plugin.json` is FigCraft's own name for it
+> (a folder import and plugin directories look for that name), `manifest.json` is the name you expect in the dialog.
 
 Needs a FigCraft with plugin API 4 (0.18.1 has it). The panel shows the report; **Save report (.md)** offers
 it as a file (FigCraft asks where it goes: a plugin never gets a path), **Run again** re-checks the file.
@@ -72,15 +77,16 @@ FigCraft meters every plugin run at one billion "fuel" (about instructions) and 
 You need Rust with the WebAssembly target: `rustup target add wasm32-unknown-unknown`.
 
 ```bash
-node build.mjs              # -> dist/rubric-audit/{figcraft-plugin.json, rubric_audit.wasm}  (about 250 KB)
-cargo test                  # 23 tests on the host: the checks, the buttons, the reader
+node build.mjs              # -> rubric_audit.wasm (about 250 KB) and manifest.json, next to figcraft-plugin.json; also dist/rubric-audit/ for the zip
+cargo test                  # 26 tests on the host: the checks, the buttons, the reader, the manifest
 node test.mjs <figcraft-cli> <design.figcraft>    # the real plugin in the real FigCraft, see below
 ```
 
-`cargo test` runs the plugin's logic against an in-memory stand-in for FigCraft (`tests/audit.rs`) and the
-reader against `serde_json` (`tests/scan.rs`).
+`cargo test` runs the plugin's logic against an in-memory stand-in for FigCraft (`tests/audit.rs`), the
+reader against `serde_json` (`tests/scan.rs`), and checks that this folder imports as it is
+(`tests/manifest.rs`: `manifest.json` equals `figcraft-plugin.json`, the module it names sits next to it, versions match).
 
-`test.mjs` runs the built `.wasm` in FigCraft's headless CLI (`figcraft-cli run`, the same engine and plugin host as the
+`test.mjs` imports `manifest.json` from this folder, as you do, and runs the `.wasm` in FigCraft's headless CLI (`figcraft-cli run`, the same engine and plugin host as the
 app) on the designs you give it, and checks the plugin's numbers against FigCraft's own counts (`node.find`,
 `variable.list`, `style.list`, `component.list`), which do not go through the plugin's walk. It also presses the
 panel's buttons. On FigCraft 0.18.1 it passes 68 checks on four designs, from 348 to about 13,000 layers.
@@ -93,13 +99,15 @@ The stand-in now enforces the same panel rules (control characters, 64 controls,
 
 | File | What |
 |---|---|
-| `figcraft-plugin.json` | the plugin's manifest (id, commands, permissions) |
+| `figcraft-plugin.json` | the plugin's manifest (id, commands, permissions): the source of truth |
+| `manifest.json` | a copy of it, the name the import dialog is expected to show (made by `build.mjs`) |
+| `rubric_audit.wasm` | the built module, committed so a clone imports as it is |
 | `src/lib.rs` | the entry point FigCraft calls, and the panel's buttons |
 | `src/audit.rs` | the checks |
 | `src/scan.rs` | the layer reader (see Limits) |
 | `src/report.rs` | the report as panel notes and Markdown |
 | `src/host.rs` | the door to FigCraft: the real `figcraft` imports in WebAssembly, a trait for tests |
 | `tests/`, `test.mjs` | the tests above |
-| `build.mjs` | compiles and puts the module next to its manifest |
+| `build.mjs` | compiles, then puts the module and the manifest copy next to `figcraft-plugin.json` (and in `dist/` for the zip) |
 
 MIT, like the rest of the repository.

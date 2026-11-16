@@ -9,6 +9,8 @@ New, in `figcraft-plugin/`, released together with 19.7.0: the **Rubric audit as
 to WebAssembly). Same criteria and the same report keys as the Rubric tab, read-only, with a panel and a Markdown
 report. Not a change to the Figma plugin. See [`figcraft-plugin/README.md`](figcraft-plugin/README.md).
 
+The plugin folder imports as it is from a clone: `figcraft-plugin/manifest.json` (a copy of `figcraft-plugin.json`) and the built `rubric_audit.wasm` are committed, and `tests/manifest.rs` keeps them consistent.
+
 ## [19.7.0] - 2026-11-16
 
 ### Changed
