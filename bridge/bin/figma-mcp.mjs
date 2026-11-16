@@ -6,12 +6,13 @@
 // stdout is the MCP channel: everything else goes to stderr.
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { getHub, DEFAULT_PORT } from '../src/hub.mjs';
+import { getHub } from '../src/hub.mjs';
 import { createMcpServer } from '../src/mcp.mjs';
 
 const log = (m) => process.stderr.write(`[figma-bridge] ${m}\n`);
 
-const hub = await getHub({ port: DEFAULT_PORT, log });
+// No fixed port: getHub joins a running bridge or takes the first free port of 3070-3074.
+const hub = await getHub({ log });
 log(hub.mode === 'local' ? `bridge actief op poort ${hub.port}` : `aangesloten op bestaande bridge op poort ${hub.port}`);
 
 const server = createMcpServer(hub, { log });

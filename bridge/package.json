@@ -15,7 +15,7 @@
     "mcp": "node bin/figma-mcp.mjs",
     "capture": "node bin/capture.mjs",
     "contrast": "node bin/contrast.mjs",
-    "test": "node test/plugin.test.mjs && node test/bridge.test.mjs"
+    "test": "node test/plugin.test.mjs && node test/bridge.test.mjs && node test/coexist.test.mjs"
   },
   "engines": {
     "node": ">=22"

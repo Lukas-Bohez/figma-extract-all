@@ -9,7 +9,9 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { startHub } from '../src/hub.mjs';
+import http from 'node:http';
+import { WebSocketServer } from 'ws';
+import { startHub, findHub, BRIDGE_PORTS } from '../src/hub.mjs';
 import { openPage } from '../src/capture/cdp.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -25,10 +27,22 @@ async function until(fn, ms = 8000, step = 100) {
   return fn();
 }
 
+// A bridge that is already running would be found first by the UI (it scans 3070 upwards): stop it for this test.
+if (await findHub()) { console.log('Er draait al een Extract All-bridge op 3070-3074. Stop die en probeer opnieuw.'); process.exit(2); }
+
+// Something that is NOT the bridge sits on the first port, the way FigCraft's relay could: it accepts a
+// WebSocket but never introduces itself. The UI must skip it and must not send it anything.
+const squatReceived = [];
+const squatServer = http.createServer((req, res) => { res.writeHead(200); res.end('not the bridge'); });
+const squatWss = new WebSocketServer({ server: squatServer });
+squatWss.on('connection', (ws) => ws.on('message', (m) => squatReceived.push(m.toString())));
+try { await new Promise((res, rej) => { squatServer.once('error', rej); squatServer.listen(BRIDGE_PORTS[0], '127.0.0.1', res); }); }
+catch (e) { console.log(`Poort ${BRIDGE_PORTS[0]} is bezet: ${e.message}`); process.exit(2); }
+
 let hub;
-try { hub = await startHub({ port: 3055 }); }
+try { hub = await startHub({ port: BRIDGE_PORTS[1] }); }
 catch (e) {
-  console.log(e.code === 'EADDRINUSE' ? 'Poort 3055 is bezet (draait er al een bridge?). Stop die en probeer opnieuw.' : e.message);
+  console.log(e.code === 'EADDRINUSE' ? `Poort ${BRIDGE_PORTS[1]} is bezet. Stop wat erop zit en probeer opnieuw.` : e.message);
   process.exit(2);
 }
 // Stand-in for code.js: answers the UI the way features.ts does. Installed
@@ -77,6 +91,8 @@ ok(connected, 'hub ziet de plugin (handshake + origin-check in een echte browser
 const st = await uiFile();
 ok(st && st.fileName === 'UI test file' && st.page === 'Page 1', 'bestandsnaam en pagina doorgegeven');
 ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent.startsWith('Connected')`)), 'UI toont "Verbonden"');
+ok(await page.evaluate(`document.getElementById('xcLog').textContent.includes('localhost:${BRIDGE_PORTS[1]}')`), `de UI vond de bridge op poort ${BRIDGE_PORTS[1]}, na het overslaan van ${BRIDGE_PORTS[0]}`);
+ok(squatReceived.length === 0, 'de andere tool op de eerste poort kreeg NIETS van de plugin (geen bestandsnaam, niets)', JSON.stringify(squatReceived));
 const r = await hub.send('get_document', {}, 60000, { file: 'UI test file' });
 ok(r && r.echo === 'get_document', 'commando van de hub -> UI -> code -> terug naar de hub', JSON.stringify(r));
 ok(await page.evaluate(`document.getElementById('xcLog').textContent.includes('get_document')`), 'activiteit gelogd in de UI');
@@ -112,9 +128,21 @@ await sleep(2500);
 ok(!(await uiFile()), 'en blijft verbroken');
 if (shotDir) writeFileSync(join(shotDir, 'ui-claude.png'), Buffer.from(await page.screenshot(), 'base64'));
 
+console.log('\n7. Geen bridge, wel iets anders op de poort');
+await hub.close();
+await page.evaluate(`document.querySelector('[data-tab=claude]').click(); document.getElementById('xcToggle').click()`);
+// "Connect automatically" is off by default, so the first failed search ends in the full explanation.
+ok(await until(() => page.evaluate(`!/^Looking/.test(document.getElementById('xcState').textContent)`), 10000), 'het zoeken eindigt (geen eeuwig "Looking...")');
+const noTxt = await page.evaluate(`document.getElementById('xcState').textContent`);
+ok(/^No bridge on localhost:3070-3074/.test(noTxt), 'de UI zegt op welke poorten hij zocht (3070-3074)', noTxt.slice(0, 90));
+ok(new RegExp(`Port ${BRIDGE_PORTS[0]} answers, but is not the Extract All bridge`).test(noTxt), 'en meldt dat poort 3070 door iets anders bezet is (FigCraft?)', noTxt.slice(0, 160));
+ok(squatReceived.length === 0, 'ook nu kreeg de andere tool niets');
+await page.evaluate(`document.getElementById('xcToggle').click()`); // stop het zoeken
+
 ok(page.errors.length === 0, 'geen JavaScript-fouten tijdens de hele test', page.errors.slice(0, 3).join(' | '));
 
 await page.close();
-await hub.close();
+for (const c of squatWss.clients) c.terminate();
+squatWss.close(); squatServer.close();
 console.log(`\n${passed} geslaagd, ${failed} mislukt`);
 process.exit(failed ? 1 : 0);

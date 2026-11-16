@@ -6,7 +6,7 @@
 //   node bin/figma-call.mjs get_node "{\"ids\":[\"12:34\"],\"depth\":1}"
 //   node bin/figma-call.mjs rubric_check
 
-import { connectRemote, DEFAULT_PORT } from '../src/hub.mjs';
+import { connectRemote, findHub } from '../src/hub.mjs';
 import { OWNER_COMMANDS, ensureOwnerKey, withOwnerKey } from '../src/owner.mjs';
 
 const [cmd, json] = process.argv.slice(2);
@@ -20,7 +20,9 @@ Eigenaarscommando's (de sleutel maakt de bridge zelf aan): owner_status, move_no
   process.exit(1);
 }
 try {
-  const hub = await connectRemote({ port: DEFAULT_PORT });
+  const port = await findHub();
+  if (!port) throw new Error('Geen bridge actief. Start er een met: node bin/figma-hub.mjs');
+  const hub = await connectRemote({ port });
   const result = await hub.send(cmd, withOwnerKey(cmd, json ? JSON.parse(json) : {}, OWNER_COMMANDS.has(cmd) ? ensureOwnerKey() : null));
   console.log(JSON.stringify(result, null, 2));
 } catch (e) {

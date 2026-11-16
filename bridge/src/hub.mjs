@@ -1,12 +1,18 @@
 // hub.mjs — the local meeting point between the Figma plugin and AI tools.
 //
-//   Figma plugin UI  <── WebSocket ──>  hub (127.0.0.1:3055)  <── MCP (stdio) ── Claude
+//   Figma plugin UI  <── WebSocket ──>  hub (127.0.0.1:3070-3074)  <── MCP (stdio) ── Claude
 //                                              ^
 //                                              └── HTTP POST /command ── any other tool / LLM
 //
-// Exactly one process owns the port. A second MCP server (for example a
-// second Claude window) notices the port is taken and forwards its commands
-// to the owner over HTTP instead (RemoteHub).
+// Exactly one process owns a port. A second MCP server (for example a
+// second Claude window) finds the hub that is already running (GET /status says
+// who it is) and forwards its commands to the owner over HTTP instead (RemoteHub).
+//
+// Ports: 3070-3074, deliberately NOT 3055-3060. FigCraft (relay and plugin) and
+// several other Figma-MCP tools use 3055 and scan 3055-3060; sharing those ports
+// made the tools grab each other's connections. The hub also introduces itself
+// with a `banner` message as soon as a WebSocket opens, so a plugin that scans
+// ports can tell this hub from anything else before it sends a file name.
 //
 // Several Figma files can be connected at once (one plugin window per file).
 // Commands go to exactly one of them:
@@ -28,8 +34,20 @@ import http from 'node:http';
 import { WebSocketServer } from 'ws';
 import { captureUrl } from './capture/cdp.mjs';
 
-export const DEFAULT_PORT = +(process.env.FIGMA_BRIDGE_PORT || 3055);
-const HUB_ID = 'figma-extract-all-bridge';
+/** The ports the hub may use, in order. Must match allowedDomains in manifest.json. */
+export const BRIDGE_PORTS = [3070, 3071, 3072, 3073, 3074];
+/** FIGMA_BRIDGE_PORT pins one port (strict, no fallback). 3055 still works for plugin 19.6.0 and older (set it yourself). */
+export const DEFAULT_PORT = +(process.env.FIGMA_BRIDGE_PORT || BRIDGE_PORTS[0]);
+export const HUB_ID = 'figma-extract-all-bridge';
+/** Version of the plugin <-> hub conversation; 2 = the hub sends a `banner` first. */
+const PROTOCOL = 2;
+
+/** Which ports to use: an explicit one (option or FIGMA_BRIDGE_PORT) is strict, otherwise the whole range. */
+export function candidatePorts({ port } = {}) {
+  if (port) return [port];
+  const pinned = +process.env.FIGMA_BRIDGE_PORT;
+  return pinned ? [pinned] : BRIDGE_PORTS;
+}
 
 const extraOrigins = (process.env.FIGMA_BRIDGE_ALLOW_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
 export function originAllowed(origin) {
@@ -121,6 +139,7 @@ export function startHub({ port = DEFAULT_PORT, host = '127.0.0.1', log = () => 
     const target = targetOrNull();
     return {
       bridge: HUB_ID,
+      port,
       plugin: live.length > 0,
       fileName: target?.info.fileName ?? null,
       page: target?.info.page ?? null,
@@ -211,9 +230,20 @@ export function startHub({ port = DEFAULT_PORT, host = '127.0.0.1', log = () => 
 
   wss.on('connection', (ws) => {
     ws.isPlugin = false;
+    // Introduce ourselves first. A plugin that scans ports waits for this before it
+    // sends anything, so it never hands a file name to another tool on the same port.
+    try { ws.send(JSON.stringify({ kind: 'banner', bridge: HUB_ID, protocol: PROTOCOL, port })); } catch { /* closing */ }
     ws.on('message', async (raw) => {
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
+
+      // FigCraft and other Figma-MCP plugins speak {type: ...}; ours speaks {kind: ...}.
+      // Such a client is on the wrong port: tell it, and let it move on (code 4003).
+      if (!ws.isPlugin && msg && msg.kind === undefined && typeof msg.type === 'string') {
+        log(`Vreemde client (bericht "${msg.type}") weggestuurd: dit is de Extract All-bridge, niet FigCraft of een andere tool`);
+        try { ws.close(4003, 'not-extract-all'); } catch { /* ignore */ }
+        return;
+      }
 
       if (msg.kind === 'hello') {
         ws.info = { fileName: msg.fileName, page: msg.page, fileKey: msg.fileKey || null, featureVersion: msg.featureVersion };
@@ -319,15 +349,46 @@ export async function connectRemote({ port = DEFAULT_PORT, host = '127.0.0.1' } 
   };
 }
 
-/** Own the port if it is free, otherwise use the process that owns it. */
-export async function getHub(opts = {}) {
-  try {
-    return await startHub(opts);
-  } catch (e) {
-    if (e && e.code === 'EADDRINUSE') {
-      (opts.log || (() => {}))(`Poort ${opts.port || DEFAULT_PORT} is al in gebruik: aansluiten op de bestaande bridge.`);
-      return connectRemote(opts);
-    }
-    throw e;
+/** Who answers on this port? Returns the status of an Extract All hub, or null for anything else (FigCraft, nothing, ...). */
+async function probe(port, host) {
+  const st = await fetch(`http://${host}:${port}/status`, { signal: AbortSignal.timeout(1500) }).then((r) => r.json()).catch(() => null);
+  return st && st.bridge === HUB_ID ? st : null;
+}
+
+/** The port of an Extract All hub that is already running, or null. */
+export async function findHub({ port, host = '127.0.0.1' } = {}) {
+  for (const p of candidatePorts({ port })) {
+    if (await probe(p, host)) return p;
   }
+  return null;
+}
+
+/**
+ * Use the bridge that is already running, otherwise own the first free port of
+ * the range. A port taken by something else (FigCraft, another tool) is skipped,
+ * never joined: only a process that says it is the Extract All hub counts.
+ */
+export async function getHub(opts = {}) {
+  const log = opts.log || (() => {});
+  const host = opts.host || '127.0.0.1';
+  const ports = candidatePorts(opts);
+  // Two passes: when two MCP servers start at once, the loser of the race finds the winner on the second pass.
+  for (let pass = 0; pass < 2; pass++) {
+    const running = await findHub({ port: opts.port, host });
+    if (running) {
+      log(`Er draait al een bridge op poort ${running}: aansluiten.`);
+      return connectRemote({ port: running, host });
+    }
+    for (const port of ports) {
+      try {
+        return await startHub({ ...opts, port });
+      } catch (e) {
+        if (!(e && e.code === 'EADDRINUSE')) throw e;
+        log(`Poort ${port} is bezet door iets anders dan de Extract All-bridge (FigCraft? een andere tool?): volgende poort.`);
+      }
+    }
+  }
+  const e = new Error(`Geen vrije poort voor de Figma-bridge (${ports.join(', ')}). Stop wat die poorten gebruikt, of zet FIGMA_BRIDGE_PORT op een poort uit 3070-3074.`);
+  e.code = 'ENOPORT';
+  throw e;
 }

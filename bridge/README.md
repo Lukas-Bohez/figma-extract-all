@@ -5,7 +5,7 @@ Local tooling around the **Extract All** plugin:
 | | What it does |
 |---|---|
 | **MCP server** | 42 tools that let Claude read, check and build in your open Figma file — including *seeing* frames as images |
-| **Hub** | the local meeting point (127.0.0.1:3055); also plain HTTP for AIs/scripts that don't speak MCP |
+| **Hub** | the local meeting point (127.0.0.1, first free port of 3070-3074); also plain HTTP for AIs/scripts that don't speak MCP |
 | **Capture** | render any web page (React, HTML, localhost or online) in a real browser and turn it into editable Figma layers |
 | **Contrast** | measure WCAG contrast of every text layer of a page, against what it actually sits on |
 
@@ -31,8 +31,8 @@ Needs Node 22+ and Edge or Chrome (for capture/contrast). Then in Figma
 `manifest.json` in the folder above this one.
 
 > The bridge works with the plugin from the Figma Community and with a copy
-> imported from the manifest: `localhost:3055` is listed in both
-> `allowedDomains` and `devAllowedDomains`. It is the only address the plugin
+> imported from the manifest: `localhost:3070` to `localhost:3074` are listed in both
+> `allowedDomains` and `devAllowedDomains`. They are the only addresses the plugin
 > may reach.
 
 **Shortcut:** open **Extract All**, tab **Claude**, click **Copy prompt** and
@@ -68,7 +68,7 @@ node bin/figma-call.mjs status                       # one command
 node bin/figma-call.mjs get_node "{\"ids\":[\"1:23\"],\"depth\":1}"
 ```
 
-or `POST http://127.0.0.1:3055/command` with `Content-Type: application/json`
+or `POST http://127.0.0.1:3070/command` (the port `figma-hub` prints; 3070 is the first of 3070-3074) with `Content-Type: application/json`
 and body `{"cmd": "status", "params": {}}`.
 
 ### Connect
@@ -190,7 +190,7 @@ on screen — useful behind a login, or in a state you clicked your way into.
 
 - The hub listens on **127.0.0.1 only**.
 - **WebSockets ignore CORS**, so any website you visit could otherwise connect
-  to `localhost:3055` and pose as the plugin. The hub accepts only origin
+  to `localhost:3070` and pose as the plugin. The hub accepts only origin
   `null` (Figma plugin iframes) and `*.figma.com`; real web pages always send
   their real origin, and that cannot be forged. Add exceptions with
   `FIGMA_BRIDGE_ALLOW_ORIGIN`.

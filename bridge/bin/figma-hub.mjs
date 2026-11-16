@@ -4,20 +4,23 @@
 // the same hub on its own.
 //
 //   node bin/figma-hub.mjs
-//   curl -X POST http://127.0.0.1:3055/command -H "Content-Type: application/json" -d "{\"cmd\":\"status\"}"
+//   curl -X POST http://127.0.0.1:3070/command -H "Content-Type: application/json" -d "{\"cmd\":\"status\"}"
+//
+// The port is the first free one of 3070-3074 (not 3055-3060: that is FigCraft's).
 
-import { startHub, DEFAULT_PORT } from '../src/hub.mjs';
+import { getHub } from '../src/hub.mjs';
 
 const log = (m) => console.log(`[figma-bridge] ${m}`);
 try {
-  const hub = await startHub({ port: DEFAULT_PORT, log });
+  const hub = await getHub({ log });
+  if (hub.mode === 'remote') {
+    log(`De bridge draait al op poort ${hub.port} (bv. gestart door Claude). Niets te doen.`);
+    process.exit(0);
+  }
   log('Open nu "Extract All" in Figma, tab "Claude", en klik Verbinden.');
   log(`Commando's: POST http://127.0.0.1:${hub.port}/command  {"cmd": "status"}   (Ctrl+C om te stoppen)`);
   process.on('SIGINT', async () => { await hub.close(); process.exit(0); });
 } catch (e) {
-  if (e.code === 'EADDRINUSE') {
-    log(`Poort ${DEFAULT_PORT} is al in gebruik — waarschijnlijk draait de bridge al (bv. gestart door Claude).`);
-    process.exit(0);
-  }
+  if (e.code === 'ENOPORT') { log(e.message); process.exit(1); }
   throw e;
 }

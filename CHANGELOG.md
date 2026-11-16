@@ -3,6 +3,35 @@
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
 
+## [19.7.0] - 2026-11-16
+
+### Changed
+
+- **The bridge moved from port 3055 to 3070-3074.** [FigCraft](https://github.com/DivikWu/figcraft) (relay and plugin) and several
+  other Figma-MCP tools use 3055 and scan 3055-3060. With both running, whichever started first held 3055: FigCraft's plugin,
+  which connects to the first port that opens, ended up on Extract All's bridge and the other way round, and neither could
+  tell. Extract All now stays out of that range. The bridge takes the first free port of 3070-3074 and the plugin looks there.
+  `manifest.json` lists exactly those ports (`allowedDomains` and `devAllowedDomains`).
+- `FIGMA_BRIDGE_PORT` still pins one port, strictly (no fallback). Set it to `3055` to keep working with plugin 19.6.0 or older.
+- **Update the bridge together with the plugin** (`git pull` in the clone, then restart Claude or the hub): a 19.7 plugin does
+  not look on port 3055, and a 19.6 plugin does not look on 3070.
+
+### Added
+
+- **The hub introduces itself.** Every WebSocket gets a `banner` message (`bridge`, `protocol`, `port`) before anything else, and
+  `GET /status` now includes `port`. The plugin waits for that banner and only then sends its `hello` with the file name, so
+  whatever else listens on a port it tries (FigCraft's relay, another tool) never receives a single byte from the plugin.
+- **Port scan in the plugin.** The Claude tab tries 3070-3074 (the last port that worked first) and says which port it found, or
+  that it found nothing and which port answers with something that is not the Extract All bridge.
+- **`getHub` finds a running bridge by identity, not by port.** A second Claude window joins the bridge that already runs (on
+  whichever port), a port taken by something else is skipped, and when all five are taken it says so
+  (`ENOPORT`, naming `FIGMA_BRIDGE_PORT`). `figma-call` and `figma-hub` use the same lookup.
+- The hub sends away a client that speaks FigCraft's protocol (`{type: ...}` instead of `{kind: ...}`) with close code 4003
+  instead of leaving it waiting.
+- `bridge/test/coexist.test.mjs`: the bridge next to a foreign tool on the first port, banner, foreign client, no free port,
+  and (with `FIGCRAFT_DIR` set) next to the real FigCraft relay. `ui.test.mjs` runs the real `ui.html` in a browser against a
+  squatter on 3070 and checks that it receives nothing.
+
 ## [19.6.0] - 2026-10-31
 
 ### Added
