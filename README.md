@@ -3,9 +3,24 @@
 > **The most comprehensive Figma extraction plugin. Export SVGs, PNGs, text, variables, styles, components, and metadata — selectively or in bulk, per page or across all pages.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Figma Plugin](https://img.shields.io/badge/Figma-Plugin-18a0fb.svg)](https://www.figma.com/community/)
+[![Figma Community](https://img.shields.io/badge/Figma-Community-18a0fb.svg)](https://www.figma.com/community/plugin/1655550973103544441)
+[![FigCraft plugin](https://img.shields.io/badge/FigCraft-plugin-0ea5c6.svg)](figcraft-plugin/README.md)
+[![Latest release](https://img.shields.io/github/v/release/Lukas-Bohez/figma-extract-all)](https://github.com/Lukas-Bohez/figma-extract-all/releases/latest)
 
 ---
+
+## Two variants, one repository
+
+| | **Extract All for Figma** | **Rubric audit for FigCraft** |
+|---|---|---|
+| What | the full plugin: Lottie import, AI and After Effects exports, Rubric, Build, Claude bridge | the design-rubric check, ported to [FigCraft](https://github.com/storytold/figcraft), the open-source native design app |
+| Runs in | Figma (desktop and browser) | FigCraft 0.18 and newer |
+| Get it | [Figma Community](https://www.figma.com/community/plugin/1655550973103544441) or the [latest release](https://github.com/Lukas-Bohez/figma-extract-all/releases/latest) (`extract-all-figma-*.zip`) | the [latest release](https://github.com/Lukas-Bohez/figma-extract-all/releases/latest) (`rubric-audit-figcraft-*.zip`) |
+| Written in | TypeScript (`code.ts`, `features.ts`, `ui.html`) | Rust compiled to WebAssembly ([`figcraft-plugin/`](figcraft-plugin/)) |
+| Docs | this README | [`figcraft-plugin/README.md`](figcraft-plugin/README.md) |
+
+They share the rubric, not the code: Figma plugins are JavaScript and FigCraft runs only sandboxed WebAssembly, so
+the checks were rewritten for the commands of FigCraft. The Claude bridge is not needed there: FigCraft has its own MCP server.
 
 ## ✨ New in v19
 

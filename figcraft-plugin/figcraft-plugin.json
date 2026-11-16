@@ -1,0 +1,16 @@
+{
+  "id": "io.github.lukas-bohez.rubric-audit",
+  "name": "Rubric audit (Extract All)",
+  "version": "0.1.0",
+  "description": "Checks the open file against a design rubric: variables and aliases, components and variant names, text styles, auto layout and the 4px grid, and how many colours are bound to variables. Read-only; the report can be saved as Markdown.",
+  "author": "Lukas Bohez",
+  "main": "rubric_audit.wasm",
+  "api": 4,
+  "permissions": {
+    "access": "read",
+    "saveFile": true
+  },
+  "commands": [
+    { "id": "audit", "label": "Rubric audit…" }
+  ]
+}

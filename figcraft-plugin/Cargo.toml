@@ -1,0 +1,22 @@
+[package]
+name = "extract-all-rubric-audit"
+version = "0.1.0"
+edition = "2021"
+description = "Rubric audit for FigCraft: the design-rubric check of the Extract All Figma plugin, as a FigCraft WebAssembly plugin."
+license = "MIT"
+repository = "https://github.com/Lukas-Bohez/figma-extract-all"
+publish = false
+
+[lib]
+# cdylib: the .wasm FigCraft loads. rlib: so `cargo test` can run the logic on the host.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+serde_json = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

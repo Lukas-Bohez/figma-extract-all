@@ -3,6 +3,12 @@
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
 
+## FigCraft plugin 0.1.0 - 2026-11-16
+
+New, in `figcraft-plugin/`, released together with 19.7.0: the **Rubric audit as a FigCraft plugin** (Rust, compiled
+to WebAssembly). Same criteria and the same report keys as the Rubric tab, read-only, with a panel and a Markdown
+report. Not a change to the Figma plugin. See [`figcraft-plugin/README.md`](figcraft-plugin/README.md).
+
 ## [19.7.0] - 2026-11-16
 
 ### Changed
