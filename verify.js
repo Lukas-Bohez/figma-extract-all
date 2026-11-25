@@ -25,3 +25,4 @@ for (const k of Object.keys(checks)) {
   if (!checks[k]) ok = false;
 }
 console.log(ok ? 'ALL CHECKS PASSED' : 'SOME CHECKS FAILED');
+if (!ok) process.exitCode = 1;

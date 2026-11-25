@@ -13,7 +13,7 @@
 
 | | **Extract All for Figma** | **Rubric audit for FigCraft** |
 |---|---|---|
-| What | the full plugin: Lottie import, AI and After Effects exports, Rubric, Build, Claude bridge | the design-rubric check, ported to [FigCraft](https://github.com/storytold/figcraft), the open-source native design app |
+| What | the full plugin: Lottie import, AI and After Effects exports, Rubric, Build, MCP bridge | the design-rubric check, ported to [FigCraft](https://github.com/storytold/figcraft), the open-source native design app |
 | Runs in | Figma (desktop and browser) | FigCraft 0.18 and newer |
 | Get it | [Figma Community](https://www.figma.com/community/plugin/1655550973103544441) or the [latest release](https://github.com/Lukas-Bohez/figma-extract-all/releases/latest) (`extract-all-figma-*.zip`) | the [latest release](https://github.com/Lukas-Bohez/figma-extract-all/releases/latest) (`rubric-audit-figcraft-*.zip`) |
 | Written in | TypeScript (`code.ts`, `features.ts`, `ui.html`) | Rust compiled to WebAssembly ([`figcraft-plugin/`](figcraft-plugin/)) |
@@ -22,7 +22,7 @@
 In FigCraft, import `figcraft-plugin/manifest.json` (it sits next to the built `rubric_audit.wasm`). The `manifest.json` in the repository root is the Figma one and FigCraft refuses it.
 
 They share the rubric, not the code: Figma plugins are JavaScript and FigCraft runs only sandboxed WebAssembly, so
-the checks were rewritten for the commands of FigCraft. The Claude bridge is not needed there: FigCraft has its own MCP server.
+the checks were rewritten for the commands of FigCraft. The MCP bridge is not needed there: FigCraft has its own MCP server.
 
 ## ✨ New in v19
 
@@ -30,7 +30,7 @@ the checks were rewritten for the commands of FigCraft. The Claude bridge is not
 |---|---|
 | **🏗 Build** | Turn a **web page** — React, HTML, localhost or online — into **editable Figma layers**: frames with auto layout from flexbox, text with styled runs, SVGs with real colours, shadows. Light and dark side by side. |
 | **✅ Rubric** | Check the file against a design rubric: 8px grid, two-layer variables with modes, **whether fills are actually bound to variables**, local text styles, generic variant names (`Property 1 = Variant2`), auto-layout coverage, off-scale font sizes. Creates the missing spacing variables and text styles. |
-| **🔌 Claude** | Let **Claude** (or any other AI) work in the open file through a local MCP bridge: read, screenshot, build components and variants, create and bind variables, import web pages. Nothing leaves your machine. |
+| **MCP Bridge** | Connect Codex, Claude, or another local MCP client. Check the target, test the bridge, then verify MCP access with `figma_status`. |
 
 Setup and the full tool list: [`bridge/README.md`](bridge/README.md).
 
@@ -115,7 +115,7 @@ This plugin requests `documentAccess: "dynamic-page"` because it needs to read t
 
 **Network:** `allowedDomains` holds only `http://` and `ws://` addresses on `localhost`, ports 3070 to 3074: the bridge that you run on your own computer (it takes the first free port of that range, never FigCraft's 3055-3060). The UI is fully self-contained — lottie-web and the GIF encoder are bundled into `ui.html`, nothing is loaded from a CDN. (Earlier versions of this README said lottie was loaded from cdnjs; that is no longer true.)
 
-The only other entry is `devAllowedDomains`, used by the **Claude** tab to reach the bridge running on your own machine. The same addresses are in `devAllowedDomains`, so the published plugin and one loaded from the manifest behave the same: the Claude tab connects to your own bridge when it runs, and the plugin reaches no other server.
+Both the development and published manifests use the same localhost addresses for **MCP Bridge**. The standalone hub and the stdio server use those same ports.
 
 The GitHub link shown in the UI is just a normal external link for convenience; it is not used by the plugin to process or transmit design data.
 
@@ -216,7 +216,7 @@ How they stay in your hands:
   no network access.
 
 Nothing to install or build separately. Use the plugin as always (*Plugins → Development → Extract All*), connect it in
-the Claude tab and check with `owner_status`.
+the MCP Bridge tab and check with `owner_status`.
 
 **What no plugin can do:** publish. Figma has no API for publishing a library, a component or a plugin. A library is
 published in Figma itself (*Assets → Library → Publish*), a plugin under *Plugins → Manage plugins → Publish*. The

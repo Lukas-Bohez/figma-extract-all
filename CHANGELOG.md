@@ -1,7 +1,16 @@
 # Changelog
 
 All notable changes to **Extract All**. The format follows [Keep a Changelog](https://keepachangelog.com/);
-versions follow the `featureVersion` shown in the plugin's Claude tab and in `figma_status`.
+versions follow the `featureVersion` reported by the plugin and by `figma_status`.
+
+## [19.8.0] - 2026-11-24
+
+- The new **MCP Bridge** tab works with Codex, Claude, and other local MCP clients. Setup is available directly in the plugin.
+- **Test connection** checks both the local bridge and the open Figma file. A successful `figma_status` call confirms MCP access separately.
+- The connection panel shows the active file, page, and local port. You can cancel a scan, retry automatically, and see when another file is the target.
+- Improved bridge startup when multiple clients launch at once.
+
+Update the bridge alongside the plugin, then restart your MCP client or standalone hub.
 
 ## FigCraft plugin 0.1.0 - 2026-11-16
 
