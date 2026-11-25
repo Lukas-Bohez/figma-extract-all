@@ -83,7 +83,7 @@ export function startHub({ port = DEFAULT_PORT, host = '127.0.0.1', log = () => 
     const live = open();
     if (!live.length) {
       throw new NotConnectedError(
-        'De Figma-plugin is niet verbonden. Open "Extract All" in Figma (desktop-app), ga naar de tab "Claude" en klik op Verbinden.');
+        'De Figma-plugin is niet verbonden. Open "Extract All" in Figma (desktop-app), ga naar de tab "MCP Bridge" en klik op Verbinden.');
     }
     if (file) {
       const wanted = String(file).toLowerCase();
@@ -105,7 +105,7 @@ export function startHub({ port = DEFAULT_PORT, host = '127.0.0.1', log = () => 
   }
   const targetOrNull = () => { try { return resolveTarget(); } catch { return null; } };
 
-  /** Tell every plugin window whether it is the file Claude is working in. */
+  /** Tell every plugin window whether it is the active target. */
   function broadcastTargets() {
     const live = open();
     const target = targetOrNull();
@@ -155,6 +155,11 @@ export function startHub({ port = DEFAULT_PORT, host = '127.0.0.1', log = () => 
   /** Commands the hub answers itself, without asking Figma. */
   function hubCommand(cmd, params) {
     if (cmd === 'hub.files') return status();
+    if (cmd === 'hub.mcp_verified') {
+      const verified = open().find((client) => client.hubId === params.id);
+      if (verified) verified.send(JSON.stringify({ kind: 'mcp-verified' }));
+      return null;
+    }
     if (cmd === 'hub.unpin') { pinned = null; broadcastTargets(); return status(); }
     if (cmd === 'hub.use') {
       if (!params.file) throw new Error('Geef de naam van het bestand mee: {"file": "interaction design"}.');
@@ -271,7 +276,7 @@ export function startHub({ port = DEFAULT_PORT, host = '127.0.0.1', log = () => 
         }
         return;
       }
-      if (msg.kind === 'ping') { ws.send(JSON.stringify({ kind: 'pong' })); return; }
+      if (msg.kind === 'ping') { ws.send(JSON.stringify({ kind: 'pong', id: msg.id })); return; }
 
       if (msg.kind === 'result' && ws.isPlugin) {
         const p = pending.get(msg.id);
@@ -284,7 +289,7 @@ export function startHub({ port = DEFAULT_PORT, host = '127.0.0.1', log = () => 
       }
 
       // The plugin UI asks the hub to render a URL (it cannot run a browser itself).
-      if (msg.kind === 'capture') {
+      if (msg.kind === 'capture' && ws.isPlugin) {
         try {
           const { doc } = await captureUrl({ url: msg.url, theme: msg.theme, width: msg.width || 1440, autoLayout: msg.autoLayout !== false, fullPage: msg.fullPage !== false });
           ws.send(JSON.stringify({ kind: 'capture-result', reqId: msg.reqId, ok: true, doc }));
@@ -384,6 +389,7 @@ export async function getHub(opts = {}) {
         return await startHub({ ...opts, port });
       } catch (e) {
         if (!(e && e.code === 'EADDRINUSE')) throw e;
+        if (await probe(port, host)) return connectRemote({ port, host });
         log(`Poort ${port} is bezet door iets anders dan de Extract All-bridge (FigCraft? een andere tool?): volgende poort.`);
       }
     }
