@@ -1,3 +1,14 @@
+## Extract All 19.8.0
+
+- The new **MCP Bridge** tab works with Codex, Claude, and other local MCP clients. Setup is available directly in the plugin.
+- **Test connection** checks both the local bridge and the open Figma file. A successful `figma_status` call confirms MCP access separately.
+- The connection panel shows the active file, page, and local port. You can cancel a scan, retry automatically, and see when another file is the target.
+- Improved bridge startup when multiple clients launch at once.
+
+Update the bridge alongside the plugin, then restart your MCP client or standalone hub.
+
+---
+
 ## Install Guide
 
 ### Option 1: Download from release (recommended)

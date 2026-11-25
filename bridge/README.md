@@ -10,12 +10,12 @@ Local tooling around the **Extract All** plugin:
 | **Contrast** | measure WCAG contrast of every text layer of a page, against what it actually sits on |
 
 ```
-Figma plugin UI  <── WebSocket ──>  hub  <── MCP (stdio) ── Claude Code / Claude Desktop / Cursor / ...
-  (tab "Claude")                     │
+Figma plugin UI  <── WebSocket ──>  hub  <── MCP (stdio) ── Codex / Claude / other local clients
+  (tab "MCP Bridge")                     │
                                      └── HTTP POST /command ── scripts, other LLMs
 ```
 
-Nothing leaves your machine. The plugin has to stay open while an AI works in Figma.
+The plugin talks to the bridge on your machine. Your MCP client handles any data returned by a tool according to its own settings. Keep Extract All open while using the tools.
 
 ---
 
@@ -23,7 +23,7 @@ Nothing leaves your machine. The plugin has to stay open while an AI works in Fi
 
 ```powershell
 cd bridge
-npm install
+npm ci
 ```
 
 Needs Node 22+ and Edge or Chrome (for capture/contrast). Then in Figma
@@ -35,13 +35,17 @@ Needs Node 22+ and Edge or Chrome (for capture/contrast). Then in Figma
 > `allowedDomains` and `devAllowedDomains`. They are the only addresses the plugin
 > may reach.
 
-**Shortcut:** open **Extract All**, tab **Claude**, click **Copy prompt** and
-paste it into Claude Code or Claude Desktop. Claude then does the setup below
-itself (clone, `npm install`, register the MCP server, start the hub, check
-`figma_status`) and tells you the three steps only you can do in Figma. The
-prompt lives in `ui.html` (`SETUP_PROMPT`) and lists exactly what Claude may do
-without asking again; it cannot switch off the approval dialogs of Claude
-itself.
+In **MCP Bridge**, choose **Copy setup request** to get instructions you can paste into your local client.
+
+### Codex
+
+In **Settings → MCP servers → Add server**, choose **STDIO**. Name the server `figma-extract-all`, use `node` as the command, and add the absolute path to `bridge/bin/figma-mcp.mjs` as its only argument. With the Codex CLI, you can also run:
+
+```powershell
+codex mcp add figma-extract-all -- node "C:\full\path\to\figma-extract-all\bridge\bin\figma-mcp.mjs"
+```
+
+Reload Codex after adding the server. The stdio process starts or joins the hub, so a separate terminal is optional.
 
 ### Claude Code
 
@@ -73,8 +77,9 @@ and body `{"cmd": "status", "params": {}}`.
 
 ### Connect
 
-In Figma: open **Extract All**, tab **Claude**, click **Connect**. Then ask
-Claude things like:
+Open **Extract All → MCP Bridge** in Figma Desktop and click **Connect**. **Test connection** checks the hub and the Figma runtime. Call `figma_status` from your MCP client to verify the full path. The plugin shows an **MCP verified** timestamp for the file that responded.
+
+Example requests:
 
 - *"Check my Figma file against the rubric and fix what you can."*
 - *"Put http://localhost:5173 in Figma, light and dark."*
@@ -134,7 +139,7 @@ Every Figma window with the plugin open and connected is listed by `figma_status
    built in a guessed file.
 
 The same file connecting again (plugin reopened) replaces its own old window; a different file never does. Each plugin window
-shows in the Claude tab whether it is the file Claude works in.
+shows in the MCP Bridge tab whether it is the file Claude works in.
 
 ---
 

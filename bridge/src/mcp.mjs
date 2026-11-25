@@ -60,7 +60,7 @@ export function createMcpServer(hub, { log = () => {}, ownerKey = ensureOwnerKey
   // The owner key rides along with the owner commands only
   const cmd = (name, params, timeoutMs) => hub.send(name, withOwnerKey(name, params, ownerKey), timeoutMs);
   const tool = (name, description, inputSchema, annotations, handler) =>
-    server.registerTool(name, { description, inputSchema, annotations }, async (args) => {
+    server.registerTool(name, { description, inputSchema: Object.keys(inputSchema).length ? inputSchema : undefined, annotations }, async (args) => {
       try { return await handler(args || {}); } catch (e) { log(`${name}: ${e.message}`); return fail(e); }
     });
 
@@ -68,9 +68,13 @@ export function createMcpServer(hub, { log = () => {}, ownerKey = ensureOwnerKey
   tool('figma_status', 'Is de Figma-plugin verbonden? Toont bestand, pagina en huidige selectie. Begin hier. Bij meerdere verbonden bestanden: kies er een met figma_use_file.', {}, READ,
     async () => {
       const st = await hub.status();
-      if (!st.plugin) return text({ ...st, hint: 'Open "Extract All" in Figma desktop, tab "Claude", klik Verbinden.' });
+      if (!st.plugin) return text({ ...st, hint: 'Open "Extract All" in Figma desktop, tab "MCP Bridge", klik Verbinden.' });
       if (st.ambiguous) return text({ ...st, hint: 'Meerdere Figma-bestanden zijn verbonden en er is er geen gekozen. Gebruik figma_use_file met de naam van het bestand waarin je wil werken.' });
-      return text({ ...st, figma: await cmd('status') });
+      const file = st.files.find((entry) => entry.target);
+      const figma = await hub.send('status', {}, undefined, { file: file.id });
+      // Older hubs still serve tools, but do not display the verification event.
+      await hub.send('hub.mcp_verified', { id: file.id }).catch(() => {});
+      return text({ ...st, figma });
     });
 
   tool('figma_use_file',

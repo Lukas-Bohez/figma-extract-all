@@ -1065,7 +1065,7 @@ figma.ui.onmessage = async (msg) => {
         return;
     }
 };
-const FEATURE_VERSION = "19.7.0";
+const FEATURE_VERSION = "19.8.0";
 function isFeatureMessage(msg) {
     return !!msg && typeof msg.type === "string" && msg.type.indexOf("x:") === 0;
 }

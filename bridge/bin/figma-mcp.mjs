@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// MCP server for Claude (and other MCP clients).
+// Local stdio MCP server for Extract All.
 //
-//   claude mcp add figma -- node "<pad>/bridge/bin/figma-mcp.mjs"
+//   codex mcp add figma-extract-all -- node "<pad>/bridge/bin/figma-mcp.mjs"
 //
 // stdout is the MCP channel: everything else goes to stderr.
 

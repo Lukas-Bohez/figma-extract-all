@@ -816,7 +816,7 @@ let lastAnalysis: LottieAnalysis | null = null;
 let runningExtract = false;
 
 figma.ui.onmessage = async (msg: any) => {
-  // v19 features (rubric check, build, Claude bridge) have their own handler in
+  // v19 features (rubric check, build, MCP bridge) have their own handler in
   // features.ts. Skip them here: the two lines below would otherwise wipe the
   // ZIP buffer and undo a cancel whenever a bridge message arrives mid-export.
   if (isFeatureMessage(msg)) return;
