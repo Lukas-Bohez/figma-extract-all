@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Let Claude and other LLMs work in Figma through the Extract All plugin: MCP server, local HTTP/WebSocket hub, and a web-page-to-Figma capture.",
+  "description": "Connect local MCP clients to the Extract All plugin: MCP server, local HTTP/WebSocket hub, and a web-page-to-Figma capture.",
   "bin": {
     "figma-mcp": "bin/figma-mcp.mjs",
     "figma-hub": "bin/figma-hub.mjs",
