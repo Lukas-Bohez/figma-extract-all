@@ -159,8 +159,8 @@ await client.connect(transport);
   }
   ok(tools.find((t) => t.name === 'figma_delete').annotations?.destructiveHint === true, 'figma_delete is als destructief gemarkeerd');
 
-  const call = async (name, args = {}) => {
-    const r = await client.callTool({ name, arguments: args });
+  const call = async (name, args) => {
+    const r = await client.callTool(args === undefined ? { name } : { name, arguments: args });
     const t = r.content.find((c) => c.type === 'text');
     let data = null;
     try { data = t ? JSON.parse(t.text) : null; } catch { data = t && t.text; }

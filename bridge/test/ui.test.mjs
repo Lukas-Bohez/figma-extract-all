@@ -77,22 +77,26 @@ ok(await page.evaluate(`window.__sent.includes('x:hello')`), 'UI vraagt info op 
 ok(await page.evaluate(`document.querySelectorAll('.tab-btn').length === 7`), '7 tabs');
 
 console.log('\n2. Tabs wisselen (bestaande switchTab-code)');
-for (const t of ['build', 'rubric', 'claude', 'import']) {
+for (const t of ['build', 'rubric', 'mcp', 'import']) {
   const active = await page.evaluate(`(() => { document.querySelector('[data-tab=${t}]').click(); return document.getElementById('panel-${t}').classList.contains('active') && [...document.querySelectorAll('.panel.active')].length === 1; })()`);
   ok(active, `tab ${t} opent precies één paneel`);
 }
 
-console.log('\n3. Claude-bridge: echte WebSocket naar de hub');
-await page.evaluate(`document.querySelector('[data-tab=claude]').click(); document.getElementById('xcToggle').click()`);
+console.log('\n3. MCP bridge: echte WebSocket naar de hub');
+await page.evaluate(`document.querySelector('[data-tab=mcp]').click(); document.getElementById('xcToggle').click()`);
 // Het UI-bestand kan naast andere Figma-bestanden verbonden zijn (de hub houdt ze naast elkaar): zoek het op naam.
 const uiFile = async () => (await hub.status()).files.find((f) => f.fileName === 'UI test file');
 const connected = await until(async () => Boolean(await uiFile()));
 ok(connected, 'hub ziet de plugin (handshake + origin-check in een echte browser)');
 const st = await uiFile();
 ok(st && st.fileName === 'UI test file' && st.page === 'Page 1', 'bestandsnaam en pagina doorgegeven');
-ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent.startsWith('Connected')`)), 'UI toont "Verbonden"');
+ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent.startsWith('Bridge connected')`)), 'UI toont "Verbonden"');
 ok(await page.evaluate(`document.getElementById('xcLog').textContent.includes('localhost:${BRIDGE_PORTS[1]}')`), `de UI vond de bridge op poort ${BRIDGE_PORTS[1]}, na het overslaan van ${BRIDGE_PORTS[0]}`);
 ok(squatReceived.length === 0, 'de andere tool op de eerste poort kreeg NIETS van de plugin (geen bestandsnaam, niets)', JSON.stringify(squatReceived));
+await page.evaluate(`document.getElementById('xcTest').click()`);
+ok(await until(() => page.evaluate(`document.getElementById('xcTestResult').textContent.startsWith('Connection test passed')`)), 'connection test confirms both the hub and Figma');
+await hub.send('hub.mcp_verified', { id: st.id });
+ok(await until(() => page.evaluate(`!document.getElementById('xcMcpResult').hidden`)), 'MCP verification is shown separately');
 const r = await hub.send('get_document', {}, 60000, { file: 'UI test file' });
 ok(r && r.echo === 'get_document', 'commando van de hub -> UI -> code -> terug naar de hub', JSON.stringify(r));
 ok(await page.evaluate(`document.getElementById('xcLog').textContent.includes('get_document')`), 'activiteit gelogd in de UI');
@@ -121,21 +125,21 @@ ok(await page.evaluate(`!document.getElementById('xrAudit').disabled`), 'knoppen
 if (shotDir) writeFileSync(join(shotDir, 'ui-rubric.png'), Buffer.from(await page.screenshot(), 'base64'));
 
 console.log('\n6. Verbreken');
-await page.evaluate(`document.querySelector('[data-tab=claude]').click(); document.getElementById('xcToggle').click()`);
+await page.evaluate(`document.querySelector('[data-tab=mcp]').click(); document.getElementById('xcToggle').click()`);
 ok(await until(async () => !(await uiFile())), 'hub ziet de plugin vertrekken');
 ok(await until(() => page.evaluate(`document.getElementById('xcState').textContent === 'Not connected'`)), 'UI toont "Niet verbonden" (geen herverbind-lus na handmatig verbreken)');
 await sleep(2500);
 ok(!(await uiFile()), 'en blijft verbroken');
-if (shotDir) writeFileSync(join(shotDir, 'ui-claude.png'), Buffer.from(await page.screenshot(), 'base64'));
+if (shotDir) writeFileSync(join(shotDir, 'ui-mcp.png'), Buffer.from(await page.screenshot(), 'base64'));
 
 console.log('\n7. Geen bridge, wel iets anders op de poort');
 await hub.close();
-await page.evaluate(`document.querySelector('[data-tab=claude]').click(); document.getElementById('xcToggle').click()`);
+await page.evaluate(`document.querySelector('[data-tab=mcp]').click(); document.getElementById('xcToggle').click()`);
 // "Connect automatically" is off by default, so the first failed search ends in the full explanation.
 ok(await until(() => page.evaluate(`!/^Looking/.test(document.getElementById('xcState').textContent)`), 10000), 'het zoeken eindigt (geen eeuwig "Looking...")');
 const noTxt = await page.evaluate(`document.getElementById('xcState').textContent`);
 ok(/^No bridge on localhost:3070-3074/.test(noTxt), 'de UI zegt op welke poorten hij zocht (3070-3074)', noTxt.slice(0, 90));
-ok(new RegExp(`Port ${BRIDGE_PORTS[0]} answers, but is not the Extract All bridge`).test(noTxt), 'en meldt dat poort 3070 door iets anders bezet is (FigCraft?)', noTxt.slice(0, 160));
+ok(await page.evaluate(`document.getElementById('xcDetail').textContent.includes('Unrelated service on ${BRIDGE_PORTS[0]}')`), 'en meldt dat poort 3070 door iets anders bezet is (FigCraft?)', noTxt.slice(0, 160));
 ok(squatReceived.length === 0, 'ook nu kreeg de andere tool niets');
 await page.evaluate(`document.getElementById('xcToggle').click()`); // stop het zoeken
 
