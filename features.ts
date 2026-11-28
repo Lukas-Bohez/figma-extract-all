@@ -729,6 +729,10 @@ async function applyProps(n: SceneNode, p: any) {
     if (p.sizing.h) any.layoutSizingHorizontal = String(p.sizing.h).toUpperCase();
     if (p.sizing.v) any.layoutSizingVertical = String(p.sizing.v).toUpperCase();
   }
+  // Min/max size of an auto-layout frame; null removes the limit. A leftover minHeight keeps a "hug" frame taller than its content.
+  for (const key of ["minWidth", "maxWidth", "minHeight", "maxHeight"]) {
+    if (p[key] !== undefined && key in n) any[key] = p[key] === null ? null : +p[key];
+  }
   if (p.shadow !== undefined) {
     any.effects = p.shadow === null ? [] : [{
       type: "DROP_SHADOW", color: parseColor(p.shadow.color || "#00000026"),

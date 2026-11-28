@@ -1820,6 +1820,10 @@ async function applyProps(n, p) {
         if (p.sizing.v)
             any.layoutSizingVertical = String(p.sizing.v).toUpperCase();
     }
+    for (const key of ["minWidth", "maxWidth", "minHeight", "maxHeight"]) {
+        if (p[key] !== undefined && key in n)
+            any[key] = p[key] === null ? null : +p[key];
+    }
     if (p.shadow !== undefined) {
         any.effects = p.shadow === null ? [] : [{
                 type: "DROP_SHADOW", color: parseColor(p.shadow.color || "#00000026"),
